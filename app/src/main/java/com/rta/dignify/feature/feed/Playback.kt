@@ -10,6 +10,17 @@ object Playback {
     const val FADE_IN_SEC = 1.0
     const val FADE_OUT_SEC = 2.0
 
+    /**
+     * 포커스 손실 이벤트를 인터럽션으로 받아들일지.
+     *
+     * 슬라이딩 윈도우라 플레이어가 셋이고, 트랙을 넘기면 **새 트랙이 포커스를 가져가면서
+     * 직전 플레이어가 포커스 손실 이벤트를 낸다.** 그걸 그대로 받아 "지금 트랙을 멈춰라"로
+     * 처리하면 방금 켠 트랙이 자기 때문에 꺼진다 — 스와이프할 때마다 소리가 죽었던 원인이다.
+     * 이벤트를 낸 플레이어가 지금 재생 중인 그 플레이어일 때만 진짜 인터럽션이다.
+     */
+    fun isRealInterruption(eventTrackId: Int, currentTrackId: Int?, playWhenReady: Boolean): Boolean =
+        !playWhenReady && currentTrackId != null && eventTrackId == currentTrackId
+
     /** 종료 fadeOut초 전부터 1→0, 시작 fadeIn초 동안 0→1. 그 외 1.0. */
     fun fadeVolume(
         t: Double,

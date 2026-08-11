@@ -39,6 +39,8 @@ class FeedAudioController(
     var onDwell: ((Int, Double) -> Unit)? = null
 
     private val players = linkedMapOf<Int, ExoPlayer>()
+    /** 리스너는 트랙별로 만든다 — 어느 플레이어가 낸 이벤트인지 알아야 해서. */
+    private val listeners = mutableMapOf<Int, Player.Listener>()
     private var currentTrackId: Int? = null
     private var ticker: Job? = null
     private val dwell = DwellTracker()
@@ -78,7 +80,7 @@ class FeedAudioController(
                 setHandleAudioBecomingNoisy(true)   // 이어폰 탈거 → 일시정지
                 repeatMode = Player.REPEAT_MODE_ONE // 프리뷰 30초 무한 루프
                 volume = 0f                         // 페이드 인은 ticker가 올린다
-                addListener(interruptionListener)
+                addListener(interruptionListener(id).also { listeners[id] = it })
                 setMediaItem(MediaItem.fromUri(url))
                 prepare()                           // 이 시점부터 버퍼링, 재생은 안 함
             }
@@ -88,17 +90,20 @@ class FeedAudioController(
     }
 
     /**
-     * 인터럽션(전화·다른 앱)에는 멈추기만 하고 자동 재개는 하지 않는다 — 음악이 혼자
+     * 인터럽션(전화·다른 앱·이어폰 탈거)에는 멈추기만 하고 자동 재개는 하지 않는다 — 음악이 혼자
      * 다시 나오는 쪽이 더 놀랍다. 명시적으로 `pause()`를 불러야 포커스 복귀 시 재개 플래그가 꺼진다.
+     *
+     * 리스너가 트랙별인 이유는 [Playback.isRealInterruption]에 적어뒀다. 요약하면, 트랙을 넘길 때
+     * 직전 플레이어가 내는 포커스 손실을 인터럽션으로 오인해 방금 켠 트랙을 꺼버리기 때문이다.
      */
-    private val interruptionListener = object : Player.Listener {
+    private fun interruptionListener(trackId: Int) = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            if (playWhenReady) return
-            if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS ||
-                reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY
+            if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS &&
+                reason != Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY
             ) {
-                pauseCurrent()
+                return
             }
+            if (Playback.isRealInterruption(trackId, currentTrackId, playWhenReady)) pauseCurrent()
         }
     }
 
@@ -176,7 +181,7 @@ class FeedAudioController(
     private fun teardown(id: Int) {
         if (id == currentTrackId) stopTicker()
         players.remove(id)?.apply {
-            removeListener(interruptionListener)
+            listeners.remove(id)?.let(::removeListener)
             release()
         }
     }
