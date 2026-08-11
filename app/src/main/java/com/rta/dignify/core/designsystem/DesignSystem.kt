@@ -7,10 +7,12 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,12 +21,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.rta.dignify.R
 import androidx.compose.ui.unit.sp
 
 /**
@@ -106,6 +111,19 @@ fun DSGenreChip(
     ) {
         Text(title, color = foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
+}
+
+/**
+ * iOS `DSBrandMark` 대응. 애셋은 iOS `Assets.xcassets/BrandMark`를 그대로 가져온 것이라
+ * 두 앱의 로고가 물리적으로 같은 파일이다(한쪽만 바뀌는 일이 안 생긴다).
+ */
+@Composable
+fun DSBrandMark(size: Dp, modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(R.drawable.brand_mark),
+        contentDescription = null,
+        modifier = modifier.size(size),
+    )
 }
 
 /** iOS `DSShimmerView` 대응. 아트워크 자리를 잡아둬 도착 시 레이아웃이 안 튀게 한다. */

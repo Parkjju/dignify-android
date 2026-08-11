@@ -29,7 +29,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -62,6 +61,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -345,10 +345,10 @@ private fun TrackCard(feed: Feed, onHype: () -> Unit, onShare: () -> Unit) {
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onHype) {
-                        // ponytail: iOS는 전용 HypeIcon 애셋을 쓴다. 그 asset을 안드로이드로 내보내기
-                        // 전까지 불꽃 아이콘으로 대신한다(픽 반응도 🔥라 뜻은 통한다).
+                        // 삽 = 디깅. iOS `Assets.xcassets/HypeIcon`을 그대로 가져온 것이라
+                        // 두 앱의 하입 아이콘이 물리적으로 같은 파일이다.
                         Icon(
-                            Icons.Filled.LocalFireDepartment,
+                            painterResource(R.drawable.ic_hype),
                             contentDescription = stringResource(if (feed.isHyped) R.string.unhype else R.string.hype),
                             tint = if (feed.isHyped) DSColor.brand else DSColor.textTertiary,
                             modifier = Modifier.size(28.dp),

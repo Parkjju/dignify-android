@@ -29,6 +29,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.rta.dignify.R
 import com.rta.dignify.core.auth.Session
 import com.rta.dignify.core.auth.requestGoogleIdToken
+import com.rta.dignify.core.designsystem.DSBrandMark
 import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSTypography
@@ -55,7 +56,13 @@ fun SignInScreen() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Dignify", style = DSTypography.display, color = DSColor.textPrimary)
+        DSBrandMark(size = 72.dp)
+        Text(
+            "Dignify",
+            style = DSTypography.display,
+            color = DSColor.textPrimary,
+            modifier = Modifier.padding(top = 12.dp),
+        )
         Text(
             stringResource(R.string.signin_tagline),
             style = DSTypography.body,
