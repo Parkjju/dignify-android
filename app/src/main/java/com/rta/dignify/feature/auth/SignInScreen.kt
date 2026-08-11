@@ -1,5 +1,6 @@
 package com.rta.dignify.feature.auth
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,8 @@ import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSTypography
 import kotlinx.coroutines.launch
+
+private const val TAG = "DignifySignIn"
 
 /**
  * 로그인 화면. iOS `OnboardingFlowView`의 로그인 단계에 대응하되 튜토리얼·취향 테스트는 아직 없다.
@@ -81,7 +84,11 @@ fun SignInScreen() {
                         Session.signInWithGoogle(requestGoogleIdToken(context))
                     } catch (e: GetCredentialCancellationException) {
                         // 유저가 계정 선택을 닫은 것 — 실패 문구를 띄우면 혼내는 것처럼 보인다.
+                        Log.d(TAG, "sign-in cancelled by user")
                     } catch (e: Exception) {
+                        // 로그를 남기는 이유: 실패해도 화면은 로그인 화면으로 돌아갈 뿐이라,
+                        // 이게 없으면 "왜 로그인이 안 되는지"를 밖에서 알 방법이 전혀 없다.
+                        Log.w(TAG, "sign-in failed", e)
                         error = context.getString(R.string.signin_failed)
                     }
                     isSigningIn = false
