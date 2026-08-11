@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">Dignify</string>
+
+    <!-- 문구는 iOS 원문 그대로. 번역은 values-ko에서만 갈린다. -->
+    <string name="feed_empty">No tracks to show</string>
+    <string name="feed_load_failed">Couldn\'t load</string>
+    <string name="feed_retry">Try again</string>
+    <string name="feed_no_results">No results for \"%1$s\"</string>
+    <string name="feed_back">Back to feed</string>
+    <string name="search_placeholder">Search artists, tracks</string>
+    <string name="search">Search</string>
+    <string name="share">Share</string>
+    <string name="hype">Hype</string>
+    <string name="unhype">Unhype</string>
+    <string name="curation_badge">This week\'s set %1$d/%2$d</string>
+    <string name="hype_needs_signin">Sign in to hype tracks</string>
+    <string name="signin_action">Sign in</string>
+    <string name="signin_tagline">Swipe to discover indie music</string>
+    <string name="signin_google">Continue with Google</string>
+    <string name="signin_browse">Just browse</string>
+    <string name="signin_failed">Couldn\'t sign in. Try again.</string>
+
+    <string name="onboarding_title">Pick your genres</string>
+    <string name="onboarding_subtitle">Choose up to %1$d. Your feed starts here.</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_change_later">You can change this anytime</string>
+</resources>

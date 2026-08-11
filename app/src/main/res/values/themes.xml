@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose가 색을 전부 그리므로 플랫폼 테마는 뼈대만. 피드가 검은 지면이라
+         윈도우 배경도 검정으로 둬야 첫 프레임에 흰 섬광이 안 뜬다. -->
+    <style name="Theme.Dignify" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
