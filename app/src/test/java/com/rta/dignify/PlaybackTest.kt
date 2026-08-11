@@ -42,6 +42,18 @@ class PlaybackTest {
     }
 
     @Test
+    fun `트랙 전환 중 직전 플레이어의 포커스 손실은 인터럽션이 아니다`() {
+        // 2번 트랙을 켜면 1번이 포커스를 잃는다. 이걸 인터럽션으로 받으면 방금 켠 2번이 꺼진다.
+        assertFalse(Playback.isRealInterruption(eventTrackId = 1, currentTrackId = 2, playWhenReady = false))
+        // 지금 재생 중인 트랙이 포커스를 잃은 것만 진짜 인터럽션(전화·이어폰 탈거).
+        assertTrue(Playback.isRealInterruption(eventTrackId = 2, currentTrackId = 2, playWhenReady = false))
+        // 재생 재개 이벤트는 멈출 이유가 없다.
+        assertFalse(Playback.isRealInterruption(eventTrackId = 2, currentTrackId = 2, playWhenReady = true))
+        // 아무것도 재생 중이 아니면 멈출 대상도 없다.
+        assertFalse(Playback.isRealInterruption(eventTrackId = 2, currentTrackId = null, playWhenReady = false))
+    }
+
+    @Test
     fun `artwork url size segment is rewritten`() {
         assertEquals(
             "https://is1-ssl.mzstatic.com/image/thumb/abc/600x600bb.jpg",
