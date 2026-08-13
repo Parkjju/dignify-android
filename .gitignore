@@ -7,3 +7,13 @@ build/
 captures/
 .externalNativeBuild/
 .cxx/
+.kotlin/
+
+# 서비스 계정 키. google-services.json(앱 설정, 커밋 대상)과 헷갈리기 쉬운데 이건 전혀 다르다 —
+# FCM 발송 권한이 붙은 백엔드용 비공개 키라 저장소에 들어가면 안 된다. 앱은 이 파일을 안 쓴다.
+*-firebase-adminsdk-*.json
+
+# 서명 키와 비밀번호. 업로드 키를 잃으면 같은 앱으로 업데이트를 못 올린다(구글에 재설정 요청해야 함).
+*.jks
+*.keystore
+keystore.properties
