@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 공유 카드 PNG만 내보낸다. 캐시 하위 share/ 한 곳으로 제한해 다른 파일이 새지 않게 한다. -->
+<paths>
+    <cache-path name="share" path="share/" />
+</paths>

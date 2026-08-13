@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -45,7 +46,13 @@ private const val TAG = "DignifySignIn"
  * 계정부터 만들라는 얘기가 되고, 이 앱은 "10초면 판단 가능"이 전제다.
  */
 @Composable
-fun SignInScreen() {
+fun SignInScreen(
+    /**
+     * 게스트 게이트로 띄운 경우. "둘러보기"를 숨긴다 — 이미 둘러보는 중에 온 화면이라
+     * 같은 자리로 돌아가는 버튼이 두 개가 된다(닫기와 둘러보기).
+     */
+    isGate: Boolean = false,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isSigningIn by remember { mutableStateOf(false) }
@@ -102,14 +109,18 @@ fun SignInScreen() {
                 .height(56.dp),
         ) {
             if (isSigningIn) {
-                CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                // size()여야 한다 — height()만 주면 너비가 기본값(40dp)으로 남아 원이 찌그러지고
+                // 버튼 세로 중앙에서도 밀린다.
+                CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
             } else {
                 Text(stringResource(R.string.signin_google))
             }
         }
 
-        TextButton(onClick = { Session.enterGuest() }, enabled = !isSigningIn) {
-            Text(stringResource(R.string.signin_browse), color = DSColor.textSecondary)
+        if (!isGate) {
+            TextButton(onClick = { Session.enterGuest() }, enabled = !isSigningIn) {
+                Text(stringResource(R.string.signin_browse), color = DSColor.textSecondary)
+            }
         }
 
         error?.let {

@@ -1,5 +1,6 @@
-<resources>
-    <string name="app_name">Dignify</string>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- 브랜드명이라 values-ko에 일부러 안 넣는다. lint에겐 그걸 알려줘야 한다. -->
+    <string name="app_name" tools:ignore="MissingTranslation">Dignify</string>
 
     <!-- 문구는 iOS 원문 그대로. 번역은 values-ko에서만 갈린다. -->
     <string name="feed_empty">No tracks to show</string>
@@ -13,15 +14,301 @@
     <string name="hype">Hype</string>
     <string name="unhype">Unhype</string>
     <string name="curation_badge">This week\'s set %1$d/%2$d</string>
-    <string name="hype_needs_signin">Sign in to hype tracks</string>
-    <string name="signin_action">Sign in</string>
-    <string name="signin_tagline">Swipe to discover indie music</string>
-    <string name="signin_google">Continue with Google</string>
-    <string name="signin_browse">Just browse</string>
-    <string name="signin_failed">Couldn\'t sign in. Try again.</string>
+    <string name="track_detail">Track details</string>
+    <string name="track_detail_failed">Couldn\'t load track info</string>
+    <string name="hyped_by">Hyped by</string>
+    <string name="no_hypes_yet">No hypes yet</string>
+    <!-- 애플뮤직 버튼은 안드로이드에 없다. iOS TrackDetailView와 의도적으로 다른 유일한 지점. -->
+    <string name="open_youtube_music">Find on YouTube Music</string>
+    <!--
+      푸시 옵트인 문구는 요청 위치마다 다르다. 알림이 무엇을 알리는지가 맥락마다 다른데
+      한 문구로 뭉치면 물어보는 이유가 사라진다. 새 요청 지점이 생기면 여기에 쌍으로 추가한다.
+    -->
+    <string name="push_optin_set_title">This week\'s set, all done</string>
+    <string name="push_optin_set_message">Those were dug up by us, by hand. We do it again every week — want a heads-up when the next one drops?</string>
+    <string name="push_optin_pick_title">Your pick is up</string>
+    <string name="push_optin_pick_message">We\'ll let you know when someone drops a 🔥 on it.</string>
+    <string name="push_optin_accept">Notify me</string>
+    <string name="push_optin_decline">Not now</string>
 
-    <string name="onboarding_title">Pick your genres</string>
-    <string name="onboarding_subtitle">Choose up to %1$d. Your feed starts here.</string>
-    <string name="onboarding_continue">Continue</string>
-    <string name="onboarding_change_later">You can change this anytime</string>
+    <!--
+      알림 서랍에 뜨는 문구. **서버가 아니라 기기가 고른다** — 서버는 키와 인자만 보내고
+      (FCM title_loc_key / body_loc_key), 시스템이 여기서 꺼내 렌더한다. 그래서 키 이름이
+      서버 PushService의 문자열과 글자 하나까지 같아야 하고, 이름을 바꾸면 알림이 빈 채로 뜬다.
+
+      iOS는 같은 문구를 %@로 받지만 안드로이드 리소스는 %1$s다. 원문은 xcstrings와 같다.
+    -->
+    <string name="push_channel_default">Dignify</string>
+    <string name="push_artist_added_title">\'%1$s\' is here</string>
+    <string name="push_artist_added_body">Tap to start digging</string>
+    <string name="push_pick_reaction_first_title">Your first 🔥</string>
+    <!-- 앞의 @는 이스케이프해야 한다 — 안 하면 리소스 참조로 읽혀 빌드가 죽는다. -->
+    <string name="push_pick_reaction_first">\@%1$s hit 🔥 on your pick</string>
+    <string name="push_pick_reaction_milestone_title">Your pick is catching on</string>
+    <string name="push_pick_reaction_milestone">Your pick has %1$s 🔥</string>
+
+    <string name="signin_action">Sign in</string>
+    <string name="signin_tagline">Discover indie music and build your own taste.</string>
+    <string name="signin_google">Continue with Google</string>
+    <string name="signin_browse">Browse without signing in</string>
+    <string name="signin_failed">Sign-in failed. Please try again.</string>
+
+    <string name="onboarding_title">What music do you like?</string>
+    <string name="onboarding_subtitle">Pick up to %1$d</string>
+    <string name="onboarding_continue">Done</string>
+    <string name="genres_save_failed">Couldn\'t save. Please try again.</string>
+
+    <string name="tab_feed">Feed</string>
+    <string name="tab_my">My</string>
+
+    <string name="guest_prompt_title">Build your own taste</string>
+    <string name="guest_prompt_message">Sign in to hype tracks, personalize your feed, and build your crate.</string>
+
+    <string name="mypage_title">My Page</string>
+    <string name="mypage_genre_settings">Genre Settings</string>
+    <string name="mypage_instagram">dignify on Instagram</string>
+    <string name="mypage_terms">Terms of Service</string>
+    <string name="mypage_privacy">Privacy Policy</string>
+    <string name="mypage_logout">Log Out</string>
+    <string name="mypage_withdraw">Delete Account</string>
+    <string name="cancel">Cancel</string>
+    <string name="withdraw_title">Delete account?</string>
+    <!-- 픽을 반드시 언급한다 — CASCADE라 남의 지면에 올린 픽과 반응까지 실제로 사라진다. -->
+    <string name="withdraw_message">All your data, including your picks, hypes, and genres, will be deleted permanently.</string>
+    <string name="withdraw_confirm">Delete</string>
+
+    <!-- 닉네임 규칙은 백엔드 @Pattern과 글자 하나까지 같아야 한다. -->
+    <string name="nickname_invalid">Letters, numbers, and _ only (1–20 characters)</string>
+    <string name="nickname_taken">This nickname is already in use.</string>
+    <string name="nickname_rejected">That nickname can\'t be used. Try another one.</string>
+    <string name="nickname_update_failed">Couldn\'t update. Please try again.</string>
+
+    <string name="digging_profile">Digging Profile</string>
+    <string name="digging_profile_subtitle">Your taste, typed</string>
+    <string name="range_all">All time</string>
+    <string name="range_week">This week</string>
+    <string name="stats_listened">tracks dug</string>
+    <string name="stats_hyped">tracks kept</string>
+    <string name="stats_flavor">deep in %1$s</string>
+    <string name="type_locked_title">Keep digging to unlock your type</string>
+    <string name="type_locked_message">Dig 10 tracks and hype 3 to reveal it.</string>
+
+    <string name="type_restless_curator">The Restless Curator</string>
+    <string name="type_purist">The Purist</string>
+    <string name="type_omnivore">The Omnivore</string>
+    <string name="type_loyalist">The Loyalist</string>
+    <string name="type_restless_curator_blurb">You range across genres, but only a rare few make it in.</string>
+    <string name="type_purist_blurb">One lane, dug deep — with standards to match.</string>
+    <string name="type_omnivore_blurb">Everything\'s fair game, and you keep a lot of it.</string>
+    <string name="type_loyalist_blurb">You know your sound and you stay loyal to it.</string>
+
+    <string name="your_type">YOUR TYPE</string>
+    <string name="your_crate">Your crate</string>
+    <string name="stats_top_genres">Top genres</string>
+    <string name="stats_top_artists">Top artists</string>
+    <string name="lens_explore">You explore</string>
+    <string name="lens_keep">You keep</string>
+    <string name="stats_listened_note">Counted when you listen to a track for 5 seconds or more in the feed. Once per track each time you open the app.</string>
+    <string name="headline_same">%1$s, top to bottom.</string>
+    <string name="headline_differ">You listen to %1$s the most — but %2$s is what you keep.</string>
+    <string name="see_all">See all</string>
+    <string name="see_all_hypes">See all hypes</string>
+    <string name="hype_history">Hype History</string>
+    <string name="no_hyped_tracks">No hyped tracks yet</string>
+    <string name="remove_hype">Remove hype</string>
+    <string name="ok">Got it</string>
+
+    <string name="tab_picks">Picks</string>
+    <string name="pick_new">New pick</string>
+    <string name="pick_empty">No picks yet</string>
+    <string name="pick_empty_message">Put a few tracks together in the Picks tab. Other people can play it and react with 🔥.</string>
+    <string name="pick_official">Official</string>
+    <string name="pick_track_count">%1$d tracks</string>
+    <string name="pick_more_tracks">+%1$d more</string>
+    <string name="pick_delete">Delete</string>
+    <string name="pick_delete_title">Delete this pick?</string>
+    <string name="pick_title_placeholder">Title (optional)</string>
+    <string name="pick_title_single">%1$s by %2$s</string>
+    <string name="pick_title_many_tracks">%1$s by %2$s and %3$d more</string>
+    <string name="pick_title_many_artists">%1$s and %2$d others</string>
+    <string name="pick_select_prompt">Select tracks to continue</string>
+    <string name="pick_selected_count">%1$d selected</string>
+    <string name="pick_publish_failed">Couldn\'t post. Try again.</string>
+    <string name="pick_playing_badge">@%1$s\'s pick %2$d/%3$d</string>
+
+    <string name="report">Report</string>
+    <string name="report_reason_nickname">Inappropriate nickname</string>
+    <string name="report_reason_content">Inappropriate content</string>
+    <string name="report_reason_other">Something else</string>
+    <string name="block">Block</string>
+    <string name="block_user">Block @%1$s</string>
+    <string name="block_message">You won\'t see their picks anymore. Undo it from My Page.</string>
+    <string name="blocked_users">Blocked Users</string>
+    <string name="unblock">Unblock</string>
+    <string name="no_blocked_users">You haven\'t blocked anyone.</string>
+
+    <string name="artist_requests">Artist Requests</string>
+    <string name="artist_request_cta">Request \"%1$s\"</string>
+    <string name="artist_request_done">Request sent</string>
+    <string name="no_artist_requests">No requests yet</string>
+
+    <string name="time_just_now">just now</string>
+    <string name="time_minutes">%1$d min ago</string>
+    <string name="time_hours">%1$d hr ago</string>
+    <string name="time_days">%1$d days ago</string>
+
+    <string name="your_picks">Your picks</string>
+    <string name="pick_count">%1$s picks</string>
+    <string name="pick_delete_message">This can\'t be undone, and the reactions on it go too.</string>
+
+    <string name="pick_results_for">Results for \"%1$s\"</string>
+    <string name="pick_crate_empty">Nothing in your crate yet — search for tracks to add.</string>
+
+    <string name="pick_next">Next</string>
+    <string name="pick_title_step">Title</string>
+    <string name="pick_preview">Preview</string>
+    <string name="pick_title_label">Title</string>
+    <string name="pick_post">Post</string>
+    <string name="pick_posting">Posting\u2026</string>
+
+    <string name="share_my_taste">Share my taste</string>
+    <string name="share_my_type_eyebrow">MY DIGGING TYPE</string>
+
+    <string name="mypage_how_to_use">How to Use</string>
+    <string name="mypage_whats_new">What\'s New</string>
+    <string name="whatsnew_title">What\'s New</string>
+    <string name="whatsnew_version">Version %1$s</string>
+    <string name="whatsnew_got_it">Got it</string>
+    <string name="whatsnew_100_feed">Swipe through tracks and hype the ones you like.</string>
+    <string name="whatsnew_100_picks">Picks: put a few tracks together and send them out.</string>
+    <string name="whatsnew_100_profile">Digging Profile: your taste, typed.</string>
+    <string name="whatsnew_100_share">Share a track, a pick, or your taste as a card.</string>
+
+    <string name="tutorial_skip">Skip</string>
+    <string name="tutorial_next">Next</string>
+    <string name="tutorial_start">Get started</string>
+    <string name="tutorial_doubletap_title">Double-tap to hype</string>
+    <string name="tutorial_doubletap_body">Love a track? Double-tap the card to hype it instantly.</string>
+    <string name="tutorial_hypebutton_title">Or use the hype button</string>
+    <string name="tutorial_hypebutton_body">Tap the hype button to save any track you like.</string>
+    <string name="tutorial_detail_title">See track details</string>
+    <string name="tutorial_detail_body">Tap the disc icon to view full info and where to listen.</string>
+    <string name="tutorial_longpress_title">Press and hold in My Page</string>
+    <string name="tutorial_longpress_body">Long-press a track in My Page to open details or remove it.</string>
+    <string name="tutorial_play_title">Play from My Page</string>
+    <string name="tutorial_play_body">Tap any track in My Page to play its preview right there.</string>
+    <string name="tutorial_pick_title">Make a pick</string>
+    <string name="tutorial_pick_body">Put a few tracks together in the Picks tab. Other people can play it and react with 🔥.</string>
+    <string name="tutorial_request_title">Missing an artist?</string>
+    <string name="tutorial_request_body">Search for them and tap Request — or add one from Artist Requests in My Page.</string>
+
+    <string name="quiz_q_loud">When do you turn it all the way up?</string>
+    <string name="quiz_a_workout">Working out</string>
+    <string name="quiz_a_driving">Driving</string>
+    <string name="quiz_a_working">Working or studying</string>
+    <string name="quiz_a_hangout">Hanging out with people</string>
+    <string name="quiz_q_first">What hits you first in a song?</string>
+    <string name="quiz_a_flow">The flow</string>
+    <string name="quiz_a_story">The story in the lyrics</string>
+    <string name="quiz_a_voice">The voice itself</string>
+    <string name="quiz_a_guitars">Guitars and drums locking in</string>
+    <string name="quiz_a_beat">The beat and the synths</string>
+    <string name="quiz_q_night">Pick your kind of night</string>
+    <string name="quiz_a_club">A club until sunrise</string>
+    <string name="quiz_a_live">Front row at a live show</string>
+    <string name="quiz_a_jazzbar">A corner seat at a jazz bar</string>
+    <string name="quiz_a_home">Home alone, volume low</string>
+    <string name="quiz_q_language">Lyrics that aren\'t in English?</string>
+    <string name="quiz_a_korean">I listen to Korean tracks a lot</string>
+    <string name="quiz_a_spanish">Spanish? If it grooves, sure</string>
+    <string name="quiz_a_english">English is what I\'m used to</string>
+    <string name="quiz_a_nolyrics">No lyrics at all works too</string>
+    <string name="quiz_q_purpose">What do you want music to do for you?</string>
+    <string name="quiz_a_hyped">Get me hyped</string>
+    <string name="quiz_a_sit">Sit with me</string>
+    <string name="quiz_a_immerse">Pull me in and shut everything else out</string>
+    <string name="quiz_a_mood">Just put me in a good mood</string>
+    <string name="quiz_q_playlist">Your playlist is...</string>
+    <string name="quiz_a_30tracks">30 tracks, all earned</string>
+    <string name="quiz_a_300tracks">300 tracks, sort it out later</string>
+    <string name="quiz_q_notdoing">A track comes on and it\'s not doing it for you</string>
+    <string name="quiz_a_skip">Skipped in five seconds</string>
+    <string name="quiz_a_letitride">Eh, I\'ll let it ride</string>
+    <string name="quiz_q_saving">Saving a song you just found</string>
+    <string name="quiz_a_fewmore">Give it a few more listens first</string>
+    <string name="quiz_a_initgoes">In it goes</string>
+    <string name="quiz_q_loveartist">You find an artist you love</string>
+    <string name="quiz_a_discography">Straight through the whole discography</string>
+    <string name="quiz_a_similar">Off to find someone who sounds like them</string>
+    <string name="quiz_q_newgenre">Someone recommends a genre you never listen to</string>
+    <string name="quiz_a_notmything">Probably not my thing</string>
+    <string name="quiz_a_pressplay">Might as well press play</string>
+    <string name="quiz_q_thisweek">Scroll back through what you played this week</string>
+    <string name="quiz_a_samelane">Same lane the whole way</string>
+    <string name="quiz_a_allover">All over the place</string>
+
+    <string name="quiz_start">Take the taste test</string>
+    <string name="quiz_skip">Pick genres myself</string>
+    <string name="quiz_apply">Start digging</string>
+    <string name="quiz_skip_to_genres">Skip and pick genres</string>
+    <string name="genres_selected">%1$s selected</string>
+    <string name="quiz_intro_title">Not sure what to pick?</string>
+    <string name="quiz_intro_body">Answer a few quick questions and we\'ll figure out your type — and which genres to start you on.</string>
+
+    <string name="genre_hiphop">Beats and rhymes. The words are doing the work.</string>
+    <string name="genre_rock">Guitars, drums, and volume. Loud or moody, take your pick.</string>
+    <string name="genre_pop">Big choruses built to stick after one listen.</string>
+    <string name="genre_jazz">Improvised on the spot — the same song is never quite the same twice.</string>
+    <string name="genre_dance">Made for a floor. Steady kick, no reason to stop moving.</string>
+    <string name="genre_country">Someone telling you a story, guitar in hand.</string>
+    <string name="genre_rnb">Smooth grooves and voices that carry the whole thing.</string>
+    <string name="genre_electronic">Built from synths and machines. Often no vocals at all.</string>
+    <string name="genre_kpop">Packed with hooks, switches lanes mid-song, made to be watched too.</string>
+    <string name="genre_latin">Percussion you feel before you hear. Reggaetón, salsa, and everything nearby.</string>
+    <string name="genre_ccm">Worship songs with pop production — written for a room singing along.</string>
+    <string name="genre_alternative">Rock that ducks the mainstream. Not big on following the rules.</string>
+    <string name="genre_bass">The low end is the whole point. Best where the speakers can take it.</string>
+    <string name="genre_dubstep">Everything builds toward the moment the bass drops.</string>
+
+    <string name="likely_your_type">LIKELY YOUR TYPE</string>
+    <string name="type_locked_remaining">Dig %1$d more and hype %2$d to lock it in.</string>
+
+    <string name="artist_request_title">Request an artist</string>
+    <string name="artist_request_body">Can\'t find an artist? Tell us who, and we\'ll look into adding their tracks.</string>
+    <string name="artist_request_hint">Artist name</string>
+    <string name="artist_request_send">Send request</string>
+    <string name="artist_request_sent_body">We\'ll notify you when they\'re added.</string>
+    <string name="artist_request_empty_hint">Tap + to request an artist.</string>
+    <string name="artist_status_pending">Pending</string>
+    <string name="artist_status_added">Added</string>
+    <string name="artist_status_canceled">Canceled</string>
+    <string name="delete">Delete</string>
+
+    <string name="report_detail_hint">Tell us what\'s wrong</string>
+
+    <string name="quiz_retake">Retake the taste test</string>
+
+    <string name="trait_curator_1">You\'ll try anything once</string>
+    <string name="trait_curator_2">Almost nothing makes the cut</string>
+    <string name="trait_curator_3">Your saves are a short, sharp list</string>
+    <string name="trait_purist_1">One lane, all the way down</string>
+    <string name="trait_purist_2">You skip fast and don\'t feel bad</string>
+    <string name="trait_purist_3">You\'d rather know ten artists deeply</string>
+    <string name="trait_omnivore_1">Genre isn\'t a thing you think about</string>
+    <string name="trait_omnivore_2">Press play first, decide later</string>
+    <string name="trait_omnivore_3">Your library is gloriously messy</string>
+    <string name="trait_loyalist_1">You know your sound</string>
+    <string name="trait_loyalist_2">You keep what you like, no gatekeeping</string>
+    <string name="trait_loyalist_3">Same artists on repeat, happily</string>
+
+    <string name="quiz_likely_type">Your likely type</string>
+    <string name="quiz_confirm_later">We\'ll confirm this once you\'ve actually dug around a bit.</string>
+    <string name="quiz_genre_title">Sounds like your kind of thing</string>
+    <string name="quiz_genre_subtitle">Uncheck anything that\'s off.</string>
+    <string name="quiz_genres_failed">Couldn\'t load genres — pick them yourself on the next screen.</string>
+    <string name="quiz_choose_genres">Choose your genres</string>
+    <string name="genre_show_guide">Show guide</string>
+    <string name="genre_hide_guide">Hide guide</string>
+
+    <string name="genre_apply">Use these genres</string>
 </resources>

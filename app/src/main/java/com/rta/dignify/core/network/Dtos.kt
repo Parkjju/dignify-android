@@ -41,6 +41,135 @@ object Api {
     @Serializable
     data class CurationResponse(val setKey: String, val items: List<FeedItem>)
 
+    /**
+     * `GET /tracks/{id}`. 피드 아이템보다 필드가 많다 — 앨범명·발매일·먼저 하입한 사람.
+     * 상세 시트가 카드와 다른 화면인 이유가 이 세 가지다.
+     *
+     * 날짜는 String 그대로 받는다. `releaseDate`는 앞 10자만 쓰고(`2024-03-15` → `2024.03.15`)
+     * `hypedAt`만 파싱하면 되므로, Instant 직렬화기를 다는 것보다 쓰는 쪽에서 다루는 게 싸다.
+     */
+    @Serializable
+    data class TrackDetail(
+        val trackId: Int,
+        val trackName: String,
+        val artistName: String,
+        val collectionName: String? = null,
+        val artworkUrl: String,
+        val trackViewUrl: String,
+        val releaseDate: String? = null,
+        val genreName: String? = null,
+        val firstHypers: List<UserSummary> = emptyList(),
+    )
+
+    /** 하입한 사람 요약. `hypedAt`은 ISO-8601 date-time. */
+    @Serializable
+    data class UserSummary(
+        val userId: Long,
+        val nickname: String,
+        val hypedAt: String? = null,
+    )
+
+    /** `GET /users/me/hypes`. cursor는 마지막으로 받은 userHypeTrackId. */
+    @Serializable
+    data class HypeListResponse(
+        val items: List<HypeItem> = emptyList(),
+        val nextCursor: Long? = null,
+    )
+
+    @Serializable
+    data class HypeItem(
+        val userHypeTrackId: Long,
+        val trackId: Int,
+        val trackName: String,
+        val artistName: String,
+        val artworkUrl: String,
+        val previewUrl: String,
+        /** 하입 시각. 날짜별 섹션 그룹핑은 클라이언트 책임이라 이 값으로 묶는다. */
+        val hypedAt: String,
+    )
+
+    /**
+     * `GET /users/me/stats`. **숫자만 온다** — 유형·헤드라인·잠금 판정은 전부 클라이언트 계산이다
+     * (문구나 임계값을 바꿔도 서버를 다시 배포하지 않으려고). 계산은 `DiggingStats`가 한다.
+     *
+     * 모든 개수는 재생 횟수가 아니라 곡 종류 수(COUNT DISTINCT)다.
+     */
+    @Serializable
+    data class UserStats(
+        val range: String = "all",
+        val distinctListenedCount: Int = 0,
+        val hypeCount: Int = 0,
+        val listenedByGenre: List<GenreCount> = emptyList(),
+        val hypedByGenre: List<GenreCount> = emptyList(),
+        /** 상위 5개만 온다 — 전체 합계 계산에 쓰면 안 된다. */
+        val listenedByArtist: List<ArtistCount> = emptyList(),
+        val hypedByArtist: List<ArtistCount> = emptyList(),
+    )
+
+    @Serializable
+    data class GenreCount(val genreName: String, val count: Int)
+
+    @Serializable
+    data class ArtistCount(val artistName: String, val count: Int)
+
+    @Serializable
+    data class NicknameResponse(val nickname: String)
+
+    // MARK: Picks
+
+    /**
+     * `GET /picks`. cursor는 `{official}_{pickId}` 형태의 불투명 문자열.
+     *
+     * `hasMore`는 `FeedResponse`와 같은 이유로 nullable이다 — 서버가 명시적 null을 보내면
+     * 기본값이 안 먹고 파싱이 터진다. 읽는 쪽은 `== true`로 판정한다.
+     */
+    @Serializable
+    data class PickListResponse(
+        val items: List<Pick> = emptyList(),
+        val nextCursor: String? = null,
+        val hasMore: Boolean? = null,
+    )
+
+    /**
+     * 픽 목록의 한 장. 트랙 전체가 아니라 **요약**만 온다 —
+     * 실제 트랙은 `GET /picks/{id}`가 피드와 같은 `FeedResponse`로 준다(그대로 재생 지면에 태운다).
+     *
+     * `reactions`는 이모지 → 개수. `myReaction`은 내가 누른 이모지(없으면 null).
+     */
+    @Serializable
+    data class Pick(
+        val pickId: Long,
+        val title: String? = null,
+        val nickname: String,
+        val isMine: Boolean = false,
+        /** 운영이 만든 픽. 목록에서 위쪽에 고정된다. */
+        val isOfficial: Boolean = false,
+        val createdAt: String,
+        val trackCount: Int = 0,
+        val distinctArtistCount: Int = 0,
+        val firstArtistName: String? = null,
+        val firstTrackName: String? = null,
+        /** 최대 3장. 카드 썸네일 스택에 쓴다. */
+        val thumbnails: List<String> = emptyList(),
+        val reactions: Map<String, Long> = emptyMap(),
+        val myReaction: String? = null,
+    )
+
+    // MARK: Artist requests
+
+    @Serializable
+    data class ArtistRequestListResponse(val items: List<ArtistRequest> = emptyList())
+
+    /** status는 서버 enum 문자열. 화면이 라벨을 붙이므로 String으로 받는다. */
+    @Serializable
+    data class ArtistRequest(
+        val id: Long,
+        val artistName: String,
+        val status: String,
+        val cancelReason: String? = null,
+        val createdAt: String,
+    )
+
     @Serializable
     data class UserProfile(
         val nickname: String,
@@ -51,12 +180,19 @@ object Api {
         data class ProfileGenre(val genreId: Int, val genreName: String)
     }
 
-    /** 피드/검색 공통 응답. nextCursor 없으면 hasMore=false (피드 소진). */
+    /**
+     * 피드/검색/픽 상세 공통 응답. nextCursor 없으면 더 받을 게 없다.
+     *
+     * `hasMore`가 **nullable인 게 중요하다.** 픽 상세(`GET /picks/{id}`)는 페이지네이션이
+     * 없어서 이 값을 `null`로 보내는데, 기본값(`= false`)은 **키가 아예 없을 때만** 쓰인다.
+     * non-null 타입에 명시적 null이 오면 파싱이 통째로 터진다(픽 재생이 "불러오지 못했어요"로
+     * 죽던 원인). 읽는 쪽은 `hasMore == true`로 판정한다.
+     */
     @Serializable
     data class FeedResponse(
         val items: List<FeedItem>,
         val nextCursor: String? = null,
-        val hasMore: Boolean = false,
+        val hasMore: Boolean? = null,
         /** 이 페이지가 유저 장르 풀을 소진했는지. 검색 응답엔 없다. */
         val genreExhausted: Boolean? = null,
     )

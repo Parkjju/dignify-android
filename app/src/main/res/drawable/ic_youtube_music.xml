@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  YouTube Music 마크. 원 + 재생 삼각형이라는 최소 형태만 쓴다 —
+  공식 로고 애셋은 브랜드 가이드라인상 재배포·변형이 제한돼서, 링크 목적지를 알리는
+  용도의 단순 도형으로 대체한다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF0033"
+        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10,16.5l6,-4.5 -6,-4.5z" />
+</vector>

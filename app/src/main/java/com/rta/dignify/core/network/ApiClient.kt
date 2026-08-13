@@ -12,6 +12,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -26,6 +27,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import com.rta.dignify.BuildConfig
 import java.util.Locale
 
 /** refresh 요청 자신은 401이 나도 다시 refresh하면 안 된다. 그 표식. */
@@ -39,6 +41,36 @@ private data class RefreshBody(val refreshToken: String)
 
 @Serializable
 private data class GenreIdsBody(val genreIds: List<Int>)
+
+@Serializable
+private data class NicknameBody(val nickname: String)
+
+@Serializable
+private data class PickCreateBody(val title: String?, val trackIds: List<Long>)
+
+@Serializable
+private data class PickTitleBody(val title: String?)
+
+@Serializable
+private data class EmojiBody(val emoji: String)
+
+@Serializable
+private data class ReportBody(val pickId: Long, val reason: String, val detail: String?)
+
+@Serializable
+private data class ArtistNameBody(val artistName: String)
+
+/**
+ * `environment`는 APNs의 sandbox/production 분기용이라 FCM엔 대응 개념이 없는데,
+ * 서버가 @NotBlank로 받으므로 비울 수 없다. 안드로이드는 아무 값이나 발송에 영향이 없다.
+ */
+@Serializable
+private data class DeviceTokenBody(
+    val token: String,
+    val environment: String,
+    val platform: String,
+    val timeZone: String,
+)
 
 /**
  * 백엔드 호출 전부. iOS는 `Endpoint` 값 타입 + `APIClient` 액터로 나눠져 있지만,
@@ -152,6 +184,10 @@ class ApiClient(
 
     // MARK: Tracks
 
+    /** 트랙 상세 + 먼저 하입한 유저 최대 5명. 인증 필수라 게스트는 호출하면 401이다. */
+    suspend fun trackDetail(trackId: Int): Api.TrackDetail =
+        client.get("$baseUrl/tracks/$trackId").body()
+
     suspend fun hype(trackId: Int): HttpResponse = client.post("$baseUrl/tracks/$trackId/hype")
 
     suspend fun unhype(trackId: Int): HttpResponse = client.delete("$baseUrl/tracks/$trackId/hype")
@@ -175,6 +211,103 @@ class ApiClient(
         client.post("$baseUrl/users/me/onboarding/complete")
     }
 
+    /** 내가 하입한 트랙. 최신순, 페이지 10 고정. cursor는 마지막으로 받은 userHypeTrackId. */
+    suspend fun myHypes(cursor: Long? = null): Api.HypeListResponse =
+        client.get("$baseUrl/users/me/hypes") { cursor?.let { parameter("cursor", it) } }.body()
+
+    /** @param range "all"(기본) 또는 "week"(최근 7일). 그 외 값은 서버가 전체로 처리한다. */
+    suspend fun myStats(range: String = "all"): Api.UserStats =
+        client.get("$baseUrl/users/me/stats") { parameter("range", range) }.body()
+
+    /** 409=중복, 400=규칙 위반. 화면이 상태 코드로 갈라 문구를 낸다(서버 문구는 한국어 고정). */
+    suspend fun updateNickname(nickname: String): Api.NicknameResponse =
+        client.patch("$baseUrl/users/me/nickname") {
+            contentType(ContentType.Application.Json)
+            setBody(NicknameBody(nickname))
+        }.body()
+
+    /** 회원 탈퇴. 서버가 픽·하입·장르까지 CASCADE로 지운다. 성공하면 로컬 토큰도 비운다. */
+    suspend fun withdraw() {
+        client.post("$baseUrl/auth/withdraw")
+        store.tokens = null
+    }
+
+    // MARK: Picks
+
+    /** @param mine true면 내 픽만. 인증이 없으면 서버가 401을 낸다(공개 목록은 mine=false). */
+    suspend fun picks(cursor: String? = null, mine: Boolean = false): Api.PickListResponse =
+        client.get("$baseUrl/picks") {
+            cursor?.let { parameter("cursor", it) }
+            if (mine) parameter("mine", true)
+        }.body()
+
+    /**
+     * 픽 상세. **피드와 같은 `FeedResponse`가 온다** — 그래서 픽 재생은 새 플레이어를 만들지 않고
+     * 피드 화면을 모드만 바꿔 그대로 태운다.
+     */
+    suspend fun pickDetail(pickId: Long): Api.FeedResponse =
+        client.get("$baseUrl/picks/$pickId").body()
+
+    /** @param trackIds 1~30개. 서버가 개수를 검증한다. */
+    suspend fun createPick(title: String?, trackIds: List<Int>): HttpResponse =
+        client.post("$baseUrl/picks") {
+            contentType(ContentType.Application.Json)
+            setBody(PickCreateBody(title, trackIds.map { it.toLong() }))
+        }
+
+    suspend fun deletePick(pickId: Long): HttpResponse = client.delete("$baseUrl/picks/$pickId")
+
+    /** 이모지 하나. 같은 픽에 다시 부르면 교체된다(반응은 유저당 하나). */
+    suspend fun setReaction(pickId: Long, emoji: String): HttpResponse =
+        client.put("$baseUrl/picks/$pickId/reaction") {
+            contentType(ContentType.Application.Json)
+            setBody(EmojiBody(emoji))
+        }
+
+    suspend fun deleteReaction(pickId: Long): HttpResponse =
+        client.delete("$baseUrl/picks/$pickId/reaction")
+
+    suspend fun updatePickTitle(pickId: Long, title: String?): HttpResponse =
+        client.put("$baseUrl/picks/$pickId/title") {
+            contentType(ContentType.Application.Json)
+            setBody(PickTitleBody(title))
+        }
+
+    /** @param reason NICKNAME / CONTENT / OTHER */
+    suspend fun reportPick(pickId: Long, reason: String, detail: String?): HttpResponse =
+        client.post("$baseUrl/reports") {
+            contentType(ContentType.Application.Json)
+            setBody(ReportBody(pickId, reason, detail))
+        }
+
+    // MARK: Artist requests
+
+    suspend fun requestArtist(artistName: String): HttpResponse =
+        client.post("$baseUrl/artist-requests") {
+            contentType(ContentType.Application.Json)
+            setBody(ArtistNameBody(artistName))
+        }
+
+    suspend fun artistRequests(): Api.ArtistRequestListResponse =
+        client.get("$baseUrl/artist-requests").body()
+
+    suspend fun deleteArtistRequest(id: Long): HttpResponse =
+        client.delete("$baseUrl/artist-requests/$id")
+
+    // MARK: Push
+
+    /**
+     * FCM 토큰 등록. 같은 엔드포인트를 iOS가 APNs 토큰으로 쓰고 있고, `platform`이 발송 경로를 가른다.
+     *
+     * 타임존을 같이 올려야 서버가 기기 로컬 시각으로 공지를 쏜다 — 유저가 한국과 미국으로 갈려 있어
+     * UTC 고정 발송은 한쪽이 반드시 새벽이 된다.
+     */
+    suspend fun registerDeviceToken(token: String, timeZone: String): HttpResponse =
+        client.post("$baseUrl/users/me/device-token") {
+            contentType(ContentType.Application.Json)
+            setBody(DeviceTokenBody(token, environment = "production", platform = "android", timeZone = timeZone))
+        }
+
     companion object {
         // ponytail: base URL 상수 하나. 환경 분기 필요해지면 그때 BuildConfig로.
         const val BASE_URL = "https://dignify-backend-460750160818.us-central1.run.app"
@@ -188,6 +321,10 @@ class ApiClient(
                 defaultRequest {
                     // 장르명·에러 문구를 서버가 이 헤더로 현지화한다. 안 보내면 영어로 온다.
                     headers.append("Accept-Language", Locale.getDefault().toLanguageTag())
+                    // 서버가 UA에서 `dignify/<빌드번호>`를 주워 담아 푸시를 버전별로 갈라 쏜다
+                    // (iOS는 URLSession 기본 UA가 이미 이 모양이라 안 건드렸다). 기본 UA인
+                    // "okhttp/4.x"를 두면 빌드가 null로 남아 minBuild 조건부 발송에서 통째로 빠진다.
+                    headers.append(HttpHeaders.UserAgent, "dignify/${BuildConfig.VERSION_CODE}")
                 }
             }
             return if (engine == null) HttpClient(OkHttp, config) else HttpClient(engine, config)

@@ -9,14 +9,32 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,6 +128,96 @@ fun DSGenreChip(
         contentAlignment = Alignment.Center,
     ) {
         Text(title, color = foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/**
+ * 뒤로가기 + 제목만 있는 상단바와 스크롤 지면. iOS의 `navigationTitle` + `NavigationStack`
+ * 조합에 해당하는 자리다 — 내비게이션 라이브러리를 안 쓰므로 이 껍데기만 공유한다.
+ */
+@Composable
+fun ScreenScaffold(
+    title: String,
+    onBack: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(DSColor.background)
+            .statusBarsPadding(),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = DSColor.textPrimary,
+                )
+            }
+            Text(title, style = DSTypography.title2, color = DSColor.textPrimary)
+        }
+        Column(Modifier.verticalScroll(rememberScrollState())) { content() }
+    }
+}
+
+/**
+ * iOS `DSSearchBar` 이식.
+ *
+ * 맨 `OutlinedTextField`를 쓰면 안 되는 이유: 이 검색바는 피드의 **검은 배경 위**에 놓이는데
+ * Material3 기본 색은 밝은 지면을 전제해서 글씨가 배경에 묻혀 안 보인다. iOS처럼 surface로
+ * 지면을 불투명하게 깔고 그 위에 textPrimary를 얹어야 한다.
+ */
+@Composable
+fun DSSearchBar(
+    text: String,
+    onTextChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    onSubmit: () -> Unit = {},
+) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(DSRadius.medium))
+            .background(DSColor.surface)
+            .border(1.dp, DSColor.borderLight, RoundedCornerShape(DSRadius.medium))
+            .padding(horizontal = 14.dp)
+            .height(40.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = null,
+            tint = DSColor.textTertiary,
+            modifier = Modifier.size(15.dp),
+        )
+        BasicTextField(
+            value = text,
+            onValueChange = onTextChange,
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 14.sp, color = DSColor.textPrimary),
+            cursorBrush = SolidColor(DSColor.brand),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                if (text.isEmpty()) {
+                    Text(placeholder, color = DSColor.textTertiary, fontSize = 14.sp)
+                }
+                inner()
+            },
+        )
+        if (text.isNotEmpty()) {
+            Icon(
+                Icons.Filled.Cancel,
+                contentDescription = null,
+                tint = DSColor.textTertiary,
+                modifier = Modifier
+                    .size(15.dp)
+                    .clickable { onTextChange("") },
+            )
+        }
     }
 }
 

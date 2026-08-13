@@ -41,13 +41,52 @@ class FeedAudioController(
     private val players = linkedMapOf<Int, ExoPlayer>()
     /** 리스너는 트랙별로 만든다 — 어느 플레이어가 낸 이벤트인지 알아야 해서. */
     private val listeners = mutableMapOf<Int, Player.Listener>()
-    private var currentTrackId: Int? = null
+    /**
+     * Compose 상태다. 하입 컬렉션처럼 **어느 셀이 재생 중인지를 그리는 화면**이 이 값을 읽는데,
+     * 일반 var로 두면 값이 바뀌어도 재구성이 안 걸려 재생 표시가 영영 안 붙는다
+     * (피드는 이 값을 UI에 안 써서 안 드러났다).
+     */
+    private var currentTrackId: Int? by mutableStateOf(null)
     private var ticker: Job? = null
     private val dwell = DwellTracker()
     private val listens = ListenTracker()
 
     /** 현재 재생(또는 일시정지) 중인 트랙 id. */
     val activeTrackId: Int? get() = currentTrackId
+
+    /**
+     * 단일 트랙 프리뷰 토글. 하입 컬렉션처럼 **목록에서 한 곡만** 듣는 지면이 쓴다.
+     * 같은 트랙이면 재생/일시정지 토글, 다른 트랙이면 기존 걸 전부 걷어내고 새로 만든다.
+     *
+     * 슬라이딩 윈도우를 안 쓰는 이유: 목록은 다음에 뭘 누를지 모르는 지면이라 미리 받아둘
+     * 이웃이 없다. 피드처럼 3칸을 잡아두면 안 들을 곡까지 버퍼링한다.
+     */
+    fun togglePreview(trackId: Int, url: String) {
+        if (currentTrackId == trackId) {
+            toggleCurrentPlayback()
+            return
+        }
+        if (url.isBlank()) return
+        players.keys.toList().forEach(::teardown)
+        stopTicker()
+        currentTrackId = null   // setCurrent의 "같은 트랙이면 무시" 가드를 통과시킨다.
+        players[trackId] = ExoPlayer.Builder(context).build().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                /* handleAudioFocus = */ true,
+            )
+            setHandleAudioBecomingNoisy(true)
+            repeatMode = Player.REPEAT_MODE_ONE
+            volume = 0f
+            addListener(interruptionListener(trackId).also { listeners[trackId] = it })
+            setMediaItem(MediaItem.fromUri(url))
+            prepare()
+        }
+        setCurrent(trackId)
+    }
 
     /**
      * 스와이프가 끝나(= current 변경) 호출. current 기준 3칸 윈도우를 재구성한다.

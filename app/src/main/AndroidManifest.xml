@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 13(TIRAMISU)부터 런타임 권한. 그 미만은 설치 시 자동 허용이라 요청 자체가 없다. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="false"
@@ -21,5 +23,31 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 공유 카드 이미지를 다른 앱에 넘기는 통로. 안드로이드 7부터 file:// URI를
+             직접 넘기면 FileUriExposedException으로 죽는다. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- 토큰 회전을 받는 자리. 알림 표시 자체는 시스템이 하므로 이것만 있으면 된다. -->
+        <service
+            android:name=".feature.push.DignifyMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- 안 걸어두면 FCM이 "Miscellaneous" 채널을 제멋대로 만들어 거기에 넣는다. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="dignify_default" />
     </application>
 </manifest>
