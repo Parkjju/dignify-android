@@ -36,7 +36,7 @@ android {
         // versionName과 따로 노는 게 정상이다 — 이건 카운터고, 유저에게 보이는 건 versionName이다.
         //
         // 백엔드가 UA(`dignify/<versionCode>`)에서 이 값을 주워 담아 푸시를 버전별로 갈라 쏜다.
-        versionCode = 3
+        versionCode = 4
         versionName = "1.0.0"
 
         // 구글이 발급하는 ID 토큰의 aud가 이 값이고, 백엔드(GOOGLE_CLIENT_ID)가 같은 값으로 대조한다.
