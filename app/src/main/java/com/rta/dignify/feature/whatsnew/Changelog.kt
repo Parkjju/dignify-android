@@ -19,6 +19,8 @@ object Changelog {
             notes = listOf(
                 R.string.whatsnew_101_session,
                 R.string.whatsnew_101_curation,
+                R.string.whatsnew_101_feedplace,
+                R.string.whatsnew_101_pullrefresh,
                 R.string.whatsnew_101_android16,
             ),
         ),

@@ -173,6 +173,8 @@
     <string name="whatsnew_100_share">트랙·픽·내 취향을 카드로 공유할 수 있어요.</string>
     <string name="whatsnew_101_session">앱을 켠 지 한 시간쯤 지나면 로그인이 풀리던 문제를 고쳤어요.</string>
     <string name="whatsnew_101_curation">검색을 한 번 하면 이번 주 세트가 사라지던 문제를 고쳤어요.</string>
+    <string name="whatsnew_101_feedplace">탭을 옮겼다 돌아와도 피드가 보던 자리를 기억해요.</string>
+    <string name="whatsnew_101_pullrefresh">픽 목록을 아래로 당기면 새로고침돼요.</string>
     <string name="whatsnew_101_android16">안드로이드 16을 지원해요.</string>
 
     <string name="tutorial_skip">건너뛰기</string>

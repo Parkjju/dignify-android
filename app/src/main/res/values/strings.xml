@@ -185,6 +185,8 @@
     <string name="whatsnew_100_share">Share a track, a pick, or your taste as a card.</string>
     <string name="whatsnew_101_session">Fixed getting signed out about an hour after opening the app.</string>
     <string name="whatsnew_101_curation">Fixed this week\'s set disappearing once you ran a search.</string>
+    <string name="whatsnew_101_feedplace">The feed keeps your place when you switch tabs and come back.</string>
+    <string name="whatsnew_101_pullrefresh">Pull down on Picks to refresh the list.</string>
     <string name="whatsnew_101_android16">Ready for Android 16.</string>
 
     <string name="tutorial_skip">Skip</string>
