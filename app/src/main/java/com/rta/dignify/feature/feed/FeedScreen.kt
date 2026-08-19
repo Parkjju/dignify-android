@@ -209,12 +209,6 @@ fun FeedScreen(
     // 게스트로 본 피드는 하입 표시가 안 된 상태라 로그인 후엔 반드시 다시 받아야 한다.
     LaunchedEffect(Session.feedReloadTick) { vm.onReloadTick(Session.feedReloadTick) }
 
-    // 목록이 통째로 바뀌면(검색 확정/해제) 첫 곡부터. 인덱스만 그대로 두면 이전 피드
-    // 위치에 남아 엉뚱한 곡이 current가 된다.
-    LaunchedEffect(vm.activeQuery) {
-        if (vm.feeds.isNotEmpty()) pagerState.scrollToPage(0)
-    }
-
     // 스와이프가 멎은 뒤에만 오디오 윈도우를 옮긴다. 드래그 중에 옮기면 지나가는 곡이
     // 전부 한 번씩 재생된다.
     LaunchedEffect(pagerState.settledPage, vm.feeds) {
@@ -397,7 +391,17 @@ fun FeedScreen(
             onOpen = { isSearching = true; searchText = vm.activeQuery; audio.pauseCurrent() },
             onSubmit = {
                 isSearching = false
-                vm.runSearch(searchText, pagerState.currentPage)
+                // 목록이 통째로 검색 결과로 갈리므로 첫 장부터. 인덱스를 그대로 두면
+                // 이전 피드 위치에 남아 엉뚱한 곡이 current가 된다.
+                //
+                // 이걸 `LaunchedEffect(vm.activeQuery)`로 하면 안 된다 — LaunchedEffect는
+                // 키가 안 바뀌어도 **컴포지션에 처음 들어올 때 무조건 한 번 돈다.** 탭을
+                // 옮기면 이 화면이 컴포지션에서 빠졌다 다시 들어오므로, 돌아올 때마다
+                // 0번으로 되감겨 vm.lastPage 복원이 통째로 무효가 된다.
+                if (searchText.isNotBlank()) {
+                    vm.runSearch(searchText, pagerState.currentPage)
+                    scope.launch { pagerState.scrollToPage(0) }
+                }
             },
             onClearQuery = {
                 searchText = ""
