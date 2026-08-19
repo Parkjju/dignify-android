@@ -12,7 +12,16 @@ import com.rta.dignify.R
 data class Release(val version: String, val notes: List<Int>)
 
 object Changelog {
+    // 최신이 위. WhatsNewSheet가 이 순서 그대로 그린다.
     val releases: List<Release> = listOf(
+        Release(
+            version = "1.0.1",
+            notes = listOf(
+                R.string.whatsnew_101_session,
+                R.string.whatsnew_101_curation,
+                R.string.whatsnew_101_android16,
+            ),
+        ),
         Release(
             version = "1.0.0",
             notes = listOf(

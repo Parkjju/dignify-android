@@ -171,6 +171,9 @@
     <string name="whatsnew_100_picks">픽 — 좋아하는 곡을 묶어서 남들에게 보내보세요.</string>
     <string name="whatsnew_100_profile">디깅 프로필 — 내 취향에 유형이 생겼어요.</string>
     <string name="whatsnew_100_share">트랙·픽·내 취향을 카드로 공유할 수 있어요.</string>
+    <string name="whatsnew_101_session">앱을 켠 지 한 시간쯤 지나면 로그인이 풀리던 문제를 고쳤어요.</string>
+    <string name="whatsnew_101_curation">검색을 한 번 하면 이번 주 세트가 사라지던 문제를 고쳤어요.</string>
+    <string name="whatsnew_101_android16">안드로이드 16을 지원해요.</string>
 
     <string name="tutorial_skip">건너뛰기</string>
     <string name="tutorial_next">다음</string>

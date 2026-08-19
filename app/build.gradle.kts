@@ -37,7 +37,7 @@ android {
         //
         // 백엔드가 UA(`dignify/<versionCode>`)에서 이 값을 주워 담아 푸시를 버전별로 갈라 쏜다.
         versionCode = 5
-        versionName = "1.0.0"
+        versionName = "1.0.1"
 
         // 구글이 발급하는 ID 토큰의 aud가 이 값이고, 백엔드(GOOGLE_CLIENT_ID)가 같은 값으로 대조한다.
         // 두 값이 어긋나면 로그인 창은 뜨는데 서버가 aud 불일치로 거부한다.
