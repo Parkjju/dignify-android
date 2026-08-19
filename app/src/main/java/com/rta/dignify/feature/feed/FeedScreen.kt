@@ -385,8 +385,6 @@ fun FeedScreen(
             count = vm.curationCount,
             // 검색 결과를 보는 중엔 숨긴다. 목록이 통째로 검색 결과인데 "이번 주 특집 1/7"이
             // 뜨면 앞 7곡이 특집인 것처럼 읽힌다.
-            // ⚠️ iOS도 같은 버그가 있다(FeedView.swift:540 — 조건에 activeQuery가 없고
-            //    loadSearch가 curationCount를 안 지운다). 그쪽도 같이 고쳐야 한다.
             visible = !isSearching && vm.activeQuery.isEmpty(),
             modifier = Modifier.align(Alignment.TopCenter),
         )

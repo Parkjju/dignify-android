@@ -217,7 +217,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      * 매 트랙에서 돌지만 SharedPreferences 쓰기는 값이 같으면 사실상 공짜다.
      */
     fun onTrackViewed(index: Int) {
-        if (curationCount > 0 && index >= curationCount && curationSetKey.isNotEmpty()) {
+        // 검색 중엔 목록이 통째로 검색 결과다 — 여기서 curationCount를 넘겼다고 세트를 완주한
+        // 게 아니다. 빼면 검색만 하고도 이번 주 세트를 못 본 채 날린다.
+        if (activeQuery.isEmpty() &&
+            curationCount > 0 && index >= curationCount && curationSetKey.isNotEmpty()
+        ) {
             // 이미 같은 값이면 완주 순간이 아니라 그 뒤로 계속 스와이프 중인 것이다.
             if (prefs.getString(KEY_SEEN_SET, "") != curationSetKey) justFinishedSet = true
             prefs.edit().putString(KEY_SEEN_SET, curationSetKey).apply()
