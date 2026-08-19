@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -181,79 +182,86 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
                 modifier = Modifier.align(Alignment.Center),
             )
 
-            else -> LazyColumn(
-                // 마지막 카드가 플로팅 버튼과 탭바 뒤로 들어가지 않게 비운다.
-                // bottomInset(탭바+내비바) + 버튼 높이 48 + 버튼 위아래 간격 16*2.
-                contentPadding = PaddingValues(bottom = bottomInset + 48.dp + 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+            // 당겨서 새로고침. isLoading을 그대로 쓴다 — 목록이 이미 차 있으면 위의
+            // 전체 화면 스피너 분기로 안 가므로, 같은 플래그가 여기선 새로고침 표시가 된다.
+            else -> PullToRefreshBox(
+                isRefreshing = isLoading,
+                onRefresh = { scope.launch { load() } },
             ) {
-                item {
-                    Text(
-                        stringResource(R.string.tab_picks),
-                        style = DSTypography.title1,
-                        color = Color.White,
-                        modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp),
-                    )
-                }
-                itemsIndexed(visible, key = { _, it -> it.pickId }) { index, pick ->
-                    PickCard(
-                        pick = pick,
-                        onPlay = {
-                            Analytics.capture(
-                                "pick_opened",
-                                mapOf(
-                                    "position" to index,
-                                    "is_official" to (pick.isOfficial == true),
-                                    "source" to "picks",
-                                ),
-                            )
-                            onPlay(pick)
-                        },
-                        onReact = onReact@{
-                            if (!Session.requireAccount()) return@onReact
-                            // 낙관적 토글. 서버 실패는 조용히 되돌린다.
-                            val was = pick.myReaction == PickReaction.PRIMARY
-                            picks = picks.map { if (it.pickId == pick.pickId) it.toggledReaction(!was) else it }
-                            // is_replace = 다른 이모지에서 갈아탄 경우. 지금은 🔥 하나뿐이라
-                            // 항상 false지만, 이모지를 늘렸을 때 교체와 신규가 안 섞이게 키를 맞춰둔다.
-                            Analytics.capture(
-                                "pick_reacted",
-                                mapOf(
-                                    "emoji" to PickReaction.PRIMARY,
-                                    "is_replace" to (pick.myReaction != null && was.not() &&
-                                        pick.myReaction != PickReaction.PRIMARY),
-                                ),
-                            )
-                            scope.launch {
-                                // 목업이면 로컬 토글만 하고 끝낸다(서버에 없는 pickId).
-                                if (PickMock.active) return@launch
-                                val ok = runCatching {
-                                    if (was) Session.api.deleteReaction(pick.pickId)
-                                    else Session.api.setReaction(pick.pickId, PickReaction.PRIMARY)
-                                }.isSuccess
-                                if (!ok) {
-                                    picks = picks.map { if (it.pickId == pick.pickId) it.toggledReaction(was) else it }
+                LazyColumn(
+                    // 마지막 카드가 플로팅 버튼과 탭바 뒤로 들어가지 않게 비운다.
+                    // bottomInset(탭바+내비바) + 버튼 높이 48 + 버튼 위아래 간격 16*2.
+                    contentPadding = PaddingValues(bottom = bottomInset + 48.dp + 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    item {
+                        Text(
+                            stringResource(R.string.tab_picks),
+                            style = DSTypography.title1,
+                            color = Color.White,
+                            modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp),
+                        )
+                    }
+                    itemsIndexed(visible, key = { _, it -> it.pickId }) { index, pick ->
+                        PickCard(
+                            pick = pick,
+                            onPlay = {
+                                Analytics.capture(
+                                    "pick_opened",
+                                    mapOf(
+                                        "position" to index,
+                                        "is_official" to (pick.isOfficial == true),
+                                        "source" to "picks",
+                                    ),
+                                )
+                                onPlay(pick)
+                            },
+                            onReact = onReact@{
+                                if (!Session.requireAccount()) return@onReact
+                                // 낙관적 토글. 서버 실패는 조용히 되돌린다.
+                                val was = pick.myReaction == PickReaction.PRIMARY
+                                picks = picks.map { if (it.pickId == pick.pickId) it.toggledReaction(!was) else it }
+                                // is_replace = 다른 이모지에서 갈아탄 경우. 지금은 🔥 하나뿐이라
+                                // 항상 false지만, 이모지를 늘렸을 때 교체와 신규가 안 섞이게 키를 맞춰둔다.
+                                Analytics.capture(
+                                    "pick_reacted",
+                                    mapOf(
+                                        "emoji" to PickReaction.PRIMARY,
+                                        "is_replace" to (pick.myReaction != null && was.not() &&
+                                            pick.myReaction != PickReaction.PRIMARY),
+                                    ),
+                                )
+                                scope.launch {
+                                    // 목업이면 로컬 토글만 하고 끝낸다(서버에 없는 pickId).
+                                    if (PickMock.active) return@launch
+                                    val ok = runCatching {
+                                        if (was) Session.api.deleteReaction(pick.pickId)
+                                        else Session.api.setReaction(pick.pickId, PickReaction.PRIMARY)
+                                    }.isSuccess
+                                    if (!ok) {
+                                        picks = picks.map { if (it.pickId == pick.pickId) it.toggledReaction(was) else it }
+                                    }
                                 }
-                            }
-                        },
-                        // 메뉴 안이 신고·차단뿐이라 여는 것부터 계정을 요구한다.
-                        onMenu = { if (Session.requireAccount()) menuTarget = pick },
-                        onShare = {
-                            Analytics.capture("pick_shared")
-                            shareTarget = pick
-                        },
-                    )
-                    // 끝 2장 이내로 접근하면 다음 페이지.
-                    if (pick.pickId == visible.getOrNull(visible.size - 2)?.pickId) {
-                        LaunchedEffect(pick.pickId) {
-                            val c = cursor
-                            if (c != null && !isPaging) {
-                                isPaging = true
-                                runCatching { Session.api.picks(c) }.onSuccess {
-                                    picks = picks + it.items
-                                    cursor = it.nextCursor?.takeIf { _ -> it.hasMore == true }
+                            },
+                            // 메뉴 안이 신고·차단뿐이라 여는 것부터 계정을 요구한다.
+                            onMenu = { if (Session.requireAccount()) menuTarget = pick },
+                            onShare = {
+                                Analytics.capture("pick_shared")
+                                shareTarget = pick
+                            },
+                        )
+                        // 끝 2장 이내로 접근하면 다음 페이지.
+                        if (pick.pickId == visible.getOrNull(visible.size - 2)?.pickId) {
+                            LaunchedEffect(pick.pickId) {
+                                val c = cursor
+                                if (c != null && !isPaging) {
+                                    isPaging = true
+                                    runCatching { Session.api.picks(c) }.onSuccess {
+                                        picks = picks + it.items
+                                        cursor = it.nextCursor?.takeIf { _ -> it.hasMore == true }
+                                    }
+                                    isPaging = false
                                 }
-                                isPaging = false
                             }
                         }
                     }
