@@ -30,8 +30,14 @@ import kotlinx.serialization.json.Json
 import com.rta.dignify.BuildConfig
 import java.util.Locale
 
-/** refresh 요청 자신은 401이 나도 다시 refresh하면 안 된다. 그 표식. */
-private val SkipAuthRetry = AttributeKey<Unit>("SkipAuthRetry")
+/**
+ * 인증 엔드포인트 표식. 이게 붙은 요청은 **Authorization을 아예 안 달고 나가고**, 401이 나도
+ * 갱신을 트리거하지 않는다(refresh가 스스로를 다시 부르면 무한 루프다).
+ *
+ * 헤더를 안 다는 게 핵심이다 — 백엔드 d9a3e12부터 permitAll 경로도 유효하지 않은 Bearer면
+ * 401이라, 만료된 액세스 토큰을 붙여 `/auth/refresh`로 가면 갱신 자체가 막힌다.
+ */
+private val SkipAuth = AttributeKey<Unit>("SkipAuth")
 
 @Serializable
 private data class GoogleSignInBody(val idToken: String)
@@ -91,16 +97,14 @@ class ApiClient(
 
     private val client: HttpClient = buildClient(engine).apply {
         plugin(HttpSend).intercept { request ->
-            val sent = store.tokens
+            val sent = if (request.attributes.contains(SkipAuth)) null else store.tokens
             // `header()`가 아니라 `headers[...] =` 인 게 중요하다 — 전자는 덧붙이기라
             // 재시도 때 낡은 Authorization이 남고 서버는 첫 번째 것을 읽어 또 401을 낸다.
             sent?.let { request.headers[HttpHeaders.Authorization] = "Bearer ${it.accessToken}" }
 
             val call = execute(request)
-            if (call.response.status != HttpStatusCode.Unauthorized ||
-                request.attributes.contains(SkipAuthRetry) ||
-                sent == null
-            ) {
+            // sent == null이면 붙일 토큰이 없었다는 뜻 = 게스트이거나 인증 엔드포인트다. 둘 다 갱신 대상이 아니다.
+            if (call.response.status != HttpStatusCode.Unauthorized || sent == null) {
                 return@intercept call
             }
 
@@ -124,7 +128,7 @@ class ApiClient(
 
         return try {
             val new: AuthTokens = client.post("$baseUrl/auth/refresh") {
-                attributes.put(SkipAuthRetry, Unit)
+                attributes.put(SkipAuth, Unit)
                 contentType(ContentType.Application.Json)
                 setBody(RefreshBody(current.refreshToken))
             }.body()
@@ -143,7 +147,7 @@ class ApiClient(
     /** Credential Manager가 받아온 Google ID 토큰을 우리 세션으로 바꾼다. */
     suspend fun signInWithGoogle(idToken: String): AuthTokens {
         val tokens: AuthTokens = client.post("$baseUrl/auth/google") {
-            attributes.put(SkipAuthRetry, Unit)
+            attributes.put(SkipAuth, Unit)
             contentType(ContentType.Application.Json)
             setBody(GoogleSignInBody(idToken))
         }.body()

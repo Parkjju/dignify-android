@@ -114,6 +114,64 @@ class ApiClientAuthTest {
         assertTrue(!refreshCalled)
     }
 
+    /**
+     * 백엔드 d9a3e12부터 permitAll 경로(`/auth/refresh` 포함)도 **유효하지 않은 Bearer면 401**이다.
+     * 갱신 요청에 만료된 액세스 토큰을 붙이면 갱신 자체가 401로 막히고, 그 401은
+     * AuthTokens로 역직렬화되지 않아 `refresh()`의 catch로 떨어진다 → 토큰 삭제 + 강제 로그아웃.
+     * 액세스 토큰 수명이 1시간이라 전 유저가 매시간 로그아웃된다.
+     */
+    @Test
+    fun `갱신 요청에는 만료된 액세스 토큰을 붙이지 않는다`() = runTest {
+        val store = MemoryTokenStore(AuthTokens("expired-access", "good-refresh"))
+        var refreshAuth: String? = "refresh가 아예 안 불렸다"
+
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath == "/auth/refresh" -> {
+                    refreshAuth = request.headers[HttpHeaders.Authorization]
+                    respond("""{"accessToken":"new-access","refreshToken":"new-refresh"}""", headers = json)
+                }
+                // 서버 흉내: Bearer가 붙었는데 만료면 permitAll 경로여도 401.
+                request.headers[HttpHeaders.Authorization] == "Bearer expired-access" ->
+                    respond("""{"code":"AUTH_TOKEN_INVALID"}""", HttpStatusCode.Unauthorized, json)
+
+                else -> respond("""{"items":[],"hasMore":false}""", headers = json)
+            }
+        }
+
+        ApiClient(store, engine = engine).feed()
+
+        assertNull(refreshAuth)
+        assertEquals("new-access", store.tokens?.accessToken)
+    }
+
+    /** 재시도는 인터셉터에 있어 경로를 안 가리지만, 만료 창에 실제로 401을 받는 경로라 박아둔다. */
+    @Test
+    fun `픽 목록도 401을 받으면 갱신 후 다시 보낸다`() = runTest {
+        val store = MemoryTokenStore(AuthTokens("old-access", "old-refresh"))
+        val seenAuth = mutableListOf<String?>()
+
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath == "/auth/refresh" ->
+                    respond("""{"accessToken":"new-access","refreshToken":"new-refresh"}""", headers = json)
+
+                else -> {
+                    seenAuth += request.headers[HttpHeaders.Authorization]
+                    if (seenAuth.size == 1) {
+                        respond("""{"code":"AUTH_TOKEN_INVALID"}""", HttpStatusCode.Unauthorized, json)
+                    } else {
+                        respond("""{"items":[],"hasMore":false}""", headers = json)
+                    }
+                }
+            }
+        }
+
+        ApiClient(store, engine = engine).picks()
+
+        assertEquals(listOf("Bearer old-access", "Bearer new-access"), seenAuth)
+    }
+
     @Test
     fun `로그인하면 토큰을 저장한다`() = runTest {
         val store = MemoryTokenStore(null)
