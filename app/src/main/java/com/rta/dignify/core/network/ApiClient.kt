@@ -46,7 +46,10 @@ private data class GoogleSignInBody(val idToken: String)
 private data class RefreshBody(val refreshToken: String)
 
 @Serializable
-private data class GenreIdsBody(val genreIds: List<Int>)
+private data class DiggingModeBody(val enabled: Boolean)
+
+@Serializable
+private data class SeedTracksBody(val trackIds: List<Long>)
 
 @Serializable
 private data class NicknameBody(val nickname: String)
@@ -200,16 +203,30 @@ class ApiClient(
 
     // MARK: Users
 
-    suspend fun genres(): Api.GenresResponse = client.get("$baseUrl/genres").body()
-
     suspend fun myProfile(): Api.UserProfile = client.get("$baseUrl/users/me").body()
 
-    suspend fun updateGenres(ids: List<Int>) {
-        client.put("$baseUrl/users/me/genres") {
+    /** 하입 따라가기 on/off. 204만 온다 — 몸통이 없으므로 응답을 읽지 않는다. */
+    suspend fun setDiggingMode(enabled: Boolean) {
+        client.patch("$baseUrl/users/me/digging-mode") {
             contentType(ContentType.Application.Json)
-            setBody(GenreIdsBody(ids))
+            setBody(DiggingModeBody(enabled))
         }
     }
+
+    /**
+     * 추천 기준 곡 고정. 최대 3개, 빈 배열이면 해제(= 최근 하입 3곡으로 복귀).
+     * 하입한 적 없는 트랙은 서버가 조용히 버린다.
+     */
+    suspend fun setSeedTracks(trackIds: List<Int>) {
+        client.put("$baseUrl/users/me/seeds") {
+            contentType(ContentType.Application.Json)
+            setBody(SeedTracksBody(trackIds.map { it.toLong() }))
+        }
+    }
+
+    /** 소리 2지선다 후보. 인증 필수 — 게스트가 부르면 401이다. */
+    suspend fun onboardingCandidates(): Api.OnboardingCandidates =
+        client.get("$baseUrl/onboarding/candidates").body()
 
     suspend fun completeOnboarding() {
         client.post("$baseUrl/users/me/onboarding/complete")

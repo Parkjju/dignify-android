@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Share
@@ -46,6 +47,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,6 +79,11 @@ import com.rta.dignify.R
 import com.rta.dignify.core.auth.AuthState
 import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.core.auth.Session
+import com.rta.dignify.feature.onboarding.CoachAnchor
+import com.rta.dignify.feature.onboarding.CoachOverlay
+import com.rta.dignify.feature.onboarding.CoachSeen
+import com.rta.dignify.feature.onboarding.PicksCoach
+import com.rta.dignify.feature.onboarding.coachAnchor
 import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.feature.push.Push
 import com.rta.dignify.feature.push.PushOptInPopup
@@ -118,6 +126,7 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
     var isPaging by remember { mutableStateOf(false) }
 
     var menuTarget by remember { mutableStateOf<Api.Pick?>(null) }
+    var renameTarget by remember { mutableStateOf<Api.Pick?>(null) }
     var reportTarget by remember { mutableStateOf<Api.Pick?>(null) }
     var blockTarget by remember { mutableStateOf<Api.Pick?>(null) }
     var deleteTarget by remember { mutableStateOf<Api.Pick?>(null) }
@@ -168,6 +177,15 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
             it.pickId.toString() !in LocalModeration.hiddenPickIds
     }
 
+    // 픽 지면을 처음 보는 사람에게 재생 → 반응 → 공유 → 만들기를 한 번만 짚어 준다.
+    var seenCoach by remember { mutableStateOf(CoachSeen.get(context, CoachSeen.PICKS)) }
+
+    CoachOverlay(
+        steps = PicksCoach.steps,
+        screen = "picks",
+        active = !seenCoach && !isLoading && visible.isNotEmpty(),
+        onFinish = { CoachSeen.mark(context, CoachSeen.PICKS); seenCoach = true },
+    ) {
     Box(Modifier.fillMaxSize().background(DSColor.pickBackground)) {
         when {
             isLoading && picks.isEmpty() -> Box(
@@ -205,6 +223,7 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
                     itemsIndexed(visible, key = { _, it -> it.pickId }) { index, pick ->
                         PickCard(
                             pick = pick,
+                            coachAnchors = index == 0,
                             onPlay = {
                                 Analytics.capture(
                                     "pick_opened",
@@ -276,9 +295,11 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
                 onClick = { if (Session.requireAccount()) showCompose = true },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomInset + 16.dp),
+                    .padding(bottom = bottomInset + 16.dp)
+                    .coachAnchor(CoachAnchor.COMPOSE),
             )
         }
+    }
     }
 
     menuTarget?.let { pick ->
@@ -286,8 +307,20 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
             pick = pick,
             onDismiss = { menuTarget = null },
             onDelete = { menuTarget = null; deleteTarget = pick },
+            onRename = { menuTarget = null; renameTarget = pick },
             onReport = { menuTarget = null; reportTarget = pick },
             onBlock = { menuTarget = null; blockTarget = pick },
+        )
+    }
+
+    renameTarget?.let { pick ->
+        PickRenameDialog(
+            pick = pick,
+            onDismiss = { renameTarget = null },
+            onSubmit = { title ->
+                renameTarget = null
+                scope.launch { PickTitle.rename(pick, title, picks) { picks = it } }
+            },
         )
     }
 
@@ -444,6 +477,8 @@ fun PickCard(
     onMenu: () -> Unit,
     /** null이면 공유 버튼을 숨긴다(프리뷰 카드). */
     onShare: (() -> Unit)? = null,
+    /** 목록 첫 카드만 true. 코치마크가 가리킬 요소가 목록에 하나씩만 있어야 한다. */
+    coachAnchors: Boolean = false,
 ) {
     Column(
         Modifier
@@ -503,6 +538,7 @@ fun PickCard(
                 .height(220.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(DSColor.pickBackground)
+                .coachAnchor(if (coachAnchors) CoachAnchor.PLAY else null)
                 .clickable(onClick = onPlay),
             contentAlignment = Alignment.Center,
         ) {
@@ -528,6 +564,7 @@ fun PickCard(
                 text = if (count > 0) "${PickReaction.PRIMARY} $count" else PickReaction.PRIMARY,
                 highlighted = mine,
                 onClick = onReact,
+                modifier = Modifier.coachAnchor(if (coachAnchors) CoachAnchor.REACT else null),
             )
             // 곡 수는 표시 전용이라 알약을 안 씌운다 — 같은 버블을 두르면 누르면 뭔가
             // 일어날 것처럼 보인다. 이 행에서 배경 있는 것만 버튼이다.
@@ -555,6 +592,7 @@ fun PickCard(
             onShare?.let { share ->
                 Box(
                     Modifier
+                        .coachAnchor(if (coachAnchors) CoachAnchor.SHARE else null)
                         .clip(CircleShape)
                         .background(DSColor.pickElevated)
                         .clickable(onClick = share)
@@ -573,13 +611,18 @@ fun PickCard(
 }
 
 @Composable
-private fun Bubble(text: String, highlighted: Boolean = false, onClick: (() -> Unit)? = null) {
+private fun Bubble(
+    text: String,
+    highlighted: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text,
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         color = if (highlighted) Color.White else Color.White.copy(alpha = 0.7f),
-        modifier = Modifier
+        modifier = modifier
             .clip(CircleShape)
             .background(if (highlighted) DSColor.brand else DSColor.pickElevated)
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }
@@ -703,27 +746,77 @@ private fun EmptyPicks(
     }
 }
 
+/**
+ * 픽 `···`. 픽 탭과 프로필의 내 픽 목록이 **같은 시트를 쓴다** — 내 픽에 할 수 있는 일이
+ * 두 화면에서 갈리면 어느 쪽이 맞는지 알 수 없다.
+ *
+ * @param onRename null이면 이름 바꾸기 행이 빠진다(남의 픽).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PickMenuSheet(
+internal fun PickMenuSheet(
     pick: Api.Pick,
     onDismiss: () -> Unit,
     onDelete: () -> Unit,
-    onReport: () -> Unit,
-    onBlock: () -> Unit,
+    onRename: (() -> Unit)? = null,
+    onReport: (() -> Unit)? = null,
+    onBlock: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = DSColor.background) {
         Column(Modifier.navigationBarsPadding()) {
             // 내 픽엔 신고·차단이 없다(자기 자신을 신고할 일이 없다). 남의 픽엔 삭제가 없다.
-            if (pick.isMine) {
+            // `onReport == null`도 같이 본다 — 내 픽 목록에서 연 시트는 서버가 isMine을
+            // 안 채워 보내도 비어 있으면 안 된다.
+            if (pick.isMine || onReport == null) {
+                if (onRename != null) {
+                    MenuRow(Icons.Filled.Edit, stringResource(R.string.pick_rename), false, onRename)
+                    HorizontalDivider(Modifier.padding(start = 20.dp), color = DSColor.borderLight)
+                }
                 MenuRow(Icons.Filled.Delete, stringResource(R.string.pick_delete), true, onDelete)
-            } else {
+            } else if (onReport != null && onBlock != null) {
                 MenuRow(Icons.Outlined.Flag, stringResource(R.string.report), false, onReport)
                 HorizontalDivider(Modifier.padding(start = 20.dp), color = DSColor.borderLight)
                 MenuRow(Icons.Outlined.Block, stringResource(R.string.block), true, onBlock)
             }
         }
     }
+}
+
+/**
+ * 제목 바꾸기 한 칸짜리 알럿. 비워서 저장하면 곡 구성에서 조립한 폴백 제목으로 돌아간다 —
+ * 그래서 "지우기"가 아니라 정상 동작이고, 플레이스홀더가 그 결과를 미리 보여준다.
+ */
+@Composable
+internal fun PickRenameDialog(pick: Api.Pick, onDismiss: () -> Unit, onSubmit: (String?) -> Unit) {
+    val context = LocalContext.current
+    var draft by remember(pick.pickId) { mutableStateOf(pick.title.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.pick_rename)) },
+        text = {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { if (it.length <= PickTitle.MAX_LENGTH) draft = it },
+                singleLine = true,
+                placeholder = { Text(PickTitle.fallback(context, pick), maxLines = 1) },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = DSColor.brand,
+                    cursorColor = DSColor.brand,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSubmit(PickTitle.normalized(draft)) }) {
+                Text(stringResource(R.string.save), color = DSColor.brand)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel), color = DSColor.textSecondary)
+            }
+        },
+        containerColor = DSColor.background,
+    )
 }
 
 @Composable

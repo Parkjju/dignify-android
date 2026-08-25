@@ -83,13 +83,12 @@ import com.rta.dignify.feature.digging.DiggingProfileScreen
 import com.rta.dignify.feature.feed.FeedScreen
 import com.rta.dignify.feature.mypage.HypeHistoryScreen
 import com.rta.dignify.feature.mypage.MyPageScreen
-import com.rta.dignify.feature.onboarding.GenreSelectionScreen
+import com.rta.dignify.feature.mypage.SeedPickerScreen
 import com.rta.dignify.feature.onboarding.OnboardingMock
 import com.rta.dignify.feature.onboarding.PredictedType
-import com.rta.dignify.feature.onboarding.QuizIntroScreen
-import com.rta.dignify.feature.onboarding.quizSource
-import com.rta.dignify.feature.onboarding.TasteQuizScreen
+import com.rta.dignify.feature.onboarding.SoundRoundsScreen
 import com.rta.dignify.feature.onboarding.TutorialScreen
+import com.rta.dignify.feature.onboarding.fetchRounds
 import com.rta.dignify.feature.push.Push
 import com.rta.dignify.feature.whatsnew.Changelog
 import com.rta.dignify.feature.whatsnew.WhatsNewSheet
@@ -147,68 +146,66 @@ private fun DignifyApp() {
 
         AuthState.SIGNED_OUT -> SignInScreen()
         AuthState.ONBOARDING_REQUIRED -> OnboardingFlow()
-        // 세션이 풀린 **뒤에** 가른다 — 장르 화면이 API로 목록을 받아서, 인증 전에
-        // 강제로 띄우면 빈 칩 목록만 보인다.
+        // 세션이 풀린 **뒤에** 가른다 — 라운드 후보가 인증 엔드포인트라 인증 전에 강제로
+        // 띄우면 빈 화면만 보인다.
         AuthState.GUEST, AuthState.SIGNED_IN ->
             if (OnboardingMock.forcing) OnboardingFlow() else MainTabs()
     }
 }
 
 /**
- * 온보딩. iOS `GenreSelectionView`의 단계 기계를 그대로 옮겼다 —
- * **튜토리얼 → 취향 테스트 권유 → (테스트 | 장르 직접 고르기)**.
+ * 신규 유저 온보딩. iOS `NewUserOnboardingView` 이식.
  *
- * 튜토리얼이 맨 앞인 이유: 조작을 먼저 익히게 하고, 그동안 장르 목록을 받아둔다.
- * 권유 화면이 칩 목록보다 앞인 이유: 장르 이름 11개를 먼저 들이밀면 "이게 뭔데"가 되는데,
- * 테스트를 먼저 권하면 애초에 고를 필요가 없다.
+ *     튜토리얼 → 소리 2지선다 3라운드 → 피드
  *
- * 퀴즈는 **선택이다.** 어느 단계에서든 건너뛰면 칩 목록으로 빠진다. 그래서 문항을 늘려도
- * 이탈 위험이 안 커진다. 퀴즈를 마치면 추천 장르가 미리 골라진 채로 칩 목록에 돌아오고,
- * 잠그지는 않는다 — 추천이지 결정이 아니다.
+ * **장르를 한 번도 묻지 않는다.** 장르 이름으로 자기 취향을 말할 수 있는 사람은 많지 않고,
+ * 물어봐야 나오는 건 `user_genres` 몇 행뿐인데 서버는 그걸 더 이상 읽지 않는다.
+ * 라운드에서 고른 곡은 그대로 하입되어 시드가 되므로 **첫 피드부터** 무드 정렬이 걸린다.
+ *
+ * 후보를 못 받으면(네트워크 실패·서버 미시딩) 라운드 화면이 마지막 장부터 시작해 완료
+ * 버튼만 준다 — 여기서 조용히 완료 처리를 해버리면 그 요청이 실패했을 때 다시 시도할 자리가 없다.
  */
 @Composable
 private fun OnboardingFlow() {
-    var step by rememberSaveable { mutableStateOf(OnboardingStep.TUTORIAL) }
-    var recommended by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showRounds by rememberSaveable { mutableStateOf(false) }
+    var rounds by remember { mutableStateOf<List<Api.OnboardingCandidates.Round>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    // 튜토리얼이 끝났는데 후보가 아직 안 온 상태. 이때는 튜토리얼 마지막 장에 두고 기다린다 —
+    // 빈 라운드 화면을 잠깐 보여주는 것보다 낫다.
+    var waitingForRounds by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
-    // 안 잡으면 앱이 그대로 닫힌다(온보딩 중인 신규 유저다). 튜토리얼이 시작점이라 거기선 안 잡는다.
-    BackHandler(enabled = step != OnboardingStep.TUTORIAL) {
-        step = if (step == OnboardingStep.INTRO) OnboardingStep.TUTORIAL else OnboardingStep.INTRO
+    // 피드 조작을 먼저 익히게 한다. 후보 곡은 그동안 백그라운드로 받는다.
+    LaunchedEffect(Unit) {
+        rounds = fetchRounds()
+        isLoading = false
+        if (waitingForRounds) { waitingForRounds = false; showRounds = true }
     }
 
-    when (step) {
-        OnboardingStep.TUTORIAL -> TutorialScreen(onDone = { step = OnboardingStep.INTRO })
-
-        OnboardingStep.INTRO -> QuizIntroScreen(
-            onTakeQuiz = {
-                // 웹 랜딩(dignify.web.app)이 같은 PostHog 프로젝트에 quiz_*를 보낸다.
-                // 앱 이벤트는 onboarding_ 접두사로 분리해야 두 퍼널이 안 섞인다.
-                Analytics.capture(
-                    "onboarding_quiz_started",
-                    mapOf("source" to quizSource(isSettings = false)),
-                )
-                step = OnboardingStep.QUIZ
-            },
-            onSkip = { step = OnboardingStep.GENRES },
-        )
-
-        // 칩 목록엔 테스트 링크가 없다(iOS chipsView와 동일) — 권유는 앞 화면이 이미 했다.
-        OnboardingStep.GENRES -> GenreSelectionScreen(recommended = recommended)
-
-        // 결과 화면이 장르 저장까지 끝낸다. 세션 상태가 바뀌면 이 화면 자체가 사라지므로
-        // onFinished에서 따로 할 일이 없다.
-        OnboardingStep.QUIZ -> TasteQuizScreen(
-            onSkip = { step = OnboardingStep.GENRES },
-            onFinished = {},
-            onEditManually = { genres ->
-                recommended = genres
-                step = OnboardingStep.GENRES
-            },
-        )
+    if (showRounds) {
+        SoundRoundsScreen(rounds = rounds) {
+            Session.api.completeOnboarding()
+            // 업데이트 유저용 1회 트리거가 이 유저에게 또 걸리지 않게 같이 내린다.
+            // 방금 가입한 유저에게 What's New를 안 띄우는 판정도 여기서 남긴다.
+            context.getSharedPreferences("dignify", android.content.Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_DID_ROUNDS, true)
+                .putBoolean(KEY_DID_JUST_ONBOARD, true)
+                .apply()
+            Session.onOnboardingComplete()
+        }
+    } else {
+        TutorialScreen(onDone = {
+            if (isLoading) waitingForRounds = true else showRounds = true
+        })
     }
 }
 
-private enum class OnboardingStep { TUTORIAL, INTRO, GENRES, QUIZ }
+/** 소리 2지선다를 한 번이라도 태웠는지. 신규 가입·업데이트 유저가 같은 키를 쓴다. */
+private const val KEY_DID_ROUNDS = "didSoundRounds"
+
+/** 방금 가입한 유저 표식. What's New 오발동만 막는 용도라 소비 후 지운다. */
+private const val KEY_DID_JUST_ONBOARD = "didJustOnboard"
 
 /** iOS `AppTab` 대응. */
 private enum class AppTab { FEED, PICKS, MY }
@@ -231,6 +228,8 @@ private fun MainTabs() {
     var myRoute by rememberSaveable { mutableStateOf(MyRoute.ROOT) }
     // 재생 중인 픽. 탭 밖에 둬야 다른 탭 갔다 와도 보던 픽이 유지된다.
     var playingPick by remember { mutableStateOf<Api.Pick?>(null) }
+    // 라운드를 닫은 뒤에 이어서 띄울 What's New 버전.
+    var pendingWhatsNew by remember { mutableStateOf<String?>(null) }
 
     // 탭바가 실제로 가리는 높이 = 내용 높이 + 시스템 내비게이션 바.
     // 이걸 안 더하면 화면들이 제스처 바 높이만큼 탭바 아래로 파고든다
@@ -242,45 +241,87 @@ private fun MainTabs() {
     // 업데이트로 들어온 유저에게만 새 소식을 띄운다. 신규 설치는 튜토리얼 대상이라 제외.
     val context = LocalContext.current
     var autoWhatsNew by remember { mutableStateOf<String?>(null) }
+    // 업데이트 유저에게 한 번 태우는 라운드. 후보를 실제로 받은 뒤에 세팅한다 —
+    // **플래그로 열면 안 된다.** 후보가 채워지기 전 값이 화면에 잡혀 3라운드를 받고도
+    // 빈 화면이 뜬다(iOS가 실제로 밟은 함정).
+    var updateRounds by remember { mutableStateOf<List<Api.OnboardingCandidates.Round>?>(null) }
+
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences("dignify", android.content.Context.MODE_PRIVATE)
         val lastSeen = prefs.getString("lastSeenVersion", "").orEmpty()
         val current = BuildConfig.VERSION_NAME
-        if (Changelog.shouldShow(lastSeen, current, isReturningUser = Session.state == AuthState.SIGNED_IN)) {
+        // 기존 로그인 유저가 업데이트로 들어온 경우 = 온보딩을 안 거쳤고 로그인 상태다.
+        val didJustOnboard = prefs.getBoolean(KEY_DID_JUST_ONBOARD, false)
+        val isReturning = !didJustOnboard && Session.state == AuthState.SIGNED_IN
+        val wantsWhatsNew = Changelog.shouldShow(lastSeen, current, isReturningUser = isReturning)
+
+        // 업데이트로 들어온 기존 유저는 한 번은 라운드를 탄다. **하입 수로 가르지 않는다** —
+        // 시드가 밀렸으면 마이페이지 → 추천 기준 곡에서 되돌리면 되고, 라운드를 건너뛰면
+        // 하입이 많은 유저일수록 이번 릴리즈에서 무엇이 바뀌었는지 겪어볼 자리가 없어진다.
+        val rounds = if (isReturning && !prefs.getBoolean(KEY_DID_ROUNDS, false)) {
+            // 후보가 없으면(서버 미시딩) 아예 안 띄우고 **플래그도 안 태운다** — 시딩된 뒤에
+            // 이 유저가 영영 라운드를 못 보면 안 된다.
+            fetchRounds().takeIf { it.isNotEmpty() }
+        } else null
+
+        if (rounds != null) {
+            // 라운드가 What's New를 삼키면 안 된다. 닫힐 때 이어 붙인다 — 1.1.0은 장르 설정이
+            // 사라진 게 핵심이라, 라운드만 보고 넘어가면 왜 없어졌는지 모른 채 피드로 간다.
+            pendingWhatsNew = if (wantsWhatsNew) current else null
+            updateRounds = rounds
+        } else if (wantsWhatsNew) {
             autoWhatsNew = current
         }
-        prefs.edit().putString("lastSeenVersion", current).apply()
+        prefs.edit().putString("lastSeenVersion", current).remove(KEY_DID_JUST_ONBOARD).apply()
     }
 
     Box(Modifier.fillMaxSize()) {
-        when (tab) {
-            AppTab.FEED -> FeedScreen(bottomInset = barHeight)
-            // 픽 재생은 별도 화면을 만들지 않는다 — 서버가 픽 상세를 피드와 같은 형태로 주므로
-            // 피드 화면에 목록만 갈아끼워 태운다(iOS `FeedMode.pick`과 같은 판단).
-            AppTab.PICKS ->
-                if (playingPick != null) {
-                    PickPlayback(pick = playingPick!!, bottomInset = barHeight) { playingPick = null }
-                } else {
-                    PickListScreen(bottomInset = barHeight, onPlay = { playingPick = it })
-                }
+        // 라운드 커버가 떠 있는 동안엔 탭 지면을 **아예 안 그린다.** 배경만 깐 Column은 터치를
+        // 안 막아서 위에 얹으면 탭바가 그대로 눌리고, 컴포지션에 남은 피드는 계속 소리를 낸다.
+        if (updateRounds == null) {
+            when (tab) {
+                AppTab.FEED -> FeedScreen(bottomInset = barHeight)
+                // 픽 재생은 별도 화면을 만들지 않는다 — 서버가 픽 상세를 피드와 같은 형태로 주므로
+                // 피드 화면에 목록만 갈아끼워 태운다(iOS `FeedMode.pick`과 같은 판단).
+                AppTab.PICKS ->
+                    if (playingPick != null) {
+                        PickPlayback(pick = playingPick!!, bottomInset = barHeight) { playingPick = null }
+                    } else {
+                        PickListScreen(bottomInset = barHeight, onPlay = { playingPick = it })
+                    }
 
-            AppTab.MY -> MyTab(
-                bottomInset = barHeight,
-                route = myRoute,
-                onRoute = { myRoute = it },
-                // 내 픽에서 재생하면 픽 탭으로 넘겨 같은 재생 지면을 쓴다.
-                onPlayPick = { playingPick = it; tab = AppTab.PICKS },
+                AppTab.MY -> MyTab(
+                    bottomInset = barHeight,
+                    route = myRoute,
+                    onRoute = { myRoute = it },
+                    // 내 픽에서 재생하면 픽 탭으로 넘겨 같은 재생 지면을 쓴다.
+                    onPlayPick = { playingPick = it; tab = AppTab.PICKS },
+                )
+            }
+
+            TabBar(
+                current = tab,
+                onSelect = { tab = it },
+                height = barContentHeight,
+                // 피드 위에선 지면이 검으므로 반투명 검정, 마이페이지는 흰 지면이라 불투명.
+                onFeed = tab == AppTab.FEED,
+                modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
 
-        TabBar(
-            current = tab,
-            onSelect = { tab = it },
-            height = barContentHeight,
-            // 피드 위에선 지면이 검으므로 반투명 검정, 마이페이지는 흰 지면이라 불투명.
-            onFeed = tab == AppTab.FEED,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+        // 시트가 아니라 화면 전체다 — 쓸어 닫을 수 있으면 라운드가 중간에 끊긴다.
+        updateRounds?.let { rounds ->
+            SoundRoundsScreen(rounds = rounds, isUpdate = true) { picked ->
+                context.getSharedPreferences("dignify", android.content.Context.MODE_PRIVATE)
+                    .edit().putBoolean(KEY_DID_ROUNDS, true).apply()
+                updateRounds = null
+                // 방금 고른 곡이 시드다. 피드는 이미 불러온 뒤라 다시 받지 않으면
+                // 유저는 라운드를 마치고도 예전 순서를 본다.
+                if (picked > 0) Session.onSeedsChanged()
+                autoWhatsNew = pendingWhatsNew
+                pendingWhatsNew = null
+            }
+        }
 
         autoWhatsNew?.let { version ->
             WhatsNewSheet(highlight = version, onDismiss = { autoWhatsNew = null })
@@ -321,9 +362,6 @@ private fun MyTab(
     // 요약 행이 이미 받아둔 첫 페이지를 목록 화면에 그대로 물려준다(재조회 0).
     var myPicks by remember { mutableStateOf<List<Api.Pick>>(emptyList()) }
     var myPicksCursor by remember { mutableStateOf<String?>(null) }
-    // 퀴즈 재응시 결과. 장르 화면이 이걸 미리 골라둔다.
-    var retakeGenres by remember { mutableStateOf<List<String>>(emptyList()) }
-    val onRetakeGenres: (List<String>) -> Unit = { retakeGenres = it }
     val onMyPicks: (List<Api.Pick>, String?) -> Unit = { l, c -> myPicks = l; myPicksCursor = c }
 
     // 시스템 뒤로가기로도 한 칸 나온다. 화면마다 달지 않고 여기 하나로 두는 이유:
@@ -359,7 +397,7 @@ private fun MyTab(
         when (current) {
             MyRoute.ROOT -> MyPageScreen(
                 onOpenDiggingProfile = { onRoute(MyRoute.DIGGING) },
-                onOpenGenreSettings = { onRoute(MyRoute.GENRES) },
+                onOpenSeedPicker = { onRoute(MyRoute.SEEDS) },
                 onOpenArtistRequests = { onRoute(MyRoute.ARTIST_REQUESTS) },
                 onOpenBlockedUsers = { onRoute(MyRoute.BLOCKED) },
                 onOpenTutorial = { onRoute(MyRoute.TUTORIAL) },
@@ -380,22 +418,7 @@ private fun MyTab(
             )
 
             MyRoute.HYPES -> HypeHistoryScreen(onBack = { onRoute(MyRoute.DIGGING) })
-            MyRoute.GENRES -> GenreSelectionScreen(
-                onDone = { onRoute(MyRoute.ROOT) },
-                recommended = retakeGenres,
-                onTakeQuiz = { onRoute(MyRoute.QUIZ) },
-            )
-
-            // 설정에서 재응시. 결과 화면에서 바로 저장하고, 직접 고르겠다면 추천을 들려 보낸다.
-            MyRoute.QUIZ -> TasteQuizScreen(
-                isSettings = true,
-                onSkip = { onRoute(MyRoute.GENRES) },
-                onFinished = { onRoute(MyRoute.ROOT) },
-                onEditManually = { genres ->
-                    onRetakeGenres(genres)
-                    onRoute(MyRoute.GENRES)
-                },
-            )
+            MyRoute.SEEDS -> SeedPickerScreen(onBack = { onRoute(MyRoute.ROOT) })
             MyRoute.ARTIST_REQUESTS -> ArtistRequestScreen(onBack = { onRoute(MyRoute.ROOT) })
             MyRoute.BLOCKED -> BlockedUsersScreen(onBack = { onRoute(MyRoute.ROOT) })
             MyRoute.TUTORIAL -> TutorialScreen(onDone = { onRoute(MyRoute.ROOT) })
@@ -409,8 +432,8 @@ private fun MyTab(
 /** `depth`는 전환 방향 판정용 — 값이 커지는 쪽이 "더 들어가는" 것이다. */
 enum class MyRoute(val depth: Int) {
     ROOT(0),
-    DIGGING(1), GENRES(1), ARTIST_REQUESTS(1), BLOCKED(1), TUTORIAL(1), WHATS_NEW(1),
-    HYPES(2), MY_PICKS(2), QUIZ(2),
+    DIGGING(1), SEEDS(1), ARTIST_REQUESTS(1), BLOCKED(1), TUTORIAL(1), WHATS_NEW(1),
+    HYPES(2), MY_PICKS(2),
 }
 
 /**
@@ -420,7 +443,6 @@ enum class MyRoute(val depth: Int) {
 private val MyRoute.parent: MyRoute
     get() = when (this) {
         MyRoute.HYPES, MyRoute.MY_PICKS -> MyRoute.DIGGING
-        MyRoute.QUIZ -> MyRoute.GENRES
         else -> MyRoute.ROOT
     }
 

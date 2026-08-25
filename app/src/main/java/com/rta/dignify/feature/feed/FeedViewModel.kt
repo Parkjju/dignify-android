@@ -178,11 +178,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * 장르 변경·로그인처럼 **피드 구성 근거 자체가 달라졌을 때**. 저장된 커서를 버리고 처음부터 받는다.
+     * 성향 토글·기준 곡 변경·로그인처럼 **피드 구성 근거 자체가 달라졌을 때**.
+     * 저장된 커서를 버리고 처음부터 받는다.
      *
-     * 커서를 안 버리면 장르를 바꿔도 새 장르 곡이 안 나온다 — 커서에 phase가 박혀 있어서
-     * (`GENERAL.0.20.<seed>`), 한 번 GENERAL 단계로 넘어간 뒤엔 그 커서로 이어받는 한
-     * 서버가 계속 GENERAL부터 준다. 장르 우선(Phase 1)으로 돌아가려면 cursor=null이어야 한다.
+     * 커서를 안 버리면 아무것도 안 바뀐 것처럼 보인다 — 커서에 시드와 오프셋이 박혀 있어서,
+     * 그걸로 이어받는 한 서버가 옛 기준으로 뽑은 페이지를 계속 준다.
      *
      * 실패 후 `retry()`가 이걸 안 쓰는 건 의도다 — 같은 요청이 실패한 것뿐이라 이어보는 게 맞다.
      */
@@ -300,7 +300,11 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                     response.status.value != 409 && response.status.value != 404
                 ) {
                     setHypeLocally(trackId, !target)
+                    return@launch
                 }
+                // 디깅 프로필 통계는 하입 수에서 파생된다. **서버에 반영된 뒤에** 알린다 —
+                // 낙관적 시점에 알리면 재조회가 변경을 앞질러 옛 숫자를 그대로 받아온다.
+                Session.onHypeChanged()
             } catch (e: Exception) {
                 setHypeLocally(trackId, !target)
             }

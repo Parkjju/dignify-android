@@ -12,17 +12,6 @@ import kotlinx.serialization.Serializable
 object Api {
 
     @Serializable
-    data class Genre(
-        val genreId: Int,
-        val genreName: String,
-        /** 배포 순서 때문에 nullable — 백엔드보다 앱이 먼저 나가도 장르 목록이 안 죽는다. */
-        val genreNameEn: String? = null,
-    )
-
-    @Serializable
-    data class GenresResponse(val genres: List<Genre>)
-
-    @Serializable
     data class FeedItem(
         val trackId: Int,
         val trackName: String,
@@ -35,7 +24,35 @@ object Api {
         val genreName: String? = null,
         /** 집계용. 로케일을 안 타서 Rock/록으로 쪼개지지 않는다. 화면엔 안 쓴다. */
         val genreNameEn: String? = null,
+        /**
+         * 이 카드를 띄운 **내 하입 곡**. 무드로 뽑힌 카드에만 있고 콜드스타트·무작위·검색·
+         * 큐레이션엔 없다(그래서 nullable이 기본값이 아니라 실제 상태다).
+         */
+        val similarTo: SimilarTrack? = null,
     )
+
+    @Serializable
+    data class SimilarTrack(
+        val trackId: Int,
+        val trackName: String,
+        val artistName: String,
+    )
+
+    /**
+     * `GET /onboarding/candidates`. 3라운드 × 2곡. `highTrackId`가 둘 중 어느 쪽이 그 축의
+     * HIGH인지 말해준다 — 없으면 극단 표시만 빠지고 라운드는 그대로 돈다.
+     *
+     * 후보는 전 유저 동일(고정 6곡)이다. 좌우 순서만 서버가 섞는다.
+     */
+    @Serializable
+    data class OnboardingCandidates(val rounds: List<Round> = emptyList()) {
+        @Serializable
+        data class Round(
+            val axis: String = "",
+            val highTrackId: Int? = null,
+            val items: List<FeedItem> = emptyList(),
+        )
+    }
 
     /** 이번 주 큐레이션 세트. setKey는 세트 교체 때만 바뀌는 식별자. */
     @Serializable
@@ -86,6 +103,8 @@ object Api {
         val previewUrl: String,
         /** 하입 시각. 날짜별 섹션 그룹핑은 클라이언트 책임이라 이 값으로 묶는다. */
         val hypedAt: String,
+        /** 추천 기준 곡으로 고정돼 있는지. 배포 순서 때문에 nullable. */
+        val isSeed: Boolean? = null,
     )
 
     /**
@@ -174,11 +193,9 @@ object Api {
     data class UserProfile(
         val nickname: String,
         val isOnboardingComplete: Boolean,
-        val genres: List<ProfileGenre> = emptyList(),
-    ) {
-        @Serializable
-        data class ProfileGenre(val genreId: Int, val genreName: String)
-    }
+        /** 하입 따라가기. 옛 서버는 안 내려주므로 nullable — 그때는 켜진 것으로 본다. */
+        val diggingMode: Boolean? = null,
+    )
 
     /**
      * 피드/검색/픽 상세 공통 응답. nextCursor 없으면 더 받을 게 없다.
@@ -193,7 +210,5 @@ object Api {
         val items: List<FeedItem>,
         val nextCursor: String? = null,
         val hasMore: Boolean? = null,
-        /** 이 페이지가 유저 장르 풀을 소진했는지. 검색 응답엔 없다. */
-        val genreExhausted: Boolean? = null,
     )
 }

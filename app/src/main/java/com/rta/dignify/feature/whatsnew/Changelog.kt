@@ -5,9 +5,13 @@ import com.rta.dignify.R
 /**
  * 릴리즈 노트. iOS `Changelog` 이식.
  *
- * 안드로이드는 iOS와 버전이 따로 가므로 **iOS 노트를 그대로 옮기지 않는다** — 안드로이드에
- * 실제로 나간 것만 적는다. iOS 1.0.9의 내용이 안드로이드 1.0.0에 처음부터 다 들어 있어서,
- * 옮겨 적으면 "새로 생긴 것"이 아니라 "원래 있던 것"을 새 소식이라 말하게 된다.
+ * **1.0.0이 안드로이드의 첫 출시라 로그가 여기서 시작한다.** 그 앞의 빌드는 전부 내부 테스트라
+ * 유저에게는 없던 버전이고, iOS 노트를 옮겨 적으면 "새로 생긴 것"이 아니라 "원래 있던 것"을
+ * 새 소식이라 말하게 된다. 그래서 1.0.0 항목은 변경점이 아니라 **이 앱이 무엇인지**를 적는다
+ * ("이제", "더 이상" 같은 상대 표현이 한 줄도 없는 이유).
+ *
+ * 첫 실행에 이게 뜨면 안 된다 — 갓 깐 사람에게 "새 소식"은 뜻이 없다. 막는 건
+ * [shouldShow]의 `isReturningUser` 하나뿐이니 그 판정을 건드릴 땐 이 문단을 같이 본다.
  */
 data class Release(val version: String, val notes: List<Int>)
 
@@ -15,18 +19,9 @@ object Changelog {
     // 최신이 위. WhatsNewSheet가 이 순서 그대로 그린다.
     val releases: List<Release> = listOf(
         Release(
-            version = "1.0.1",
-            notes = listOf(
-                R.string.whatsnew_101_session,
-                R.string.whatsnew_101_curation,
-                R.string.whatsnew_101_feedplace,
-                R.string.whatsnew_101_pullrefresh,
-                R.string.whatsnew_101_android16,
-            ),
-        ),
-        Release(
             version = "1.0.0",
             notes = listOf(
+                R.string.whatsnew_100_hypefeed,
                 R.string.whatsnew_100_feed,
                 R.string.whatsnew_100_picks,
                 R.string.whatsnew_100_profile,

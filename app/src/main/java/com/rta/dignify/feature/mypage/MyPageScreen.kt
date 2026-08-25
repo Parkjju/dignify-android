@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +58,11 @@ import com.rta.dignify.core.designsystem.DSTypography
 import com.rta.dignify.core.model.DiggingStats
 import com.rta.dignify.core.model.DiggingType
 import com.rta.dignify.feature.digging.displayName
+import com.rta.dignify.feature.onboarding.CoachAnchor
+import com.rta.dignify.feature.onboarding.CoachOverlay
+import com.rta.dignify.feature.onboarding.CoachSeen
+import com.rta.dignify.feature.onboarding.MyPageCoach
+import com.rta.dignify.feature.onboarding.coachAnchor
 import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,7 +77,7 @@ import java.util.Locale
 @Composable
 fun MyPageScreen(
     onOpenDiggingProfile: () -> Unit,
-    onOpenGenreSettings: () -> Unit,
+    onOpenSeedPicker: () -> Unit,
     onOpenArtistRequests: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
     onOpenTutorial: () -> Unit,
@@ -82,14 +89,27 @@ fun MyPageScreen(
     var nickname by remember { mutableStateOf("") }
     var confirmedType by remember { mutableStateOf<DiggingType?>(null) }
     var showWithdraw by remember { mutableStateOf(false) }
+    var diggingModeFailed by remember { mutableStateOf(false) }
+    // 프로필을 받아 스위치가 실제 값으로 그려진 뒤에 코치마크를 띄운다 — 그전엔 기본값(켜짐)
+    // 이라 실제와 다른 화면을 설명하게 된다.
+    var profileLoaded by remember { mutableStateOf(false) }
+    var seenCoach by remember { mutableStateOf(CoachSeen.get(context, CoachSeen.MY_PAGE)) }
 
     LaunchedEffect(Unit) {
         // 배지는 실패해도 화면이 성립하므로 각각 따로 삼킨다.
-        runCatching { Session.api.myProfile() }.onSuccess { nickname = it.nickname }
+        runCatching { Session.refreshProfile() }.onSuccess { nickname = it.nickname }
+        profileLoaded = true
         runCatching { Session.api.myStats("all") }
             .onSuccess { confirmedType = DiggingStats.from(it).type }
     }
 
+    // 피드를 실제로 바꾸는 설정 둘을 한 번만 짚어 준다.
+    CoachOverlay(
+        steps = MyPageCoach.steps,
+        screen = "mypage",
+        active = !seenCoach && profileLoaded,
+        onFinish = { CoachSeen.mark(context, CoachSeen.MY_PAGE); seenCoach = true },
+    ) {
     Column(
         Modifier
             .fillMaxSize()
@@ -119,7 +139,23 @@ fun MyPageScreen(
         GroupDivider()
 
         // 1. 기능 — 실제로 무언가를 바꾸는 행들.
-        SettingsRow(stringResource(R.string.mypage_genre_settings), onClick = onOpenGenreSettings)
+        // 이 화면에서 유일하게 피드 자체를 바꾸는 설정이라 묶음 맨 위에 둔다.
+        DiggingModeRow(
+            failed = diggingModeFailed,
+            onChange = { enabled ->
+                diggingModeFailed = false
+                // 되돌리기와 피드 재요청은 Session이 한다 — 피드 안 버튼과 같은 경로여야
+                // 어느 쪽으로 껐든 결과가 같다.
+                scope.launch { diggingModeFailed = !Session.setDiggingMode(enabled, "mypage") }
+            },
+        )
+        // 껐을 때도 보여준다. 숨기면 기능이 사라진 것처럼 보이는데, 실제로는 다시 켜면
+        // 그대로 쓰이는 설정이다. 꺼진 동안 무슨 뜻인지는 그 화면이 설명한다.
+        SettingsRow(
+            stringResource(R.string.seed_picker_title),
+            modifier = Modifier.coachAnchor(CoachAnchor.SEED_ROW),
+            onClick = onOpenSeedPicker,
+        )
         SettingsRow(stringResource(R.string.artist_requests), onClick = onOpenArtistRequests)
         // 차단은 로컬 저장이라 해제 경로가 여기밖에 없다.
         SettingsRow(stringResource(R.string.blocked_users), onClick = onOpenBlockedUsers)
@@ -151,6 +187,7 @@ fun MyPageScreen(
             color = DSColor.border,
             modifier = Modifier.padding(vertical = 24.dp),
         )
+    }
     }
 
     if (showWithdraw) {
@@ -306,10 +343,59 @@ private fun DiggingProfileEntry(type: DiggingType?, onClick: () -> Unit) {
     }
 }
 
+/**
+ * 하입 따라가기 스위치. 토글 하나로는 무엇이 켜지는지 알 수 없어서 한 줄 설명을 붙인다.
+ * 낙관적 반영·롤백은 `Session.setDiggingMode`가 한다 — 스위치가 손가락을 안 따라오면 고장으로 읽힌다.
+ */
 @Composable
-private fun SettingsRow(label: String, destructive: Boolean = false, onClick: () -> Unit) {
-    Row(
+private fun DiggingModeRow(failed: Boolean, onChange: (Boolean) -> Unit) {
+    Column(
         Modifier
+            .fillMaxWidth()
+            .coachAnchor(CoachAnchor.FOLLOW_SWITCH)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.follow_my_hypes),
+                fontSize = 15.sp,
+                color = DSColor.textPrimary,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(
+                checked = Session.diggingMode,
+                onCheckedChange = onChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = androidx.compose.ui.graphics.Color.White,
+                    checkedTrackColor = DSColor.brand,
+                ),
+            )
+        }
+        Text(
+            stringResource(R.string.follow_my_hypes_note),
+            style = DSTypography.caption,
+            color = DSColor.textTertiary,
+        )
+        if (failed) {
+            Text(
+                stringResource(R.string.save_failed),
+                style = DSTypography.caption,
+                color = DSColor.destructive,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsRow(
+    label: String,
+    destructive: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp)

@@ -134,9 +134,9 @@ fun MyPicksSection(onSeeAll: (List<Api.Pick>, String?) -> Unit) {
 /**
  * 내가 만든 픽 전체. iOS `MyPicksView` 이식.
  *
- * **할 수 있는 건 조회와 삭제 두 개뿐이다.** 곡 구성 수정은 삭제 후 재게시고(반응이 붙은 픽의
- * 곡이 사후에 바뀌면 그 반응이 무엇에 대한 것이었는지가 무너진다), 제목 수정 진입점은
- * 픽 탭의 `···` 한 곳에만 둔다 — 같은 동작을 두 화면에 깔면 롤백을 두 벌 관리하게 된다.
+ * **할 수 있는 건 조회·제목 수정·삭제다.** 곡 구성 수정은 삭제 후 재게시다 — 반응이 붙은
+ * 픽의 곡이 사후에 바뀌면 그 반응이 무엇에 대한 것이었는지가 무너진다. 제목 수정은 픽 탭과
+ * 이 화면 둘 다에서 되지만 낙관적 갱신과 롤백은 `PickTitle.rename` 한 벌이다.
  *
  * 첫 페이지는 요약 행이 이미 받아뒀으므로 여기서 다시 안 부른다(이어받기만).
  */
@@ -152,6 +152,8 @@ fun MyPicksScreen(
     var cursor by remember { mutableStateOf(initialCursor) }
     var isPaging by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<Api.Pick?>(null) }
+    var menuTarget by remember { mutableStateOf<Api.Pick?>(null) }
+    var renameTarget by remember { mutableStateOf<Api.Pick?>(null) }
 
     PickCardList(
         title = stringResource(R.string.your_picks),
@@ -170,8 +172,8 @@ fun MyPicksScreen(
         },
         // 내 픽에 내가 반응하는 자리가 아니다. 숫자는 보여주되 버튼은 아니다.
         onReact = null,
-        // `···`엔 삭제만. 신고·차단은 자기 픽에 뜻이 없다.
-        onMenu = { deleteTarget = it },
+        // 픽 탭과 같은 시트다. 내 픽이므로 신고·차단은 안 뜨고 이름 바꾸기·삭제만 남는다.
+        onMenu = { menuTarget = it },
         onReachEnd = {
             val c = cursor
             if (c != null && !isPaging) {
@@ -185,6 +187,26 @@ fun MyPicksScreen(
             }
         },
     )
+
+    menuTarget?.let { pick ->
+        PickMenuSheet(
+            pick = pick,
+            onDismiss = { menuTarget = null },
+            onDelete = { menuTarget = null; deleteTarget = pick },
+            onRename = { menuTarget = null; renameTarget = pick },
+        )
+    }
+
+    renameTarget?.let { pick ->
+        PickRenameDialog(
+            pick = pick,
+            onDismiss = { renameTarget = null },
+            onSubmit = { title ->
+                renameTarget = null
+                scope.launch { PickTitle.rename(pick, title, picks) { picks = it } }
+            },
+        )
+    }
 
     // 액션시트가 아니라 알럿이다 — 되돌릴 수 없는 동작은 화면 가운데서 한 번 막아야
     // 손가락이 지나가는 자리에서 끝나지 않는다.

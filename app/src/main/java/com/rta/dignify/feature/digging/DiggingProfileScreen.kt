@@ -135,6 +135,9 @@ fun DiggingProfileScreen(
     var hypesLoading by remember { mutableStateOf(true) }
     var hypesFailed by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
+    // 크레이트 편집 모드. 프로필은 세 섹션이 한 스크롤에 이어 붙어 있어서 편집 버튼을
+    // 상단바에 두면 어느 섹션을 편집하는지 알 수 없다. 그래서 섹션 헤더에 둔다.
+    var isEditingCrate by remember { mutableStateOf(false) }
 
     LaunchedEffect(range) {
         // range를 바꾸면 먼저 비운다 — 이전 숫자가 새 라벨 아래 잠깐이라도 남으면 안 된다.
@@ -181,6 +184,16 @@ fun DiggingProfileScreen(
     }
 
     LaunchedEffect(Unit) { loadHypes() }
+
+    // 통계는 하입 수에서 나온다. 담은 곡에서 한 곡 빼면 여기 숫자·순위가 그 즉시 틀린 값이
+    // 되는데, range가 그대로면 위 LaunchedEffect가 다시 안 돈다.
+    //
+    // `stats`를 비우지 않는 게 중요하다 — 곡 하나 지울 때마다 통계 블록이 스피너로 바뀌면
+    // 정작 무엇이 어떻게 줄었는지를 못 본다. 실패하면 화면에 있는 값을 그대로 둔다.
+    LaunchedEffect(Session.hypeChangeTick) {
+        if (Session.hypeChangeTick == 0) return@LaunchedEffect
+        runCatching { Session.api.myStats(range) }.onSuccess { stats = DiggingStats.from(it) }
+    }
 
     if (sharing) {
         val s3 = stats
@@ -267,6 +280,8 @@ fun DiggingProfileScreen(
                 ),
                 onSeeAll = onSeeAllHypes,
                 onReloadNeeded = { loadHypes() },
+                isEditing = isEditingCrate,
+                onEditingChange = { isEditingCrate = it },
             )
 
             // iOS와 같이 **맨 아래**. 통계 → 만든 픽 → 담은 곡을 다 본 뒤가 공유를 권할 자리다.
@@ -426,9 +441,9 @@ private fun Hero(s: DiggingStats) {
                 color = Color.White,
                 textAlign = TextAlign.Center,
             )
-            // iOS는 "예상 유형"(온보딩 취향 퀴즈 결과)이 있을 때만 남은 개수를 안내하고,
-            // 없으면 고정 문구를 쓴다. 안드로이드엔 아직 퀴즈가 없어 항상 고정 문구다 —
-            // 퀴즈가 붙으면 여기에 "Dig %d more..." 분기를 되살린다.
+            // 예상 유형이 있을 때만 남은 개수를 안내하고, 없으면 고정 문구를 쓴다.
+            // 1.1.0에서 취향 퀴즈가 소리 2지선다로 바뀌면서 예상 유형을 새로 쓰는 경로는
+            // 없어졌다 — 이 분기는 퀴즈를 이미 본 유저의 저장값만 받는다.
             Text(
                 stringResource(R.string.type_locked_message),
                 fontSize = 13.sp,
@@ -595,17 +610,37 @@ private fun CrateSection(
     hasMore: Boolean,
     onSeeAll: () -> Unit,
     onReloadNeeded: suspend () -> Unit,
+    isEditing: Boolean,
+    onEditingChange: (Boolean) -> Unit,
 ) {
+    // 마지막 한 곡까지 지우면 편집 모드가 빈 섹션에 남는다.
+    // 컴포지션 중에 바로 끄면 상태 쓰기가 재구성 안에서 일어난다 — 효과로 미룬다.
+    LaunchedEffect(hypes.isEmpty()) { if (hypes.isEmpty()) onEditingChange(false) }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // 통계 → 담은 곡이 한 스크롤에 이어 붙어 어디까지가 뭔지 안 읽혔다.
         // 각 섹션이 자기 위의 구분선을 갖는다.
         HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = DSColor.borderLight)
-        Text(
-            stringResource(R.string.your_crate),
-            style = DSTypography.title2,
-            color = DSColor.textPrimary,
-            modifier = Modifier.padding(horizontal = 20.dp),
-        )
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.your_crate),
+                style = DSTypography.title2,
+                color = DSColor.textPrimary,
+            )
+            Spacer(Modifier.weight(1f))
+            // 담은 곡이 없으면 편집할 것도 없다.
+            if (hypes.isNotEmpty()) {
+                Text(
+                    stringResource(if (isEditing) R.string.done else R.string.edit),
+                    style = DSTypography.bodyMedium,
+                    color = DSColor.brand,
+                    modifier = Modifier.clickable { onEditingChange(!isEditing) },
+                )
+            }
+        }
         when {
             loading && hypes.isEmpty() -> Box(
                 Modifier.fillMaxWidth().padding(vertical = 24.dp),
@@ -627,7 +662,10 @@ private fun CrateSection(
                     maxGroups = PREVIEW_DAY_LIMIT,
                     perDayLimit = PER_DAY_PREVIEW_LIMIT,
                     onReloadNeeded = onReloadNeeded,
-                    onSeeAll = if (hasMore) onSeeAll else null,
+                    // 편집 중에는 See all을 막는다. 당겨서 넘어가는 제스처가 살아 있으면
+                    // 지우려던 손짓이 화면 이동으로 끝난다.
+                    onSeeAll = if (hasMore && !isEditing) onSeeAll else null,
+                    isEditing = isEditing,
                 )
                 if (hasMore) {
                     Row(

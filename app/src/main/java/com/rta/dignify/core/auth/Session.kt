@@ -5,10 +5,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.rta.dignify.core.analytics.Analytics
+import com.rta.dignify.core.network.Api
 import com.rta.dignify.core.network.ApiClient
 import com.rta.dignify.core.network.PrefsTokenStore
 import com.rta.dignify.feature.onboarding.OnboardingMock
 import com.rta.dignify.feature.push.Push
+import kotlinx.coroutines.MainScope
 
 enum class AuthState {
     UNKNOWN,
@@ -41,6 +43,12 @@ object Session {
     lateinit var api: ApiClient
         private set
 
+    /**
+     * 화면이 사라져도 끝나야 하는 요청용. 라운드에서 고른 곡의 하입이 여기로 간다 —
+     * 화면 스코프로 쏘면 마지막 라운드의 하입이 "디깅 시작"과 함께 취소돼 시드가 하나 사라진다.
+     */
+    val appScope = MainScope()
+
     /** 푸시 서비스처럼 앱 밖에서 깨어난 진입점이 `api`를 만져도 되는지 묻는 자리. */
     val isInitialized: Boolean get() = ::api.isInitialized
 
@@ -50,6 +58,25 @@ object Session {
      */
     var nickname by mutableStateOf("")
         private set
+
+    /**
+     * 하입 따라가기. 마이페이지 스위치와 피드 상단 버튼이 **같은 값을 본다** — 두 곳에 각자
+     * 상태를 두면 한쪽에서 끄고 다른 쪽에 가면 켜진 것으로 보인다. `/users/me`가 채운다.
+     */
+    var diggingMode by mutableStateOf(true)
+        private set
+
+    /**
+     * 하입이 **서버에 반영된 뒤에** 오른다. 하입 수에서 파생된 화면(디깅 프로필 통계)이
+     * 이걸 보고 숫자를 다시 받는다. 낙관적 갱신 시점에 올리면 삭제가 도착하기 전에 통계를
+     * 다시 받아 옛 숫자가 그대로 돌아온다.
+     */
+    var hypeChangeTick by mutableStateOf(0)
+        private set
+
+    fun onHypeChanged() {
+        hypeChangeTick++
+    }
 
     fun init(context: Context) {
         if (::api.isInitialized) return
@@ -109,6 +136,7 @@ object Session {
     suspend fun logout() {
         api.logout()
         nickname = ""
+        diggingMode = true
         state = AuthState.SIGNED_OUT
         feedReloadTick++
     }
@@ -120,7 +148,38 @@ object Session {
         feedReloadTick++
     }
 
-    /** 온보딩(장르 선택) 완료 후 호출. 피드를 새 장르로 다시 받게 한다. */
+    /**
+     * 하입 따라가기를 바꾸고 피드를 처음부터 다시 받게 한다. 정렬 기준 자체가 바뀌어서
+     * 들고 있던 커서를 이어 쓸 수 없다 — 그 커서로 이어 보면 옛 기준으로 뽑힌 페이지가
+     * 계속 나와서 스위치가 아무 일도 안 한 것처럼 보인다.
+     *
+     * **낙관적으로 먼저 바꾸고 실패하면 되돌린다.** 스위치가 손가락을 안 따라오면 고장으로 읽힌다.
+     *
+     * @return 저장에 성공했으면 true. 부르는 쪽이 실패 문구를 띄운다.
+     */
+    suspend fun setDiggingMode(enabled: Boolean, source: String): Boolean {
+        val previous = diggingMode
+        diggingMode = enabled
+        return runCatching { api.setDiggingMode(enabled) }
+            .onSuccess {
+                feedReloadTick++
+                // 서버에 반영된 뒤에만 센다. 낙관적 갱신 시점에 쏘면 실패해 되돌아간 토글까지
+                // 켠 것으로 잡혀 "끈 사람 수"가 부풀려진다.
+                Analytics.capture(
+                    "digging_mode_changed",
+                    mapOf("enabled" to enabled, "source" to source),
+                )
+            }
+            .onFailure { diggingMode = previous }
+            .isSuccess
+    }
+
+    /** 기준 곡이 바뀌었을 때. 성향 토글과 같은 이유로 커서를 버리고 처음부터 받는다. */
+    fun onSeedsChanged() {
+        feedReloadTick++
+    }
+
+    /** 온보딩 완료 후 호출. 하입한 곡을 시드로 피드를 다시 받게 한다. */
     fun onOnboardingComplete() {
         // 강제로 띄운 온보딩이었으면 여기서 푼다 — 안 풀면 완료를 눌러도 되돌아온다.
         OnboardingMock.stop()
@@ -128,14 +187,20 @@ object Session {
         feedReloadTick++
     }
 
-    /** 설정에서 장르만 바꿨을 때. 상태는 그대로고 피드만 다시 받으면 된다. */
-    fun onGenresChanged() {
-        feedReloadTick++
+    /**
+     * 닉네임·성향을 서버 값으로 맞춘다. **로그인 단계는 안 건드린다** — 마이페이지가 다시
+     * 들어올 때마다 부르는 자리라, 여기서 상태까지 옮기면 화면이 통째로 갈릴 수 있다.
+     */
+    suspend fun refreshProfile(): Api.UserProfile {
+        val profile = api.myProfile()
+        nickname = profile.nickname
+        // 옛 서버는 이 필드를 안 내려준다. 그때는 지금 동작(켜짐)을 유지한다.
+        diggingMode = profile.diggingMode ?: true
+        return profile
     }
 
     private suspend fun refreshAuthState() {
-        val profile = api.myProfile()
-        nickname = profile.nickname
+        val profile = refreshProfile()
         state = if (profile.isOnboardingComplete) AuthState.SIGNED_IN else AuthState.ONBOARDING_REQUIRED
         // 로그인이 확정된 뒤에 등록한다 — 토큰에 붙일 유저를 서버가 알아야 한다.
         // 앱 시작·로그인 양쪽이 여기를 지나므로 이 한 줄이면 두 경우가 다 걸린다.

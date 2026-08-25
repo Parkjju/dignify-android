@@ -18,16 +18,20 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -132,6 +136,44 @@ fun DSGenreChip(
 }
 
 /**
+ * 화면 하단 확정 버튼. iOS `DSPrimaryButtonStyle` 자리 — 온보딩·라운드·추천 기준 곡이
+ * 같은 모양을 쓴다. Material3 `Button`을 안 쓰는 이유는 지면 색이 우리 브랜드 색 하나뿐이라
+ * 테마를 통째로 들여올 이유가 없어서다.
+ */
+@Composable
+fun PrimaryButton(
+    label: String,
+    enabled: Boolean = true,
+    busy: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(DSRadius.medium))
+            .background(if (enabled) DSColor.brand else DSColor.borderLight)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) {
+            CircularProgressIndicator(
+                strokeWidth = 2.dp,
+                color = Color.White,
+                modifier = Modifier.size(20.dp),
+            )
+        } else {
+            Text(
+                label,
+                style = DSTypography.headline,
+                color = if (enabled) Color.White else DSColor.textTertiary,
+            )
+        }
+    }
+}
+
+/**
  * 뒤로가기 + 제목만 있는 상단바와 스크롤 지면. iOS의 `navigationTitle` + `NavigationStack`
  * 조합에 해당하는 자리다 — 내비게이션 라이브러리를 안 쓰므로 이 껍데기만 공유한다.
  */
@@ -139,6 +181,8 @@ fun DSGenreChip(
 fun ScreenScaffold(
     title: String,
     onBack: () -> Unit,
+    /** 상단바 오른쪽 끝(편집·저장). 없으면 자리를 차지하지 않는다. */
+    trailing: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     Column(
@@ -156,6 +200,8 @@ fun ScreenScaffold(
                 )
             }
             Text(title, style = DSTypography.title2, color = DSColor.textPrimary)
+            Spacer(Modifier.weight(1f))
+            trailing()
         }
         Column(Modifier.verticalScroll(rememberScrollState())) { content() }
     }

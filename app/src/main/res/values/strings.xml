@@ -53,10 +53,7 @@
     <string name="signin_browse">Browse without signing in</string>
     <string name="signin_failed">Sign-in failed. Please try again.</string>
 
-    <string name="onboarding_title">What music do you like?</string>
-    <string name="onboarding_subtitle">Pick up to %1$d</string>
-    <string name="onboarding_continue">Done</string>
-    <string name="genres_save_failed">Couldn\'t save. Please try again.</string>
+    <string name="save_failed">Couldn\'t save. Please try again.</string>
 
     <string name="tab_feed">Feed</string>
     <string name="tab_my">My</string>
@@ -65,7 +62,6 @@
     <string name="guest_prompt_message">Sign in to hype tracks, personalize your feed, and build your crate.</string>
 
     <string name="mypage_title">My Page</string>
-    <string name="mypage_genre_settings">Genre Settings</string>
     <string name="mypage_instagram">dignify on Instagram</string>
     <string name="mypage_terms">Terms of Service</string>
     <string name="mypage_privacy">Privacy Policy</string>
@@ -179,15 +175,11 @@
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
     <string name="whatsnew_got_it">Got it</string>
+    <string name="whatsnew_100_hypefeed">The feed follows the tracks you hype: same sound, same mood.</string>
     <string name="whatsnew_100_feed">Swipe through tracks and hype the ones you like.</string>
     <string name="whatsnew_100_picks">Picks: put a few tracks together and send them out.</string>
     <string name="whatsnew_100_profile">Digging Profile: your taste, typed.</string>
     <string name="whatsnew_100_share">Share a track, a pick, or your taste as a card.</string>
-    <string name="whatsnew_101_session">Fixed getting signed out about an hour after opening the app.</string>
-    <string name="whatsnew_101_curation">Fixed this week\'s set disappearing once you ran a search.</string>
-    <string name="whatsnew_101_feedplace">The feed keeps your place when you switch tabs and come back.</string>
-    <string name="whatsnew_101_pullrefresh">Pull down on Picks to refresh the list.</string>
-    <string name="whatsnew_101_android16">Ready for Android 16.</string>
 
     <string name="tutorial_skip">Skip</string>
     <string name="tutorial_next">Next</string>
@@ -252,29 +244,6 @@
     <string name="quiz_a_samelane">Same lane the whole way</string>
     <string name="quiz_a_allover">All over the place</string>
 
-    <string name="quiz_start">Take the taste test</string>
-    <string name="quiz_skip">Pick genres myself</string>
-    <string name="quiz_apply">Start digging</string>
-    <string name="quiz_skip_to_genres">Skip and pick genres</string>
-    <string name="genres_selected">%1$s selected</string>
-    <string name="quiz_intro_title">Not sure what to pick?</string>
-    <string name="quiz_intro_body">Answer a few quick questions and we\'ll figure out your type — and which genres to start you on.</string>
-
-    <string name="genre_hiphop">Beats and rhymes. The words are doing the work.</string>
-    <string name="genre_rock">Guitars, drums, and volume. Loud or moody, take your pick.</string>
-    <string name="genre_pop">Big choruses built to stick after one listen.</string>
-    <string name="genre_jazz">Improvised on the spot — the same song is never quite the same twice.</string>
-    <string name="genre_dance">Made for a floor. Steady kick, no reason to stop moving.</string>
-    <string name="genre_country">Someone telling you a story, guitar in hand.</string>
-    <string name="genre_rnb">Smooth grooves and voices that carry the whole thing.</string>
-    <string name="genre_electronic">Built from synths and machines. Often no vocals at all.</string>
-    <string name="genre_kpop">Packed with hooks, switches lanes mid-song, made to be watched too.</string>
-    <string name="genre_latin">Percussion you feel before you hear. Reggaetón, salsa, and everything nearby.</string>
-    <string name="genre_ccm">Worship songs with pop production — written for a room singing along.</string>
-    <string name="genre_alternative">Rock that ducks the mainstream. Not big on following the rules.</string>
-    <string name="genre_bass">The low end is the whole point. Best where the speakers can take it.</string>
-    <string name="genre_dubstep">Everything builds toward the moment the bass drops.</string>
-
     <string name="likely_your_type">LIKELY YOUR TYPE</string>
     <string name="type_locked_remaining">Dig %1$d more and hype %2$d to lock it in.</string>
 
@@ -291,8 +260,6 @@
 
     <string name="report_detail_hint">Tell us what\'s wrong</string>
 
-    <string name="quiz_retake">Retake the taste test</string>
-
     <string name="trait_curator_1">You\'ll try anything once</string>
     <string name="trait_curator_2">Almost nothing makes the cut</string>
     <string name="trait_curator_3">Your saves are a short, sharp list</string>
@@ -306,14 +273,76 @@
     <string name="trait_loyalist_2">You keep what you like, no gatekeeping</string>
     <string name="trait_loyalist_3">Same artists on repeat, happily</string>
 
-    <string name="quiz_likely_type">Your likely type</string>
-    <string name="quiz_confirm_later">We\'ll confirm this once you\'ve actually dug around a bit.</string>
-    <string name="quiz_genre_title">Sounds like your kind of thing</string>
-    <string name="quiz_genre_subtitle">Uncheck anything that\'s off.</string>
-    <string name="quiz_genres_failed">Couldn\'t load genres — pick them yourself on the next screen.</string>
-    <string name="quiz_choose_genres">Choose your genres</string>
-    <string name="genre_show_guide">Show guide</string>
-    <string name="genre_hide_guide">Hide guide</string>
+    <!-- 1.1.0 — 피드가 하입을 따라간다 -->
+    <string name="feels_like">Feels like %1$s</string>
+    <string name="feed_mode_following">Following your hypes</string>
+    <string name="feed_mode_random">Random</string>
+    <string name="follow_my_hypes">Follow my hypes</string>
+    <string name="follow_my_hypes_note">On, the feed plays tracks that sound like the ones you hyped. Off, it plays anything.</string>
+    <string name="save">Save</string>
+    <string name="edit">Edit</string>
+    <string name="done">Done</string>
 
-    <string name="genre_apply">Use these genres</string>
+    <!-- 추천 기준 곡 -->
+    <string name="seed_picker_title">Recommend from</string>
+    <string name="seed_picker_header">Pick up to %1$d tracks. The feed then follows only these.</string>
+    <string name="seed_picker_default">Pick none and the feed follows your %1$d most recent hypes, same as before.</string>
+    <string name="seed_picker_mode_off">Turn on \"Follow my hypes\" for these to take effect.</string>
+
+    <!-- 담은 곡 편집 -->
+    <string name="remove_track_title">Remove this track?</string>
+    <string name="remove_track_message">You can hype it again anytime.</string>
+    <string name="pick_rename">Edit title</string>
+
+    <!-- 소리 2지선다 -->
+    <string name="rounds_intro_title">What sounds good to you?</string>
+    <string name="rounds_intro_update">Your feed follows the tracks you hype now. Let\'s set the first direction together.</string>
+    <string name="rounds_intro_body">Rather than ask, we\'ll just play. Two clips at a time — pick the one you\'d rather keep listening to. There\'s no right answer, and whatever you pick gets hyped.</string>
+    <string name="rounds_intro_why">Asked in words, taste turns into genre names. Sound is the more honest question.</string>
+    <string name="rounds_intro_length">Three rounds and you\'re done. Neither one? Skip it.</string>
+    <string name="rounds_tap_hint">Tap a card to hear it, then hit Next.</string>
+    <string name="rounds_q_default">Which one pulls you in?</string>
+    <string name="rounds_q_arousal">Which energy pulls you in?</string>
+    <string name="rounds_q_lofi">Which texture pulls you in?</string>
+    <string name="rounds_q_valence">Which mood pulls you in?</string>
+    <string name="rounds_poles_arousal">One of them drives hard, the other stays calm.</string>
+    <string name="rounds_poles_lofi">One is raw and noisy, the other is clean and polished.</string>
+    <string name="rounds_poles_valence">One is bright and up, the other is dark and heavy.</string>
+    <string name="rounds_axis_arousal">Energy</string>
+    <string name="rounds_axis_lofi">Texture</string>
+    <string name="rounds_axis_valence">Mood</string>
+    <string name="rounds_pole_driving">the driving one</string>
+    <string name="rounds_pole_calm">the calm one</string>
+    <string name="rounds_pole_raw">the raw one</string>
+    <string name="rounds_pole_clean">the clean one</string>
+    <string name="rounds_pole_bright">the bright one</string>
+    <string name="rounds_pole_dark">the dark one</string>
+    <string name="rounds_done_empty_title">Your hypes shape the feed</string>
+    <string name="rounds_done_empty_body">Hype anything you like and the next cards follow you.</string>
+    <string name="rounds_summary_title">Here\'s what you picked</string>
+    <string name="rounds_summary_footer">All hyped. Your feed starts from here, and turns as you keep hyping.</string>
+    <string name="rounds_start_digging">Start digging</string>
+
+    <!-- 코치마크 -->
+    <string name="coach_play_title">Tap to play</string>
+    <string name="coach_play_body">Tap the cover and the tracks in this pick play one after another.</string>
+    <string name="coach_react_title">React with 🔥</string>
+    <string name="coach_react_body">Liked it? Tap 🔥 — the person who made it sees the count.</string>
+    <string name="coach_share_title">Share as a card</string>
+    <string name="coach_share_body">Turn a pick into an image card and post it to Instagram or anywhere else.</string>
+    <string name="coach_compose_title">Make your own</string>
+    <string name="coach_compose_body">Put the tracks you\'ve kept together and send out your own pick.</string>
+    <string name="coach_hype_title">Hype what you like</string>
+    <string name="coach_hype_body">It saves the track to your crate, and the feed starts looking for tracks that sound like it.</string>
+    <string name="coach_feedmode_title">See where the feed came from</string>
+    <string name="coach_feedmode_body">This says whether the feed is following your hypes or playing at random. Tap it to switch.</string>
+    <string name="coach_follow_title">Turn it off any time</string>
+    <string name="coach_follow_body">The feed follows your hypes by default. Switch this off and it plays anything again.</string>
+    <string name="coach_seedrow_title">Choose what it follows</string>
+    <string name="coach_seedrow_body">By default the feed follows your three most recent hypes. Open this to pin the tracks it should follow instead.</string>
+    <string name="coach_seedcell_title">Tap a track to pin it</string>
+    <string name="coach_seedcell_body">Try one now. Pick up to three, and the feed follows only those instead of your latest hypes.</string>
+    <string name="coach_seedsave_title">Then save</string>
+    <string name="coach_seedsave_body">The feed rebuilds from your pick right away. Pin nothing and it goes back to your three most recent hypes.</string>
+
 </resources>

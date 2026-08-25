@@ -43,7 +43,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -121,6 +124,11 @@ import com.rta.dignify.core.share.loadArtwork
 import com.rta.dignify.core.share.shareBitmap
 import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.feature.push.Push
+import com.rta.dignify.feature.onboarding.CoachAnchor
+import com.rta.dignify.feature.onboarding.CoachOverlay
+import com.rta.dignify.feature.onboarding.CoachSeen
+import com.rta.dignify.feature.onboarding.FeedCoach
+import com.rta.dignify.feature.onboarding.coachAnchor
 import com.rta.dignify.feature.push.PushOptInPopup
 import kotlinx.coroutines.delay
 import kotlin.math.round
@@ -205,7 +213,7 @@ fun FeedScreen(
         vm.loadInitial()
     }
 
-    // 로그인·장르 변경처럼 피드 내용이 통째로 달라지는 일이 생기면 새로 받는다.
+    // 로그인·성향 변경처럼 피드 내용이 통째로 달라지는 일이 생기면 새로 받는다.
     // 게스트로 본 피드는 하입 표시가 안 된 상태라 로그인 후엔 반드시 다시 받아야 한다.
     LaunchedEffect(Session.feedReloadTick) { vm.onReloadTick(Session.feedReloadTick) }
 
@@ -282,6 +290,18 @@ fun FeedScreen(
         }
     }
 
+    // 하입이 무엇을 하는지, 모드 칩이 무슨 뜻인지 한 번만 짚어 준다. 픽 재생 지면과 검색
+    // 결과에선 안 띄운다 — 둘 다 모드 칩이 없는 화면이라 두 스텝 중 하나가 가리킬 데를 잃는다.
+    var seenCoach by remember { mutableStateOf(CoachSeen.get(context, CoachSeen.FEED)) }
+    val showsCoach = !seenCoach && vm.pickNickname == null && vm.activeQuery.isEmpty() &&
+        !vm.isLoading && vm.feeds.isNotEmpty()
+
+    CoachOverlay(
+        steps = FeedCoach.steps,
+        screen = "feed",
+        active = showsCoach,
+        onFinish = { CoachSeen.mark(context, CoachSeen.FEED); seenCoach = true },
+    ) {
     // Scaffold를 안 쓴다 — 앱 바가 없어서 content padding이 늘 0이고, 그걸 무시하면
     // lint(UnusedMaterial3ScaffoldPaddingParameter)가 빌드를 세운다.
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -300,6 +320,7 @@ fun FeedScreen(
             ) { page ->
                 FeedPage(
                     feed = vm.feeds[page],
+                    coachAnchors = page == 0,
                     onTap = { audio.toggleCurrentPlayback() },
                     onHype = { hype(vm.feeds[page].trackId) },
                     onHypeAt = { offset ->
@@ -407,6 +428,11 @@ fun FeedScreen(
                 searchText = ""
                 scope.launch { pagerState.scrollToPage(vm.clearSearch()) }
             },
+            // 픽 재생 지면엔 성향이란 게 없다 — 목록이 남이 고른 곡 묶음으로 고정돼 있다.
+            // 재요청은 Session이 feedReloadTick을 올려서 일으키므로 여기선 오디오를 안 건드린다.
+            onToggleMode = if (vm.pickNickname == null) {
+                { scope.launch { Session.setDiggingMode(!Session.diggingMode, "feed") } }
+            } else null,
             modifier = Modifier.align(Alignment.TopEnd),
         )
 
@@ -448,6 +474,7 @@ fun FeedScreen(
                 },
             )
         }
+    }
     }
 }
 
@@ -737,6 +764,8 @@ private fun FeedPage(
     bottomInset: Dp,
     onShare: () -> Unit,
     onDetail: () -> Unit,
+    /** 첫 카드만 true. 코치마크가 가리킬 하입 버튼이 목록에 하나여야 한다. */
+    coachAnchors: Boolean = false,
 ) {
     Box(
         Modifier
@@ -765,7 +794,14 @@ private fun FeedPage(
                 )
         )
 
-        TrackCard(feed = feed, bottomInset = bottomInset, onHype = onHype, onShare = onShare, onDetail = onDetail)
+        TrackCard(
+            feed = feed,
+            bottomInset = bottomInset,
+            onHype = onHype,
+            onShare = onShare,
+            onDetail = onDetail,
+            coachAnchors = coachAnchors,
+        )
     }
 }
 
@@ -798,6 +834,7 @@ private fun TrackCard(
     onHype: () -> Unit,
     onShare: () -> Unit,
     onDetail: () -> Unit,
+    coachAnchors: Boolean = false,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val cardWidth = maxWidth - 48.dp
@@ -836,8 +873,16 @@ private fun TrackCard(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // "이 트랙이 왜 떴는지" 힌트. 유저가 고른 장르로 피드가 구성되므로 장르명이 곧 근거다.
-                    feed.genreName?.let { GenrePill(it) }
+                    // "이 트랙이 왜 떴는지" 힌트. 무드로 뽑힌 곡이면 그 근거가 된 **내 하입 곡**을,
+                    // 아니면(콜드스타트·무작위·검색) 종전대로 장르명을 띄운다.
+                    //
+                    // **자리를 하나만 쓴다.** 둘을 같이 띄우면 근거가 있는 카드와 없는 카드가 한
+                    // 화면에 섞여 "얘만 왜 이유가 있지"가 된다.
+                    val similar = feed.similarToTrackName
+                    when {
+                        similar != null -> ContextPill(stringResource(R.string.feels_like, similar))
+                        feed.genreName != null -> ContextPill(feed.genreName)
+                    }
                     Text(
                         feed.trackName,
                         color = Color.White,
@@ -856,7 +901,10 @@ private fun TrackCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onHype) {
+                    IconButton(
+                        onClick = onHype,
+                        modifier = Modifier.coachAnchor(if (coachAnchors) CoachAnchor.HYPE else null),
+                    ) {
                         // 삽 = 디깅. iOS `Assets.xcassets/HypeIcon`을 그대로 가져온 것이라
                         // 두 앱의 하입 아이콘이 물리적으로 같은 파일이다.
                         Icon(
@@ -892,10 +940,11 @@ private fun TrackCard(
     }
 }
 
+/** 카드 좌하단의 근거 칩. 하입 곡 이름이거나 장르명이거나, **둘 중 하나만** 온다. */
 @Composable
-private fun GenrePill(genreName: String) {
+private fun ContextPill(label: String) {
     Text(
-        genreName,
+        label,
         color = Color.White.copy(alpha = 0.9f),
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
@@ -953,6 +1002,8 @@ private fun SearchControls(
     onOpen: () -> Unit,
     onSubmit: () -> Unit,
     onClearQuery: () -> Unit,
+    /** null이면 성향 버튼·칩을 아예 안 그린다(픽 재생 지면). */
+    onToggleMode: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -974,11 +1025,58 @@ private fun SearchControls(
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
-            IconButton(onClick = onOpen) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // 성향 버튼이 검색 왼쪽에 선다. 피드 안에 두는 이유는 **효과가 보이는 자리가
+                // 여기뿐**이기 때문이다. 설정 화면에서 끄면 무엇이 달라졌는지 기억으로 비교해야 한다.
+                if (onToggleMode != null) {
+                    IconButton(onClick = onToggleMode) {
+                        Icon(
+                            if (Session.diggingMode) Icons.Filled.AutoAwesome else Icons.Filled.Shuffle,
+                            contentDescription = stringResource(
+                                if (Session.diggingMode) R.string.feed_mode_following else R.string.feed_mode_random
+                            ),
+                            tint = Color.White,
+                        )
+                    }
+                }
+                IconButton(onClick = onOpen) {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = stringResource(R.string.search),
+                        tint = Color.White,
+                    )
+                }
+            }
+        }
+
+        // 지금 피드가 무엇으로 만들어졌는지를 **항상** 띄운다. 껐을 때만 띄우면 켜진 상태가
+        // 무명(無名)이라, 유저가 이 버튼이 무엇을 바꾸는지 눌러 보기 전엔 알 수 없다.
+        // 문구는 설정 이름("켜짐/꺼짐")이 아니라 지금 보고 있는 것을 말한다.
+        if (onToggleMode != null && !isSearching && activeQuery.isEmpty()) {
+            Row(
+                Modifier
+                    .coachAnchor(CoachAnchor.FEED_MODE)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.2f))
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
+                    .clickable(onClick = onToggleMode)
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    stringResource(
+                        if (Session.diggingMode) R.string.feed_mode_following else R.string.feed_mode_random
+                    ),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                )
                 Icon(
-                    Icons.Filled.Search,
-                    contentDescription = stringResource(R.string.search),
+                    Icons.Filled.SwapHoriz,
+                    contentDescription = null,
                     tint = Color.White,
+                    modifier = Modifier.size(12.dp),
                 )
             }
         }

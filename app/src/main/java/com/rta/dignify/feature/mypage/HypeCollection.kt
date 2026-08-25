@@ -3,6 +3,7 @@ package com.rta.dignify.feature.mypage
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -23,16 +24,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -64,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.rta.dignify.R
+import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.core.auth.Session
 import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.core.designsystem.DSTypography
@@ -72,6 +79,8 @@ import com.rta.dignify.core.network.itunesArtworkUrl
 import com.rta.dignify.core.designsystem.ScreenScaffold
 import com.rta.dignify.feature.feed.FeedAudioController
 import com.rta.dignify.feature.feed.TrackDetailSheet
+import com.rta.dignify.feature.onboarding.CoachAnchor
+import com.rta.dignify.feature.onboarding.coachAnchor
 import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -88,6 +97,13 @@ import java.time.format.FormatStyle
  * @param onReachEnd 마지막 셀이 보이면 호출(페이지네이션). maxGroups가 있으면 호출하지 않는다.
  * @param onReloadNeeded 하입 제거가 하드 실패해 목록 재동기화가 필요할 때.
  * @param onSeeAll 미리보기에서 See all 셀을 누르면(전체 화면 이동).
+ * @param selection 선택 모드(추천 기준 곡 고르기). null이 아니면 **편집 모드보다 우선하고**
+ *   탭이 재생 대신 선택 토글이 된다. 날짜 그룹·페이지네이션·셀 모양을 그대로 쓰려고 한 컴포넌트에 뒀다.
+ * @param selectionLimit 고를 수 있는 최대 개수. 서버 `MoodRecommender.SEEDS`와 같아야 한다.
+ * @param coachAnchors 선택 모드에서 **첫 셀에 코치마크 앵커**를 단다. 담은 곡 수도 날짜 묶음
+ *   수도 유저마다 달라서 좌표를 적어 두면 누구에게도 안 맞는다.
+ * @param isEditing 편집 모드. 셀마다 제거 배지가 붙고 탭이 재생 대신 제거가 된다.
+ *   롱프레스는 이 화면을 처음 보는 사람에게 안 보여서, 제거하는 길을 눈에 보이게 하나 더 둔다.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -99,6 +115,11 @@ fun HypeCollection(
     onReachEnd: (suspend () -> Unit)? = null,
     onReloadNeeded: (suspend () -> Unit)? = null,
     onSeeAll: (() -> Unit)? = null,
+    selection: Set<Int>? = null,
+    onSelectionChange: (Set<Int>) -> Unit = {},
+    selectionLimit: Int = 3,
+    coachAnchors: Boolean = false,
+    isEditing: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -106,6 +127,35 @@ fun HypeCollection(
 
     var actionTarget by remember { mutableStateOf<Api.HypeItem?>(null) }
     var detailTrackId by remember { mutableStateOf<Int?>(null) }
+    // 편집 모드에선 셀 **전체**가 표적이라 스크롤하다 스친 손가락에도 곡이 빠진다.
+    // 롱프레스 시트에서 온 제거는 안 묻는다 — 거긴 이미 "하입 제거"를 직접 고른 자리다.
+    var removeTarget by remember { mutableStateOf<Api.HypeItem?>(null) }
+
+    /**
+     * 하입 제거. 낙관적으로 목록에서 빼고 서버를 맞춘다. **성공한 뒤에** 하입 변경을 알린다 —
+     * 낙관적 시점에 알리면 통계 재조회가 삭제를 앞질러 옛 숫자를 그대로 받아온다.
+     */
+    fun removeHype(track: Api.HypeItem) {
+        // 편집 버튼이 롱프레스를 대신하는지 보려면 어느 길로 들어왔는지가 필요하다.
+        Analytics.capture(
+            "hype_removed",
+            mapOf("via" to if (isEditing) "edit" else "long_press"),
+        )
+        if (audio.activeTrackId == track.trackId) audio.stop()
+        onItemsChange(items.filterNot { it.trackId == track.trackId })
+        scope.launch {
+            val result = runCatching { Session.api.unhype(track.trackId) }
+            result.onFailure { e ->
+                // 404 = 이미 없음. 목표 상태와 같으니 되돌리지 않는다.
+                val status = (e as? ClientRequestException)?.response?.status?.value
+                if (status != 404) {
+                    onReloadNeeded?.invoke()
+                    return@launch
+                }
+            }
+            Session.onHypeChanged()
+        }
+    }
 
     // 화면을 벗어나면 소리를 끊는다. 목록에서 재생한 곡이 다른 탭까지 따라가면 안 된다.
     DisposableEffect(Unit) { onDispose { audio.stop() } }
@@ -202,8 +252,36 @@ fun HypeCollection(
                     HypeCell(
                         track = track,
                         isPlaying = audio.activeTrackId == track.trackId && !audio.isPaused,
-                        onTap = { audio.togglePreview(track.trackId, track.previewUrl) },
-                        onLongPress = { actionTarget = track },
+                        selected = selection?.contains(track.trackId),
+                        isEditing = isEditing,
+                        onTap = {
+                            when {
+                                // 상한을 넘으면 **아무 일도 일어나지 않는다.** 가장 오래된 것을
+                                // 밀어내면 방금 무엇이 빠졌는지 화면에서 안 보인다.
+                                selection != null -> onSelectionChange(
+                                    when {
+                                        track.trackId in selection -> selection - track.trackId
+                                        selection.size < selectionLimit -> selection + track.trackId
+                                        else -> selection
+                                    }
+                                )
+
+                                isEditing -> removeTarget = track
+                                else -> audio.togglePreview(track.trackId, track.previewUrl)
+                            }
+                        },
+                        onLongPress = {
+                            if (!isEditing && selection == null) actionTarget = track
+                        },
+                        // 빠진 자리를 애니메이션 없이 지우면 옆 곡들이 순간이동해서
+                        // 무엇이 빠졌는지가 안 읽힌다.
+                        modifier = Modifier
+                            .animateItem()
+                            .coachAnchor(
+                                if (coachAnchors && track.userHypeTrackId == items.firstOrNull()?.userHypeTrackId) {
+                                    CoachAnchor.SEED_CELL
+                                } else null
+                            ),
                     )
                     // 페이지네이션은 날짜 그룹이 아니라 **마지막 셀**에 건다 — 이유는 HypeGrouping 참고.
                     if (maxGroups == null && track.userHypeTrackId == anchor) {
@@ -295,20 +373,30 @@ fun HypeCollection(
                     },
                 ) {
                     actionTarget = null
-                    // 낙관적 제거. 실패하면 목록을 다시 받아 되돌린다.
-                    if (audio.activeTrackId == track.trackId) audio.stop()
-                    onItemsChange(items.filterNot { it.trackId == track.trackId })
-                    scope.launch {
-                        runCatching { Session.api.unhype(track.trackId) }
-                            .onFailure { e ->
-                                // 404 = 이미 없음. 목표 상태와 같으니 되돌리지 않는다.
-                                val status = (e as? ClientRequestException)?.response?.status?.value
-                                if (status != 404) onReloadNeeded?.invoke()
-                            }
-                    }
+                    removeHype(track)
                 }
             }
         }
+    }
+
+    removeTarget?.let { track ->
+        AlertDialog(
+            onDismissRequest = { removeTarget = null },
+            title = { Text(stringResource(R.string.remove_track_title)) },
+            text = { Text(stringResource(R.string.remove_track_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    removeTarget = null
+                    removeHype(track)
+                }) { Text(stringResource(R.string.remove_hype), color = DSColor.destructive) }
+            },
+            dismissButton = {
+                TextButton(onClick = { removeTarget = null }) {
+                    Text(stringResource(R.string.cancel), color = DSColor.textSecondary)
+                }
+            },
+            containerColor = DSColor.background,
+        )
     }
 
     detailTrackId?.let { id ->
@@ -321,11 +409,15 @@ fun HypeCollection(
 private fun HypeCell(
     track: Api.HypeItem,
     isPlaying: Boolean,
+    /** 선택 모드일 때만 non-null. true = 고정됨. */
+    selected: Boolean?,
+    isEditing: Boolean,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        Modifier
+        modifier
             .width(72.dp)
             .combinedClickable(onClick = onTap, onLongClick = onLongPress),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -343,6 +435,12 @@ private fun HypeCell(
                     Icon(Icons.Filled.Pause, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 }
             }
+            // 배지는 아트워크 좌상단 모서리에 반쯤 걸친다 — 안쪽이면 72dp 썸네일에서 앨범 아트를
+            // 가리고, 완전히 바깥이면 잘린다. 탭은 셀 전체가 받으므로 배지는 표시일 뿐이다.
+            when {
+                selected != null -> SelectionBadge(selected)
+                isEditing -> RemoveBadge()
+            }
         }
         Text(
             track.trackName,
@@ -359,6 +457,45 @@ private fun HypeCell(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/**
+ * 선택 배지. 고른 것은 브랜드색 원에 흰 체크, 안 고른 것은 **흰 원에 회색 테두리**다.
+ * 빈 원이 없으면 여기서 무엇을 할 수 있는지가 안 보여서 유저가 그냥 재생인 줄 안다.
+ * 테두리를 흰색으로 두면 아트워크 밖으로 나간 절반이 밝은 지면에 묻혀 원이 잘려 보인다.
+ */
+@Composable
+private fun SelectionBadge(isOn: Boolean) {
+    Box(
+        Modifier
+            .offset((-6).dp, (-6).dp)
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(if (isOn) DSColor.brand else Color.White)
+            .then(
+                if (isOn) Modifier
+                else Modifier.border(1.5.dp, DSColor.textTertiary, CircleShape)
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isOn) {
+            Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun RemoveBadge() {
+    Box(
+        Modifier
+            .offset((-6).dp, (-6).dp)
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(DSColor.destructive),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Filled.Remove, null, tint = Color.White, modifier = Modifier.size(14.dp))
     }
 }
 
@@ -412,6 +549,7 @@ fun HypeHistoryScreen(onBack: () -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
     var isPaging by remember { mutableStateOf(false) }
     var loadFailed by remember { mutableStateOf(false) }
+    var isEditing by remember { mutableStateOf(false) }
 
     suspend fun load() {
         isLoading = true
@@ -431,7 +569,26 @@ fun HypeHistoryScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { load() }
 
-    ScreenScaffold(title = stringResource(R.string.hype_history), onBack = onBack) {
+    // 마지막 한 곡까지 지우면 편집 모드가 빈 화면에 남는다.
+    LaunchedEffect(items.isEmpty()) { if (items.isEmpty()) isEditing = false }
+
+    ScreenScaffold(
+        title = stringResource(R.string.hype_history),
+        onBack = onBack,
+        trailing = {
+            // 목록이 비면 편집할 것이 없다. 빈 화면에 편집 버튼만 남기지 않는다.
+            if (items.isNotEmpty()) {
+                Text(
+                    stringResource(if (isEditing) R.string.done else R.string.edit),
+                    style = DSTypography.bodyMedium,
+                    color = DSColor.brand,
+                    modifier = Modifier
+                        .clickable { isEditing = !isEditing }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        },
+    ) {
         when {
             isLoading && items.isEmpty() -> CenteredNote("")
             items.isEmpty() -> CenteredNote(
@@ -453,6 +610,7 @@ fun HypeHistoryScreen(onBack: () -> Unit) {
                     }
                 },
                 onReloadNeeded = { load() },
+                isEditing = isEditing,
             )
         }
     }
