@@ -94,6 +94,9 @@ adb shell "run-as com.rta.dignify cat shared_prefs/dignify.xml"
 
 **테스트 → (내부 / 비공개) → 새 버전 만들기 → AAB 업로드 → 출시 노트 → 검토 → 출시 시작**
 
+출시 노트 문안은 `release-notes.md`에 있다. 앱 안의 What's New와 다른 글이고 기준도 다르다 —
+직전 커밋이 아니라 **직전에 Play에 올라간 빌드**와 비교해서 적는다.
+
 | 트랙 | 검토 | 반영 |
 |---|---|---|
 | 내부 테스트 | 없음 | 몇 분 |
