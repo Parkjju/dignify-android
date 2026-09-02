@@ -13,15 +13,34 @@ import java.time.ZoneId
  */
 object HypeGrouping {
 
-    data class DayGroup(val day: LocalDate, val tracks: List<Api.HypeItem>)
+    data class DayGroup<T>(val day: LocalDate, val tracks: List<T>)
 
     /** `LocalDate.EPOCH`는 API 34부터라 minSdk 26에서 쓰면 구형 기기에서 터진다. */
     private val EPOCH: LocalDate = LocalDate.of(1970, 1, 1)
 
-    /** ISO date-time → 기기 시간대의 날짜. 못 읽으면 epoch로 떨어뜨려 한 무더기로 모은다. */
-    fun dayOf(item: Api.HypeItem, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
-        runCatching { Instant.parse(item.hypedAt).atZone(zone).toLocalDate() }
+    /** ISO date-time → 기기 시간대의 날짜. 못 읽거나 없으면 epoch로 떨어뜨려 한 무더기로 모은다. */
+    fun dayOf(hypedAt: String?, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
+        runCatching { Instant.parse(hypedAt).atZone(zone).toLocalDate() }
             .getOrDefault(EPOCH)
+
+    /**
+     * 아무 타입이나 날짜별로 묶는다. **등장 순서를 유지한다**(정렬하지 않는다) —
+     * 백엔드가 최신순으로 주기 때문이다.
+     *
+     * 픽 작성 화면이 자기 타입으로 같은 묶음을 만들어야 해서 밖으로 뺐다. 그루퍼를 두 개
+     * 만들면 두 목록의 날짜 기준이 언젠가 갈린다(iOS도 같은 이유로 제네릭으로 뺐다).
+     *
+     * @param hypedAt 항목의 하입 시각(ISO date-time). null이면 epoch 무더기로 간다.
+     */
+    fun <T> byDay(
+        items: List<T>,
+        zone: ZoneId = ZoneId.systemDefault(),
+        hypedAt: (T) -> String?,
+    ): List<DayGroup<T>> {
+        val order = LinkedHashMap<LocalDate, MutableList<T>>()
+        items.forEach { order.getOrPut(dayOf(hypedAt(it), zone)) { mutableListOf() }.add(it) }
+        return order.map { (day, tracks) -> DayGroup(day, tracks) }
+    }
 
     /**
      * 백엔드가 최신순으로 주므로 **등장 순서를 유지해** 날짜별로 묶는다(정렬하지 않는다).
@@ -34,11 +53,9 @@ object HypeGrouping {
         maxGroups: Int? = null,
         perDayLimit: Int? = null,
         zone: ZoneId = ZoneId.systemDefault(),
-    ): List<DayGroup> {
-        val order = LinkedHashMap<LocalDate, MutableList<Api.HypeItem>>()
-        items.forEach { order.getOrPut(dayOf(it, zone)) { mutableListOf() }.add(it) }
-        val all = order.map { (day, tracks) ->
-            DayGroup(day, if (perDayLimit != null) tracks.take(perDayLimit) else tracks)
+    ): List<DayGroup<Api.HypeItem>> {
+        val all = byDay(items, zone) { it.hypedAt }.map { group ->
+            if (perDayLimit != null) group.copy(tracks = group.tracks.take(perDayLimit)) else group
         }
         return if (maxGroups != null) all.take(maxGroups) else all
     }
@@ -59,8 +76,8 @@ object HypeGrouping {
         zone: ZoneId = ZoneId.systemDefault(),
     ): Boolean {
         if (cursor != null) return true
-        val byDay = items.groupBy { dayOf(it, zone) }
-        if (byDay.size > maxGroups) return true
-        return byDay.values.any { it.size > perDayLimit }
+        val groups = items.groupBy { dayOf(it.hypedAt, zone) }
+        if (groups.size > maxGroups) return true
+        return groups.values.any { it.size > perDayLimit }
     }
 }

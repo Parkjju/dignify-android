@@ -99,7 +99,7 @@
     <string name="type_loyalist_blurb">You know your sound and you stay loyal to it.</string>
 
     <string name="your_type">YOUR TYPE</string>
-    <string name="your_crate">Your crate</string>
+    <string name="your_hypes">Your hypes</string>
     <string name="stats_top_genres">Top genres</string>
     <string name="stats_top_artists">Top artists</string>
     <string name="lens_explore">You explore</string>
@@ -158,7 +158,9 @@
     <string name="pick_delete_message">This can\'t be undone, and the reactions on it go too.</string>
 
     <string name="pick_results_for">Results for \"%1$s\"</string>
-    <string name="pick_crate_empty">Nothing in your crate yet — search for tracks to add.</string>
+    <string name="pick_hypes_empty">No hyped tracks yet — search for tracks to add.</string>
+    <string name="pick_added_from_search">Added from search</string>
+    <string name="pick_play_count">%1$d plays</string>
 
     <string name="pick_next">Next</string>
     <string name="pick_title_step">Title</string>
@@ -175,6 +177,9 @@
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
     <string name="whatsnew_got_it">Got it</string>
+    <string name="whatsnew_111_onboarding">New here? Play a few tracks and pick the ones you like — your feed starts there.</string>
+    <string name="whatsnew_111_compose">Making a pick: your hypes are now sorted by day, and you can play them while you choose.</string>
+    <string name="whatsnew_111_plays">Your picks now show how many times people played them.</string>
     <string name="whatsnew_110_hypefeed">Your feed now follows the tracks you hype: same sound, same mood.</string>
     <string name="whatsnew_110_genres">Genre settings are gone. Hype a few tracks and the feed picks up your taste.</string>
     <string name="whatsnew_110_seeds">Choose up to 3 tracks to steer the feed, or leave it to your recent hypes.</string>
@@ -299,34 +304,15 @@
     <string name="remove_track_message">You can hype it again anytime.</string>
     <string name="pick_rename">Edit title</string>
 
-    <!-- 소리 2지선다 -->
-    <string name="rounds_intro_title">What sounds good to you?</string>
-    <string name="rounds_intro_update">Your feed follows the tracks you hype now. Let\'s set the first direction together.</string>
-    <string name="rounds_intro_body">Rather than ask, we\'ll just play. Two clips at a time — pick the one you\'d rather keep listening to. There\'s no right answer, and whatever you pick gets hyped.</string>
-    <string name="rounds_intro_why">Asked in words, taste turns into genre names. Sound is the more honest question.</string>
-    <string name="rounds_intro_length">Three rounds and you\'re done. Neither one? Skip it.</string>
-    <string name="rounds_tap_hint">Tap a card to hear it, then hit Next.</string>
-    <string name="rounds_q_default">Which one pulls you in?</string>
-    <string name="rounds_q_arousal">Which energy pulls you in?</string>
-    <string name="rounds_q_lofi">Which texture pulls you in?</string>
-    <string name="rounds_q_valence">Which mood pulls you in?</string>
-    <string name="rounds_poles_arousal">One of them drives hard, the other stays calm.</string>
-    <string name="rounds_poles_lofi">One is raw and noisy, the other is clean and polished.</string>
-    <string name="rounds_poles_valence">One is bright and up, the other is dark and heavy.</string>
-    <string name="rounds_axis_arousal">Energy</string>
-    <string name="rounds_axis_lofi">Texture</string>
-    <string name="rounds_axis_valence">Mood</string>
-    <string name="rounds_pole_driving">the driving one</string>
-    <string name="rounds_pole_calm">the calm one</string>
-    <string name="rounds_pole_raw">the raw one</string>
-    <string name="rounds_pole_clean">the clean one</string>
-    <string name="rounds_pole_bright">the bright one</string>
-    <string name="rounds_pole_dark">the dark one</string>
-    <string name="rounds_done_empty_title">Your hypes shape the feed</string>
-    <string name="rounds_done_empty_body">Hype anything you like and the next cards follow you.</string>
-    <string name="rounds_summary_title">Here\'s what you picked</string>
-    <string name="rounds_summary_footer">All hyped. Your feed starts from here, and turns as you keep hyping.</string>
-    <string name="rounds_start_digging">Start digging</string>
+    <!-- 온보딩 시드 고르기 -->
+    <string name="seed_title">Which sound pulls you in?</string>
+    <string name="seed_hint">Tap to listen, then pick up to %1$d.</string>
+    <string name="seed_update_note">Your feed follows the tracks you hype now.</string>
+    <string name="seed_popular_now">Popular now</string>
+    <string name="seed_start_digging">Start digging</string>
+    <string name="track_limit">Up to %1$d tracks.</string>
+    <string name="select">Select</string>
+    <string name="deselect">Deselect</string>
 
     <!-- 코치마크 -->
     <string name="coach_play_title">Tap to play</string>

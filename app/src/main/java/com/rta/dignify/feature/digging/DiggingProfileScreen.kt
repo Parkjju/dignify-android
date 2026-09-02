@@ -175,7 +175,7 @@ fun DiggingProfileScreen(
             } while (
                 cursor != null &&
                 pages < 8 &&
-                collected.map { HypeGrouping.dayOf(it) }.distinct().size <= PREVIEW_DAY_LIMIT
+                collected.map { HypeGrouping.dayOf(it.hypedAt) }.distinct().size <= PREVIEW_DAY_LIMIT
             )
             collected.toList() to cursor
         }.onSuccess { (list, c) -> hypes = list; hypeCursor = c }
@@ -626,7 +626,7 @@ private fun CrateSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(R.string.your_crate),
+                stringResource(R.string.your_hypes),
                 style = DSTypography.title2,
                 color = DSColor.textPrimary,
             )

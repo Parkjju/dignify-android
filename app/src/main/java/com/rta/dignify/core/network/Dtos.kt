@@ -39,20 +39,13 @@ object Api {
     )
 
     /**
-     * `GET /onboarding/candidates`. 3라운드 × 2곡. `highTrackId`가 둘 중 어느 쪽이 그 축의
-     * HIGH인지 말해준다 — 없으면 극단 표시만 빠지고 라운드는 그대로 돈다.
+     * `GET /onboarding/seed-pool`. 온보딩에서 직접 고르는 인기곡 풀.
      *
-     * 후보는 전 유저 동일(고정 6곡)이다. 좌우 순서만 서버가 섞는다.
+     * **정적이고 손으로 고른 목록이라 커서가 없다** — 한 응답에 전부 온다. 풀을 바꾸는 건
+     * 배포가 아니라 운영 작업이다(`ops/onboarding-seed-pool.sql`).
      */
     @Serializable
-    data class OnboardingCandidates(val rounds: List<Round> = emptyList()) {
-        @Serializable
-        data class Round(
-            val axis: String = "",
-            val highTrackId: Int? = null,
-            val items: List<FeedItem> = emptyList(),
-        )
-    }
+    data class SeedPoolResponse(val items: List<FeedItem> = emptyList())
 
     /** 이번 주 큐레이션 세트. setKey는 세트 교체 때만 바뀌는 식별자. */
     @Serializable
@@ -172,6 +165,11 @@ object Api {
         val thumbnails: List<String> = emptyList(),
         val reactions: Map<String, Long> = emptyMap(),
         val myReaction: String? = null,
+        /**
+         * 픽 상세를 연 횟수 = 재생 진입 횟수. 서버가 `GET /picks/{id}`에서만 올리므로
+         * 클라가 보낼 건 없다. `isOfficial`과 같은 이유로 nullable이다(배포 순서).
+         */
+        val playCount: Int? = null,
     )
 
     // MARK: Artist requests

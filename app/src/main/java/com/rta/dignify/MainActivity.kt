@@ -73,6 +73,7 @@ import com.rta.dignify.feature.picks.LocalModeration
 import com.rta.dignify.feature.picks.MyPicksScreen
 import com.rta.dignify.feature.picks.PickListScreen
 import com.rta.dignify.core.auth.AuthState
+import com.rta.dignify.core.auth.PushTarget
 import com.rta.dignify.core.auth.Session
 import com.rta.dignify.core.designsystem.DSBrandMark
 import com.rta.dignify.core.designsystem.DSColor
@@ -86,9 +87,9 @@ import com.rta.dignify.feature.mypage.MyPageScreen
 import com.rta.dignify.feature.mypage.SeedPickerScreen
 import com.rta.dignify.feature.onboarding.OnboardingMock
 import com.rta.dignify.feature.onboarding.PredictedType
-import com.rta.dignify.feature.onboarding.SoundRoundsScreen
+import com.rta.dignify.feature.onboarding.SeedPoolPickerScreen
 import com.rta.dignify.feature.onboarding.TutorialScreen
-import com.rta.dignify.feature.onboarding.fetchRounds
+import com.rta.dignify.feature.onboarding.fetchSeedPool
 import com.rta.dignify.feature.push.Push
 import com.rta.dignify.feature.whatsnew.Changelog
 import com.rta.dignify.feature.whatsnew.WhatsNewSheet
@@ -126,13 +127,16 @@ class MainActivity : ComponentActivity() {
      * 알림을 눌러 들어온 경우에만 찍는다. FCM은 알림 탭으로 연 인텐트에만
      * `google.message_id`를 붙이므로 그게 런처 실행과 가르는 유일한 표식이다.
      *
-     * `type`은 서버가 데이터 페이로드로 보내야 채워진다. 아직 안 보내므로 지금은 늘
-     * "unknown"이다 — iOS도 같은 상태이고, 서버가 붙이는 날 두 앱이 같이 살아난다.
+     * `type`은 서버가 2026-09-02부터 데이터 페이로드로 싣는다(`curation`·`pick_reaction`·`notice`).
+     * 목적지 분기는 [Session.onPushOpened]가 한다 — 여기서 갈라 두면 액티비티가 탭 상태를
+     * 알아야 하고, 온보딩 중에 도착한 푸시가 갈 곳을 잃는다.
      */
     private fun capturePushOpen(intent: Intent?) {
         val extras = intent?.extras ?: return
         if (!extras.containsKey("google.message_id")) return
-        Analytics.capture("push_opened", mapOf("type" to (extras.getString("type") ?: "unknown")))
+        val type = extras.getString("type") ?: "unknown"
+        Analytics.capture("push_opened", mapOf("type" to type))
+        Session.onPushOpened(type)
     }
 }
 
@@ -156,34 +160,34 @@ private fun DignifyApp() {
 /**
  * 신규 유저 온보딩. iOS `NewUserOnboardingView` 이식.
  *
- *     튜토리얼 → 소리 2지선다 3라운드 → 피드
+ *     튜토리얼 → 시드 고르기(인기곡 풀) → 피드
  *
  * **장르를 한 번도 묻지 않는다.** 장르 이름으로 자기 취향을 말할 수 있는 사람은 많지 않고,
  * 물어봐야 나오는 건 `user_genres` 몇 행뿐인데 서버는 그걸 더 이상 읽지 않는다.
- * 라운드에서 고른 곡은 그대로 하입되어 시드가 되므로 **첫 피드부터** 무드 정렬이 걸린다.
+ * 여기서 고른 곡은 그대로 하입되어 시드가 되므로 **첫 피드부터** 무드 정렬이 걸린다.
  *
- * 후보를 못 받으면(네트워크 실패·서버 미시딩) 라운드 화면이 마지막 장부터 시작해 완료
- * 버튼만 준다 — 여기서 조용히 완료 처리를 해버리면 그 요청이 실패했을 때 다시 시도할 자리가 없다.
+ * 풀을 못 받으면(네트워크 실패·서버 미시딩) 화면은 그대로 뜨고 버튼만 0곡으로 열린다 —
+ * 여기서 조용히 완료 처리를 해버리면 그 요청이 실패했을 때 다시 시도할 자리가 없다.
  */
 @Composable
 private fun OnboardingFlow() {
-    var showRounds by rememberSaveable { mutableStateOf(false) }
-    var rounds by remember { mutableStateOf<List<Api.OnboardingCandidates.Round>>(emptyList()) }
+    var showSeedPicker by rememberSaveable { mutableStateOf(false) }
+    var pool by remember { mutableStateOf<List<Api.FeedItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    // 튜토리얼이 끝났는데 후보가 아직 안 온 상태. 이때는 튜토리얼 마지막 장에 두고 기다린다 —
-    // 빈 라운드 화면을 잠깐 보여주는 것보다 낫다.
-    var waitingForRounds by remember { mutableStateOf(false) }
+    // 튜토리얼이 끝났는데 풀이 아직 안 온 상태. 이때는 튜토리얼 마지막 장에 두고 기다린다 —
+    // 빈 화면을 잠깐 보여주는 것보다 낫다.
+    var waitingForPool by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // 피드 조작을 먼저 익히게 한다. 후보 곡은 그동안 백그라운드로 받는다.
+    // 피드 조작을 먼저 익히게 한다. 풀은 그동안 백그라운드로 받는다.
     LaunchedEffect(Unit) {
-        rounds = fetchRounds()
+        pool = fetchSeedPool()
         isLoading = false
-        if (waitingForRounds) { waitingForRounds = false; showRounds = true }
+        if (waitingForPool) { waitingForPool = false; showSeedPicker = true }
     }
 
-    if (showRounds) {
-        SoundRoundsScreen(rounds = rounds) {
+    if (showSeedPicker) {
+        SeedPoolPickerScreen(pool = pool) {
             Session.api.completeOnboarding()
             // 업데이트 유저용 1회 트리거가 이 유저에게 또 걸리지 않게 같이 내린다.
             // 방금 가입한 유저에게 What's New를 안 띄우는 판정도 여기서 남긴다.
@@ -196,13 +200,18 @@ private fun OnboardingFlow() {
         }
     } else {
         TutorialScreen(
-            busy = waitingForRounds,
-            onDone = { if (isLoading) waitingForRounds = true else showRounds = true },
+            busy = waitingForPool,
+            onDone = { if (isLoading) waitingForPool = true else showSeedPicker = true },
         )
     }
 }
 
-/** 소리 2지선다를 한 번이라도 태웠는지. 신규 가입·업데이트 유저가 같은 키를 쓴다. */
+/**
+ * 시드 고르기를 한 번이라도 태웠는지. 신규 가입·업데이트 유저가 같은 키를 쓴다.
+ *
+ * **이름을 바꾸면 안 된다.** 값이 `didSoundRounds`인 건 2지선다 시절 이름이라서지 라운드를
+ * 뜻해서가 아니다 — 바꾸는 순간 이미 온보딩을 끝낸 유저 전원이 이 화면을 다시 본다.
+ */
 private const val KEY_DID_ROUNDS = "didSoundRounds"
 
 /** 방금 가입한 유저 표식. What's New 오발동만 막는 용도라 소비 후 지운다. */
@@ -229,7 +238,7 @@ private fun MainTabs() {
     var myRoute by rememberSaveable { mutableStateOf(MyRoute.ROOT) }
     // 재생 중인 픽. 탭 밖에 둬야 다른 탭 갔다 와도 보던 픽이 유지된다.
     var playingPick by remember { mutableStateOf<Api.Pick?>(null) }
-    // 라운드를 닫은 뒤에 이어서 띄울 What's New 버전.
+    // 시드 고르기를 닫은 뒤에 이어서 띄울 What's New 버전.
     var pendingWhatsNew by remember { mutableStateOf<String?>(null) }
 
     // 탭바가 실제로 가리는 높이 = 내용 높이 + 시스템 내비게이션 바.
@@ -242,10 +251,10 @@ private fun MainTabs() {
     // 업데이트로 들어온 유저에게만 새 소식을 띄운다. 신규 설치는 튜토리얼 대상이라 제외.
     val context = LocalContext.current
     var autoWhatsNew by remember { mutableStateOf<String?>(null) }
-    // 업데이트 유저에게 한 번 태우는 라운드. 후보를 실제로 받은 뒤에 세팅한다 —
-    // **플래그로 열면 안 된다.** 후보가 채워지기 전 값이 화면에 잡혀 3라운드를 받고도
+    // 업데이트 유저에게 한 번 태우는 시드 고르기. 풀을 실제로 받은 뒤에 세팅한다 —
+    // **플래그로 열면 안 된다.** 풀이 채워지기 전 값이 화면에 잡혀 곡을 다 받고도
     // 빈 화면이 뜬다(iOS가 실제로 밟은 함정).
-    var updateRounds by remember { mutableStateOf<List<Api.OnboardingCandidates.Round>?>(null) }
+    var updateSeedPool by remember { mutableStateOf<List<Api.FeedItem>?>(null) }
 
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences("dignify", android.content.Context.MODE_PRIVATE)
@@ -256,30 +265,41 @@ private fun MainTabs() {
         val isReturning = !didJustOnboard && Session.state == AuthState.SIGNED_IN
         val wantsWhatsNew = Changelog.shouldShow(lastSeen, current, isReturningUser = isReturning)
 
-        // 업데이트로 들어온 기존 유저는 한 번은 라운드를 탄다. **하입 수로 가르지 않는다** —
-        // 시드가 밀렸으면 마이페이지 → 추천 기준 곡에서 되돌리면 되고, 라운드를 건너뛰면
+        // 업데이트로 들어온 기존 유저는 한 번은 시드 고르기를 탄다. **하입 수로 가르지 않는다** —
+        // 시드가 밀렸으면 마이페이지 → 추천 기준 곡에서 되돌리면 되고, 건너뛰면
         // 하입이 많은 유저일수록 이번 릴리즈에서 무엇이 바뀌었는지 겪어볼 자리가 없어진다.
-        val rounds = if (isReturning && !prefs.getBoolean(KEY_DID_ROUNDS, false)) {
-            // 후보가 없으면(서버 미시딩) 아예 안 띄우고 **플래그도 안 태운다** — 시딩된 뒤에
-            // 이 유저가 영영 라운드를 못 보면 안 된다.
-            fetchRounds().takeIf { it.isNotEmpty() }
+        val pool = if (isReturning && !prefs.getBoolean(KEY_DID_ROUNDS, false)) {
+            // 풀이 없으면(서버 미시딩) 아예 안 띄우고 **플래그도 안 태운다** — 시딩된 뒤에
+            // 이 유저가 영영 이 화면을 못 보면 안 된다.
+            fetchSeedPool().takeIf { it.isNotEmpty() }
         } else null
 
-        if (rounds != null) {
-            // 라운드가 What's New를 삼키면 안 된다. 닫힐 때 이어 붙인다 — 1.1.0은 장르 설정이
-            // 사라진 게 핵심이라, 라운드만 보고 넘어가면 왜 없어졌는지 모른 채 피드로 간다.
+        if (pool != null) {
+            // 시드 고르기가 What's New를 삼키면 안 된다. 닫힐 때 이어 붙인다 — 이번 릴리즈는
+            // 온보딩이 바뀐 게 핵심이라, 화면만 보고 넘어가면 무엇이 달라졌는지 모른 채 피드로 간다.
             pendingWhatsNew = if (wantsWhatsNew) current else null
-            updateRounds = rounds
+            updateSeedPool = pool
         } else if (wantsWhatsNew) {
             autoWhatsNew = current
         }
         prefs.edit().putString("lastSeenVersion", current).remove(KEY_DID_JUST_ONBOARD).apply()
     }
 
+    // 푸시가 지정한 목적지로 옮긴다. 탭과 마이 탭 스택을 아는 건 여기뿐이라 이 자리다.
+    // `pick_reaction`이 픽 탭이 아니라 디깅 프로필로 가는 이유는 `Session.onPushOpened` 참고.
+    LaunchedEffect(Session.pushTarget) {
+        when (Session.pushTarget) {
+            PushTarget.CURATION -> tab = AppTab.FEED
+            PushTarget.MY_PICKS -> { myRoute = MyRoute.DIGGING; tab = AppTab.MY }
+            null -> return@LaunchedEffect
+        }
+        Session.consumePushTarget()
+    }
+
     Box(Modifier.fillMaxSize()) {
-        // 라운드 커버가 떠 있는 동안엔 탭 지면을 **아예 안 그린다.** 배경만 깐 Column은 터치를
+        // 시드 고르기 커버가 떠 있는 동안엔 탭 지면을 **아예 안 그린다.** 배경만 깐 Column은 터치를
         // 안 막아서 위에 얹으면 탭바가 그대로 눌리고, 컴포지션에 남은 피드는 계속 소리를 낸다.
-        if (updateRounds == null) {
+        if (updateSeedPool == null) {
             when (tab) {
                 AppTab.FEED -> FeedScreen(bottomInset = barHeight)
                 // 픽 재생은 별도 화면을 만들지 않는다 — 서버가 픽 상세를 피드와 같은 형태로 주므로
@@ -310,14 +330,14 @@ private fun MainTabs() {
             )
         }
 
-        // 시트가 아니라 화면 전체다 — 쓸어 닫을 수 있으면 라운드가 중간에 끊긴다.
-        updateRounds?.let { rounds ->
-            SoundRoundsScreen(rounds = rounds, isUpdate = true) { picked ->
+        // 시트가 아니라 화면 전체다 — 쓸어 닫을 수 있으면 고르다 만 채로 끊긴다.
+        updateSeedPool?.let { pool ->
+            SeedPoolPickerScreen(pool = pool, isUpdate = true) { picked ->
                 context.getSharedPreferences("dignify", android.content.Context.MODE_PRIVATE)
                     .edit().putBoolean(KEY_DID_ROUNDS, true).apply()
-                updateRounds = null
+                updateSeedPool = null
                 // 방금 고른 곡이 시드다. 피드는 이미 불러온 뒤라 다시 받지 않으면
-                // 유저는 라운드를 마치고도 예전 순서를 본다.
+                // 유저는 다 고르고도 예전 순서를 본다.
                 if (picked > 0) Session.onSeedsChanged()
                 autoWhatsNew = pendingWhatsNew
                 pendingWhatsNew = null

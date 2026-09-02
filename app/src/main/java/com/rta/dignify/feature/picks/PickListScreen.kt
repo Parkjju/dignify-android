@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Block
@@ -112,6 +113,12 @@ import java.time.temporal.ChronoUnit
  */
 /** iOS와 같은 값. 소스별 수락률이 한 표에 모이려면 문자열이 같아야 한다. */
 private const val PUSH_SOURCE_PICK = "pick_created"
+
+/**
+ * 이 아래면 재생 수를 아예 안 그린다. iOS `PickCard.playCountFloor`와 같은 값이어야 한다 —
+ * 한쪽만 바꾸면 같은 픽이 기기에 따라 다른 숫자를 보인다.
+ */
+private const val PLAY_COUNT_FLOOR = 5
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -586,6 +593,30 @@ fun PickCard(
                     fontWeight = FontWeight.Medium,
                     color = Color.White.copy(alpha = 0.45f),
                 )
+            }
+            // 재생 수도 같은 규칙(알약 없음). **PLAY_COUNT_FLOOR 미만이면 아예 안 그린다** —
+            // "3번 재생됨"은 창작자에게 0보다 나쁜 신호다. 도달을 보여주려고 넣은 자리가
+            // 안 읽혔다는 통보가 된다.
+            val plays = pick.playCount
+            if (plays != null && plays >= PLAY_COUNT_FLOOR) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    modifier = Modifier.padding(start = 6.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.45f),
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Text(
+                        stringResource(R.string.pick_play_count, plays),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.45f),
+                    )
+                }
             }
             Spacer(Modifier.weight(1f))
             // 9:16 이미지 카드로 내보낸다. 텍스트만 보내면 받는 쪽엔 곡이 하나도 안 보이고,

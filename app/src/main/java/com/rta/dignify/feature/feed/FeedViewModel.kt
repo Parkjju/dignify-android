@@ -138,6 +138,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * 이번 주 큐레이션 세트를 일반 피드 앞에 붙인다. 세트가 끝나면 그대로 일반 피드로
      * 이어지므로 별도 화면도 종료 처리도 없다.
+     *
+     * 큐레이션 푸시로 들어온 진입이면 **이미 완주한 세트라도 다시 앞세운다** — 눌렀는데
+     * 없으면 안 되기 때문이다. 그 판정은 `Session`이 들고 있고 여기서 한 번 읽고 내린다.
      * ponytail: 실패하면 그냥 일반 피드 — 큐레이션이 없다고 피드가 비면 안 된다.
      */
     private suspend fun curationPrefix(): List<Feed> {
@@ -145,13 +148,15 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         curationSetKey = ""
         // 세트는 로그인 유저 전용이다. 게스트는 완주해도 그 사실을 계정에 못 붙이므로
         // "이번 주 세트"라는 약속 자체가 성립하지 않는다 — 아예 앞세우지 않는다.
+        val fromPush = Session.consumeCurationOpen()
         if (Session.state != AuthState.SIGNED_IN) return emptyList()
         val set = try {
             api.curation()
         } catch (e: Exception) {
             return emptyList()
         }
-        if (set.items.isEmpty() || set.setKey == prefs.getString(KEY_SEEN_SET, "")) return emptyList()
+        if (set.items.isEmpty()) return emptyList()
+        if (!fromPush && set.setKey == prefs.getString(KEY_SEEN_SET, "")) return emptyList()
         curationCount = set.items.size
         curationSetKey = set.setKey
         return set.items.map { it.toFeed() }

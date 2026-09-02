@@ -18,12 +18,19 @@ data class Release(val version: String, val notes: List<Int>)
 object Changelog {
     // 최신이 위. WhatsNewSheet가 이 순서 그대로 그린다.
     val releases: List<Release> = listOf(
+        // 세 줄 다 이 릴리즈에서 실제로 바뀐 것이다(온보딩 교체·픽 작성 목록·재생 수).
+        // **노트는 만든 뒤에 적는다** — 안 만든 걸 새 소식이라 말하면 그대로 거짓말이 된다.
+        Release(
+            version = "1.1.1",
+            notes = listOf(
+                R.string.whatsnew_111_onboarding,
+                R.string.whatsnew_111_compose,
+                R.string.whatsnew_111_plays,
+            ),
+        ),
         // 이 다섯 줄은 **이미 1.0.1로 나간 기능들**이다. 그땐 노트를 안 달아서 아무도 통보받지 못했고,
         // `shouldShow`가 노트 없는 버전을 걸러내니 그 유저들은 화면 자체를 못 봤다.
         // 1.1.0에 와서야 이름과 노트가 붙는다 — 코드 변경 없이 번호만 올린 릴리즈인 이유가 이것이다.
-        //
-        // **다음 릴리즈(1.1.1) 노트는 여기 미리 적지 않는다.** iOS 1.1.1 포트가 아직 안 끝났고,
-        // 안 만든 걸 새 소식이라 말하면 그대로 거짓말이 된다. 포트가 끝나면 그때 항목을 추가한다.
         Release(
             version = "1.1.0",
             notes = listOf(

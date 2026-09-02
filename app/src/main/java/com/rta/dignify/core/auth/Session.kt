@@ -12,6 +12,9 @@ import com.rta.dignify.feature.onboarding.OnboardingMock
 import com.rta.dignify.feature.push.Push
 import kotlinx.coroutines.MainScope
 
+/** 푸시가 지정한 목적지. 서버가 보내는 `type` 값 셋 중 갈 데가 있는 둘만 있다. */
+enum class PushTarget { CURATION, MY_PICKS }
+
 enum class AuthState {
     UNKNOWN,
     SIGNED_OUT,
@@ -76,6 +79,54 @@ object Session {
 
     fun onHypeChanged() {
         hypeChangeTick++
+    }
+
+    /**
+     * 푸시가 지정한 목적지. 탭을 옮기는 쪽(`MainTabs`)이 읽고 [consumePushTarget]으로 비운다.
+     * 액티비티가 인텐트에서 채우므로 컴포즈 상태여야 한다 — 일반 var면 탭이 안 움직인다.
+     */
+    var pushTarget by mutableStateOf<PushTarget?>(null)
+        private set
+
+    /**
+     * 큐레이션 푸시로 들어왔다는 1회성 표식. 피드가 읽고 즉시 내린다 —
+     * **이미 완주한 세트라도 이때는 다시 앞세운다.** 곡을 보여주겠다는 알림을 눌렀는데
+     * 일반 피드 첫 장이 나오면 유저는 자기가 뭘 눌렀는지 모른 채 앱만 켜게 된다.
+     *
+     * 컴포즈 상태가 아니어도 된다. 화면이 이 값을 그리지 않고, 재조회는 [feedReloadTick]이 건다.
+     */
+    private var pendingCurationOpen = false
+
+    /**
+     * 알림 탭으로 들어왔을 때 종류별로 갈라 보낸다. iOS `AppDelegate.userNotificationCenter`와
+     * 같은 자리이고 같은 판정이다.
+     *
+     * `notice`는 분기가 없는 게 맞다 — 갈 데를 지정하지 않은 알림이다.
+     * `pick_reaction`이 픽 탭이 아니라 디깅 프로필로 가는 이유: 어느 픽인지가 페이로드에
+     * 없어서, 남의 픽이 섞인 목록을 열면 반응이 달린 내 픽을 찾을 수가 없다.
+     */
+    fun onPushOpened(type: String) {
+        when (type) {
+            "curation" -> {
+                pendingCurationOpen = true
+                pushTarget = PushTarget.CURATION
+                // 피드는 이미 받아둔 뒤다. 안 올리면 세트를 앞세울 기회 자체가 없다.
+                feedReloadTick++
+            }
+
+            "pick_reaction" -> pushTarget = PushTarget.MY_PICKS
+        }
+    }
+
+    fun consumePushTarget() {
+        pushTarget = null
+    }
+
+    /** @return 큐레이션 푸시로 들어온 진입이었나. 읽는 순간 내려간다(1회성). */
+    fun consumeCurationOpen(): Boolean {
+        val pending = pendingCurationOpen
+        pendingCurationOpen = false
+        return pending
     }
 
     fun init(context: Context) {

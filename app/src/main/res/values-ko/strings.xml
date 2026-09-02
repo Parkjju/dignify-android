@@ -87,7 +87,7 @@
     <string name="type_loyalist_blurb">자기 취향을 알고, 거기에 충실해요.</string>
 
     <string name="your_type">내 유형</string>
-    <string name="your_crate">담은 곡</string>
+    <string name="your_hypes">하입한 곡</string>
     <string name="stats_top_genres">주요 장르</string>
     <string name="stats_top_artists">주요 아티스트</string>
     <string name="lens_explore">탐색</string>
@@ -145,7 +145,9 @@
     <string name="pick_delete_message">되돌릴 수 없고, 붙은 반응도 같이 사라져요.</string>
 
     <string name="pick_results_for">\"%1$s\" 검색 결과</string>
-    <string name="pick_crate_empty">담은 곡이 아직 없어요. 검색해서 골라보세요.</string>
+    <string name="pick_hypes_empty">아직 하입한 곡이 없어요. 검색해서 골라보세요.</string>
+    <string name="pick_added_from_search">검색에서 추가한 곡</string>
+    <string name="pick_play_count">재생 %1$d회</string>
 
     <string name="pick_next">다음</string>
     <string name="pick_title_step">제목</string>
@@ -162,6 +164,9 @@
     <string name="whatsnew_title">새로운 기능</string>
     <string name="whatsnew_version">버전 %1$s</string>
     <string name="whatsnew_got_it">확인</string>
+    <string name="whatsnew_111_onboarding">처음이신가요? 곡을 들어보고 마음에 드는 걸 고르면 피드가 거기서 시작해요.</string>
+    <string name="whatsnew_111_compose">픽을 만들 때 하입한 곡이 날짜별로 정리되고, 고르면서 바로 들어볼 수 있어요.</string>
+    <string name="whatsnew_111_plays">내가 만든 픽이 몇 번 재생됐는지 볼 수 있어요.</string>
     <string name="whatsnew_110_hypefeed">이제 하입한 곡을 기준으로 피드가 만들어져요. 비슷한 소리와 분위기의 곡이 이어져요.</string>
     <string name="whatsnew_110_genres">장르 설정이 없어졌어요. 몇 곡만 하입하면 피드가 취향을 따라와요.</string>
     <string name="whatsnew_110_seeds">피드의 기준이 될 곡을 최대 3곡까지 고를 수 있어요. 고르지 않으면 최근에 하입한 3곡을 기준으로 삼아요.</string>
@@ -291,34 +296,15 @@
     <string name="remove_track_message">언제든 다시 하입할 수 있어요.</string>
     <string name="pick_rename">제목 수정</string>
 
-    <!-- 소리 2지선다 -->
-    <string name="rounds_intro_title">어떤 소리를 좋아하세요?</string>
-    <string name="rounds_intro_update">이제 하입한 곡을 기준으로 피드가 만들어져요. 그 첫 방향을 여기서 같이 정할게요.</string>
-    <string name="rounds_intro_body">두 곡을 나란히 들려드릴게요. 정답은 없으니 더 듣고 싶은 쪽을 고르면 돼요. 고른 곡은 자동으로 하입돼요.</string>
-    <string name="rounds_intro_why">좋아하는 음악을 말로 설명하면 장르 이름부터 떠올리게 돼요. 직접 들어 보고 고르는 쪽이 취향을 더 정확하게 담아내요.</string>
-    <string name="rounds_intro_length">세 번만 고르면 끝나요. 둘 다 마음에 들지 않으면 건너뛰어도 괜찮아요.</string>
-    <string name="rounds_tap_hint">카드를 누르면 곡이 재생돼요. 마음에 드는 쪽을 고른 뒤 \'다음\'을 눌러 주세요.</string>
-    <string name="rounds_q_default">둘 중 어느 쪽이 끌리나요?</string>
-    <string name="rounds_q_arousal">에너지는 어느 쪽이 끌리나요?</string>
-    <string name="rounds_q_lofi">거칠기는 어느 쪽이 끌리나요?</string>
-    <string name="rounds_q_valence">밝기는 어느 쪽이 끌리나요?</string>
-    <string name="rounds_poles_arousal">한쪽은 몰아치고, 한쪽은 잔잔해요.</string>
-    <string name="rounds_poles_lofi">한쪽은 거칠고 노이즈가 섞여 있고, 한쪽은 깔끔하게 다듬어져 있어요.</string>
-    <string name="rounds_poles_valence">한쪽은 밝고 경쾌하고, 한쪽은 어둡고 무거워요.</string>
-    <string name="rounds_axis_arousal">에너지</string>
-    <string name="rounds_axis_lofi">거칠기</string>
-    <string name="rounds_axis_valence">밝기</string>
-    <string name="rounds_pole_driving">몰아치는 소리</string>
-    <string name="rounds_pole_calm">잔잔한 소리</string>
-    <string name="rounds_pole_raw">거친 소리</string>
-    <string name="rounds_pole_clean">깔끔한 소리</string>
-    <string name="rounds_pole_bright">밝은 소리</string>
-    <string name="rounds_pole_dark">어두운 소리</string>
-    <string name="rounds_done_empty_title">하입한 곡이 피드를 만들어요</string>
-    <string name="rounds_done_empty_body">마음에 드는 곡을 하입하면 다음 카드가 그 곡과 비슷해져요.</string>
-    <string name="rounds_summary_title">이런 소리를 고르셨어요</string>
-    <string name="rounds_summary_footer">고른 곡은 모두 하입해 뒀어요. 피드는 이 곡들과 비슷한 소리부터 보여드리고, 앞으로 하입하는 곡에 맞춰 조금씩 달라져요.</string>
-    <string name="rounds_start_digging">디깅 시작</string>
+    <!-- 온보딩 시드 고르기 -->
+    <string name="seed_title">어떤 소리가 끌려요?</string>
+    <string name="seed_hint">눌러서 들어보고 %1$d곡까지 골라주세요.</string>
+    <string name="seed_update_note">이제 하입한 곡을 기준으로 피드가 만들어져요.</string>
+    <string name="seed_popular_now">지금 인기 있는 곡</string>
+    <string name="seed_start_digging">디깅 시작</string>
+    <string name="track_limit">최대 %1$d곡까지 담을 수 있어요.</string>
+    <string name="select">선택</string>
+    <string name="deselect">선택 해제</string>
 
     <!-- 코치마크 -->
     <string name="coach_play_title">커버를 눌러 재생</string>

@@ -225,9 +225,9 @@ class ApiClient(
         }
     }
 
-    /** 소리 2지선다 후보. 인증 필수 — 게스트가 부르면 401이다. */
-    suspend fun onboardingCandidates(): Api.OnboardingCandidates =
-        client.get("$baseUrl/onboarding/candidates").body()
+    /** 온보딩에서 고르는 인기곡 풀. 인증 필수 — 게스트가 부르면 401이다. 페이지네이션 없음. */
+    suspend fun onboardingSeedPool(): Api.SeedPoolResponse =
+        client.get("$baseUrl/onboarding/seed-pool").body()
 
     suspend fun completeOnboarding() {
         client.post("$baseUrl/users/me/onboarding/complete")

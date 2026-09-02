@@ -41,6 +41,29 @@ class HypeGroupingTest {
         assertEquals(listOf(1L), groups[1].tracks.map { it.userHypeTrackId })
     }
 
+    /**
+     * 픽 작성 화면이 자기 타입으로 같은 묶음을 쓴다. 검색에서 고른 곡은 `hypedAt`이 없는데,
+     * 그게 날짜 그룹에 섞여 들어가면 "그날 뭘 팠는지"라는 목록의 전제가 깨진다.
+     */
+    @Test
+    fun `byDay는 아무 타입이나 묶고 하입 시각이 없으면 따로 모은다`() {
+        data class Row(val id: Int, val at: String?)
+
+        val rows = listOf(
+            Row(1, null),
+            Row(2, "2026-08-11T09:00:00Z"),
+            Row(3, "2026-08-11T01:00:00Z"),
+            Row(4, "2026-08-09T23:00:00Z"),
+        )
+        val groups = HypeGrouping.byDay(rows, utc) { it.at }
+
+        // epoch(시각 없음) 한 덩어리 + 날짜 둘. 등장 순서 그대로다.
+        assertEquals(3, groups.size)
+        assertEquals(listOf(1), groups[0].tracks.map { it.id })
+        assertEquals(listOf(2, 3), groups[1].tracks.map { it.id })
+        assertEquals(listOf(4), groups[2].tracks.map { it.id })
+    }
+
     @Test
     fun `maxGroups와 perDayLimit이 각각 날짜 수와 날짜당 개수를 자른다`() {
         val items = listOf(
