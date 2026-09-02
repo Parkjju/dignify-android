@@ -162,6 +162,11 @@
     <string name="whatsnew_title">새로운 기능</string>
     <string name="whatsnew_version">버전 %1$s</string>
     <string name="whatsnew_got_it">확인</string>
+    <string name="whatsnew_110_hypefeed">이제 하입한 곡을 기준으로 피드가 만들어져요. 비슷한 소리와 분위기의 곡이 이어져요.</string>
+    <string name="whatsnew_110_genres">장르 설정이 없어졌어요. 몇 곡만 하입하면 피드가 취향을 따라와요.</string>
+    <string name="whatsnew_110_seeds">피드의 기준이 될 곡을 최대 3곡까지 고를 수 있어요. 고르지 않으면 최근에 하입한 3곡을 기준으로 삼아요.</string>
+    <string name="whatsnew_110_random">하입한 곡 따라가기를 끄면 무작위 피드로 돌아가요.</string>
+    <string name="whatsnew_110_because">각 곡이 어떤 하입 곡 때문에 나왔는지 카드에 표시돼요.</string>
     <string name="whatsnew_100_hypefeed">하입한 곡을 기준으로 피드가 만들어져요. 비슷한 소리와 분위기의 곡이 이어져요.</string>
     <string name="whatsnew_100_feed">스와이프로 트랙을 넘기고 마음에 드는 곡에 하입하세요.</string>
     <string name="whatsnew_100_picks">픽 — 좋아하는 곡을 묶어서 남들에게 보내보세요.</string>

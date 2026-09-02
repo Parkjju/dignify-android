@@ -175,6 +175,11 @@
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
     <string name="whatsnew_got_it">Got it</string>
+    <string name="whatsnew_110_hypefeed">Your feed now follows the tracks you hype: same sound, same mood.</string>
+    <string name="whatsnew_110_genres">Genre settings are gone. Hype a few tracks and the feed picks up your taste.</string>
+    <string name="whatsnew_110_seeds">Choose up to 3 tracks to steer the feed, or leave it to your recent hypes.</string>
+    <string name="whatsnew_110_random">Turn hype-following off whenever you want a random feed.</string>
+    <string name="whatsnew_110_because">Every card now tells you which hype it came from.</string>
     <string name="whatsnew_100_hypefeed">The feed follows the tracks you hype: same sound, same mood.</string>
     <string name="whatsnew_100_feed">Swipe through tracks and hype the ones you like.</string>
     <string name="whatsnew_100_picks">Picks: put a few tracks together and send them out.</string>
