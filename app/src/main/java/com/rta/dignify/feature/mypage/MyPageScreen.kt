@@ -3,6 +3,7 @@ package com.rta.dignify.feature.mypage
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,6 +75,8 @@ import java.util.Locale
  * 행 묶음은 iOS와 같다 — 기능 / 안내 / 약관 / 계정. 되돌리기 어려운 것(로그아웃·탈퇴)만
  * 마지막에 모으고, 묶음 사이에만 구분선을 둔다.
  */
+private const val TAG = "DignifyMyPage"
+
 @Composable
 fun MyPageScreen(
     onOpenDiggingProfile: () -> Unit,
@@ -199,7 +202,14 @@ fun MyPageScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showWithdraw = false
-                    scope.launch { runCatching { Session.withdraw() } }
+                    // 실패하면 **로그아웃되지 않는다**(Session.withdraw가 throw하면 상태를 안 바꾼다).
+                    // 계정 화면에 그대로 남는 것이 "안 됐다"는 표시다 — 지우지도 않았는데
+                    // 로그아웃시키면 유저는 탈퇴된 줄 안다. 그게 1.0.1까지의 실제 동작이었다.
+                    // 문구는 iOS에 없어서 안 만든다(로컬라이제이션 원본이 iOS다). 로그는 남긴다.
+                    scope.launch {
+                        runCatching { Session.withdraw() }
+                            .onFailure { Log.w(TAG, "withdraw failed", it) }
+                    }
                 }) { Text(stringResource(R.string.withdraw_confirm), color = DSColor.destructive) }
             },
             dismissButton = {

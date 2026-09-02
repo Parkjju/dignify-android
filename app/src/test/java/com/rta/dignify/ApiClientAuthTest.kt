@@ -183,4 +183,45 @@ class ApiClientAuthTest {
 
         assertEquals("a", store.tokens?.accessToken)
     }
+
+    /**
+     * 탈퇴가 **조용히 실패하던** 회귀. 서버는 refreshToken을 바디로 받아 유저를 찾는데
+     * (`AuthController.withdraw`), 1.0.1까지 바디 없이 POST만 던져 400으로 떨어졌다.
+     * `expectSuccess`가 없어 예외도 안 났으므로 앱은 탈퇴에 성공한 화면을 보여주고
+     * 서버 데이터는 그대로 남았다. 눈으로는 성공과 구별이 안 되는 종류라 박아둔다.
+     */
+    @Test
+    fun `탈퇴는 refresh 토큰을 바디에 담아 보낸다`() = runTest {
+        val store = MemoryTokenStore(AuthTokens("access", "refresh-1"))
+        var body: String? = null
+
+        val engine = MockEngine { request ->
+            assertEquals("/auth/withdraw", request.url.encodedPath)
+            body = (request.body as io.ktor.http.content.TextContent).text
+            respond("", HttpStatusCode.OK)
+        }
+
+        ApiClient(store, engine = engine).withdraw()
+
+        assertTrue("바디에 refresh 토큰이 있어야 한다: $body", body!!.contains("refresh-1"))
+        assertNull(store.tokens)
+    }
+
+    @Test
+    fun `탈퇴가 실패하면 예외를 던지고 토큰을 지우지 않는다`() = runTest {
+        val store = MemoryTokenStore(AuthTokens("access", "refresh-1"))
+        val engine = MockEngine { respond("""{"code":"AUTH_TOKEN_INVALID"}""", HttpStatusCode.BadRequest, json) }
+
+        val api = ApiClient(store, engine = engine)
+        var threw = false
+        try {
+            api.withdraw()
+        } catch (e: IllegalStateException) {
+            threw = true
+        }
+
+        assertTrue("실패를 삼키면 유저가 탈퇴된 줄 안다", threw)
+        // 토큰이 남아야 로그아웃도 안 되고, 계정 화면에 그대로 있는 것이 실패의 표시가 된다.
+        assertEquals("refresh-1", store.tokens?.refreshToken)
+    }
 }

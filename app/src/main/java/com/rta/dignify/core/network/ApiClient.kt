@@ -21,6 +21,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.sync.Mutex
@@ -247,9 +248,31 @@ class ApiClient(
             setBody(NicknameBody(nickname))
         }.body()
 
-    /** 회원 탈퇴. 서버가 픽·하입·장르까지 CASCADE로 지운다. 성공하면 로컬 토큰도 비운다. */
+    /**
+     * 회원 탈퇴. 서버가 픽·하입·장르까지 CASCADE로 지운다. 성공하면 로컬 토큰도 비운다.
+     *
+     * **refreshToken을 바디로 보내야 한다.** 서버는 액세스 토큰이 아니라 이 값으로 유저를
+     * 찾는다(`AuthController.withdraw`가 `@RequestBody @Valid AuthTokenRequest`를 받고
+     * `refreshToken`이 `@NotBlank`). 1.0.1까지 바디 없이 POST만 던졌고, 그러면 서버는
+     * 400으로 떨어져 **삭제 로직이 한 줄도 안 돈다** — 그런데 이 클라이언트엔
+     * `expectSuccess`가 없어서 4xx가 예외를 안 던지므로 아래 토큰 정리가 그대로 실행됐다.
+     * 앱은 탈퇴에 성공한 화면을 보여주고 서버 데이터는 남아 있었다. iOS는 처음부터
+     * `Endpoints.withdraw(refreshToken:)`로 보내고 있었다.
+     *
+     * 그래서 여기서만은 **상태 코드를 직접 본다.** 실패를 삼키면 같은 버그가 조용히 돌아온다.
+     */
     suspend fun withdraw() {
-        client.post("$baseUrl/auth/withdraw")
+        // 토큰이 없으면 서버에 지울 세션도 없다. 로컬만 비우고 끝낸다(iOS `AppSession.withdraw`와 같다).
+        val refreshToken = store.tokens?.refreshToken
+        if (refreshToken == null) {
+            store.tokens = null
+            return
+        }
+        val response = client.post("$baseUrl/auth/withdraw") {
+            contentType(ContentType.Application.Json)
+            setBody(RefreshBody(refreshToken))
+        }
+        check(response.status.isSuccess()) { "withdraw failed: ${response.status}" }
         store.tokens = null
     }
 
