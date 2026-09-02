@@ -61,6 +61,7 @@ import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSSearchBar
 import com.rta.dignify.core.designsystem.DSTypography
+import com.rta.dignify.core.designsystem.dismissKeyboardOnTap
 import com.rta.dignify.core.designsystem.PrimaryButton
 import com.rta.dignify.core.network.Api
 import com.rta.dignify.core.network.itunesArtworkUrl
@@ -199,6 +200,7 @@ fun SeedPoolPickerScreen(
         Modifier
             .fillMaxSize()
             .background(DSColor.background)
+            .dismissKeyboardOnTap()
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {

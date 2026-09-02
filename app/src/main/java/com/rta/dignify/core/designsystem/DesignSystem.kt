@@ -46,7 +46,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.geometry.Offset
@@ -257,6 +261,14 @@ fun DSSearchBar(
     modifier: Modifier = Modifier,
     onSubmit: () -> Unit = {},
 ) {
+    // 검색을 확정하면 **키보드를 내리고 포커스도 푼다.** 결과를 보려고 누른 건데 키보드가
+    // 남아 있으면 목록 절반이 가리고, 내릴 방법이 시스템 뒤로가기뿐이라 화면을 닫는 것과
+    // 헷갈린다(온보딩 시드 고르기에서 실측으로 걸린 자리다).
+    //
+    // 부르는 쪽마다 달지 않고 여기 한 곳에 두는 이유: 검색창은 셋(피드·픽 작성·시드 고르기)이
+    // 같은 컴포저블을 쓰는데, 호출부에 두면 새로 붙는 네 번째가 조용히 빠진다.
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     Row(
         modifier
             .clip(RoundedCornerShape(DSRadius.medium))
@@ -280,7 +292,13 @@ fun DSSearchBar(
             textStyle = TextStyle(fontSize = 14.sp, color = DSColor.textPrimary),
             cursorBrush = SolidColor(DSColor.brand),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    keyboard?.hide()
+                    focusManager.clearFocus()
+                    onSubmit()
+                },
+            ),
             modifier = Modifier.weight(1f),
             decorationBox = { inner ->
                 if (text.isEmpty()) {
@@ -298,6 +316,30 @@ fun DSSearchBar(
                     .size(15.dp)
                     .clickable { onTextChange("") },
             )
+        }
+    }
+}
+
+/**
+ * 빈 데를 누르면 키보드를 내린다. **검색창이 있는 지면의 루트에 건다.**
+ *
+ * 엔터(IME의 검색)로 내리는 건 [DSSearchBar]가 하지만, 검색어만 넣어보고 결과를 훑으러
+ * 내려갈 때는 엔터를 안 누른다. 그때 키보드를 내릴 방법이 시스템 뒤로가기뿐이면 화면을
+ * 닫는 것과 헷갈린다.
+ *
+ * 자식이 자기 탭을 먹으면(버튼·셀) 여기까지 안 온다 — 그래서 "상호작용 없는 영역"만 걸린다.
+ * 드래그는 안 걸리므로 스크롤도 그대로 된다.
+ *
+ * 피드에는 안 건다. 그 지면은 탭이 재생/일시정지고 더블탭이 하입이라 겹친다.
+ */
+@Composable
+fun Modifier.dismissKeyboardOnTap(): Modifier {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    return pointerInput(Unit) {
+        detectTapGestures {
+            keyboard?.hide()
+            focusManager.clearFocus()
         }
     }
 }

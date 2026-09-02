@@ -69,6 +69,7 @@ import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSSearchBar
 import com.rta.dignify.core.designsystem.DSTypography
+import com.rta.dignify.core.designsystem.dismissKeyboardOnTap
 import com.rta.dignify.core.model.Feed
 import com.rta.dignify.core.model.toFeed
 import com.rta.dignify.core.network.Api
@@ -264,7 +265,7 @@ fun PickComposeSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
         sheetState = sheetState,
         containerColor = DSColor.background,
     ) {
-        Column(Modifier.fillMaxHeight(0.94f)) {
+        Column(Modifier.fillMaxHeight(0.94f).dismissKeyboardOnTap()) {
             Text(
                 stringResource(R.string.pick_new),
                 style = DSTypography.title2,

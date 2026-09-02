@@ -97,7 +97,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -1042,7 +1041,6 @@ private fun SearchControls(
     badge: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val keyboard = LocalSoftwareKeyboardController.current
     Column(
         modifier
             .fillMaxWidth()
@@ -1055,10 +1053,8 @@ private fun SearchControls(
                 text = text,
                 onTextChange = onTextChange,
                 placeholder = stringResource(R.string.search_placeholder),
-                onSubmit = {
-                    keyboard?.hide()
-                    onSubmit()
-                },
+                // 키보드 내리기는 DSSearchBar가 한다(세 검색창이 같은 규칙을 쓴다).
+                onSubmit = onSubmit,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
