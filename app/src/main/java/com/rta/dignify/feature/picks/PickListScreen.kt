@@ -184,6 +184,7 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
         steps = PicksCoach.steps,
         screen = "picks",
         active = !seenCoach && !isLoading && visible.isNotEmpty(),
+        bottomInset = bottomInset,
         onFinish = { CoachSeen.mark(context, CoachSeen.PICKS); seenCoach = true },
     ) {
     Box(Modifier.fillMaxSize().background(DSColor.pickBackground)) {

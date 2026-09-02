@@ -7,10 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -50,6 +52,7 @@ import com.rta.dignify.R
 import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.core.auth.Session
 import com.rta.dignify.core.designsystem.DSColor
+import com.rta.dignify.core.designsystem.DSFitOrScroll
 import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSTypography
 import com.rta.dignify.core.designsystem.PrimaryButton
@@ -57,6 +60,7 @@ import com.rta.dignify.core.network.Api
 import com.rta.dignify.core.network.itunesArtworkUrl
 import com.rta.dignify.feature.feed.FeedAudioController
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "DignifyRounds"
 
@@ -214,9 +218,44 @@ private data class Pick(
  * 깨졌는지가 로그캣에서만 갈린다.
  */
 suspend fun fetchRounds(): List<Api.OnboardingCandidates.Round> = runCatching {
-    // 곡이 두 개 다 안 온 라운드는 2지선다가 성립하지 않는다.
-    Session.api.onboardingCandidates().rounds.filter { it.items.size == 2 }
+    // 8초를 넘기면 없는 것으로 친다. HTTP 타임아웃이 안 걸려 있어 느린 망에서는 10초 넘게
+    // 매달리는데, 그동안 튜토리얼 마지막 장의 "시작하기"가 아무 반응도 못 한다.
+    withTimeoutOrNull(8_000) {
+        // 곡이 두 개 다 안 온 라운드는 2지선다가 성립하지 않는다.
+        Session.api.onboardingCandidates().rounds.filter { it.items.size == 2 }
+    }.orEmpty()
 }.onFailure { Log.w(TAG, "onboarding candidates failed", it) }.getOrDefault(emptyList())
+
+/**
+ * 라운드 세 화면의 뼈대 — 넘치면 스크롤되는 본문 + 자리를 먼저 확보한 하단 버튼.
+ *
+ * 원래는 세 화면 모두 `Spacer(weight)` 사이에 본문을 쌓고 버튼을 Column의 마지막 자식으로 뒀다.
+ * **본문이 화면보다 길어지는 순간 잘리는 건 버튼이다** — Column은 가중치 없는 자식부터 재고,
+ * 본문이 높이를 다 먹으면 마지막에 놓인 버튼에 남는 게 없다. 글꼴 크기를 키운 기기에서
+ * 실측했다: 1080x1920/480dpi/글꼴 1.8배에서 "시작하기"가 글자가 반쯤 잘린 띠로 남고,
+ * 1080x1780/글꼴 2.0배에서는 아예 안 보였다. 유저 눈에는 "버튼이 안 눌리는" 화면이다.
+ *
+ * `heightIn(min = maxHeight)`는 본문이 짧을 때의 가운데 정렬용 — 스크롤 안에서는 높이 제약이
+ * 무한이라 이게 없으면 `Arrangement.Center`가 아무 일도 하지 않는다.
+ */
+@Composable
+private fun RoundsPage(
+    /** 본문 위 고정 줄(라운드 헤더). 없으면 자리를 차지하지 않는다. */
+    top: @Composable ColumnScope.() -> Unit = {},
+    /** 하단 고정 영역. 버튼과 그 위 경고 문구가 여기 온다. */
+    bottom: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        top()
+        DSFitOrScroll(
+            Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
+            content = content,
+        )
+        bottom()
+    }
+}
 
 /**
  * 라운드가 아무 말 없이 뜨면 유저는 이게 왜 떴는지, 뭘 고르는 건지 모른 채 답을 찍는다.
@@ -224,11 +263,15 @@ suspend fun fetchRounds(): List<Api.OnboardingCandidates.Round> = runCatching {
  */
 @Composable
 private fun IntroView(isUpdate: Boolean, onStart: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    RoundsPage(
+        bottom = {
+            PrimaryButton(
+                stringResource(R.string.tutorial_start),
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
+                onClick = onStart,
+            )
+        },
     ) {
-        Spacer(Modifier.weight(1f))
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -272,8 +315,6 @@ private fun IntroView(isUpdate: Boolean, onStart: () -> Unit) {
                 textAlign = TextAlign.Center,
             )
         }
-        Spacer(Modifier.weight(1f))
-        PrimaryButton(stringResource(R.string.tutorial_start), onClick = onStart)
     }
 }
 
@@ -289,23 +330,37 @@ private fun RoundView(
     onSkip: () -> Unit,
     onNext: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("${index + 1} / $total", style = DSTypography.caption, color = DSColor.textTertiary)
-            Spacer(Modifier.weight(1f))
-            Text(
-                stringResource(R.string.tutorial_skip),
-                style = DSTypography.bodyMedium,
-                color = DSColor.textTertiary,
-                modifier = Modifier.clickable(onClick = onSkip),
+    RoundsPage(
+        top = {
+            Row(
+                Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${index + 1} / $total",
+                    style = DSTypography.caption,
+                    color = DSColor.textTertiary,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    stringResource(R.string.tutorial_skip),
+                    style = DSTypography.bodyMedium,
+                    color = DSColor.textTertiary,
+                    modifier = Modifier.clickable(onClick = onSkip),
+                )
+            }
+        },
+        bottom = {
+            PrimaryButton(
+                stringResource(R.string.tutorial_next),
+                enabled = selected != null,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
+                onClick = onNext,
             )
-        }
-
+        },
+    ) {
         Column(
-            Modifier.padding(horizontal = 24.dp).padding(top = 8.dp),
+            Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
@@ -323,10 +378,10 @@ private fun RoundView(
             )
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(24.dp))
 
         Column(
-            Modifier.padding(horizontal = 24.dp),
+            Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             round.items.forEach { item ->
@@ -340,15 +395,6 @@ private fun RoundView(
                 )
             }
         }
-
-        Spacer(Modifier.weight(1f))
-
-        PrimaryButton(
-            stringResource(R.string.tutorial_next),
-            enabled = selected != null,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
-            onClick = onNext,
-        )
     }
 }
 
@@ -444,11 +490,29 @@ private fun DoneView(
     failed: Boolean,
     onFinish: () -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    RoundsPage(
+        bottom = {
+            if (failed) {
+                Text(
+                    stringResource(R.string.save_failed),
+                    style = DSTypography.caption,
+                    color = DSColor.destructive,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 8.dp),
+                )
+            }
+            PrimaryButton(
+                stringResource(R.string.rounds_start_digging),
+                busy = isSubmitting,
+                enabled = !isSubmitting,
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
+                onClick = onFinish,
+            )
+        },
     ) {
-        Spacer(Modifier.weight(1f))
         if (picks.isEmpty()) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -529,22 +593,6 @@ private fun DoneView(
                 )
             }
         }
-        Spacer(Modifier.weight(1f))
-        if (failed) {
-            Text(
-                stringResource(R.string.save_failed),
-                style = DSTypography.caption,
-                color = DSColor.destructive,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-        PrimaryButton(
-            stringResource(R.string.rounds_start_digging),
-            busy = isSubmitting,
-            enabled = !isSubmitting,
-            onClick = onFinish,
-        )
     }
 }
 

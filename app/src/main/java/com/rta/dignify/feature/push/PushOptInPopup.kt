@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -65,8 +68,12 @@ fun PushOptInPopup(
         contentAlignment = Alignment.Center,
     ) {
         Column(
+            // 카드가 화면을 넘지 않게 안전 영역 안으로 가둔다. 안 가두면 글꼴을 키운 기기에서
+            // 긴 문구가 카드를 늘려 아래 버튼 둘이 화면 밖으로 나간다 — 팝업을 닫을 방법이
+            // 딤 탭뿐이 되고, 그건 "거절"이라 유저가 수락할 길이 사라진다.
             Modifier
-                .padding(horizontal = 32.dp)
+                .safeDrawingPadding()
+                .padding(horizontal = 32.dp, vertical = 24.dp)
                 .shadow(24.dp, RoundedCornerShape(DSRadius.large))
                 .background(DSColor.background, RoundedCornerShape(DSRadius.large))
                 // 카드를 눌렀을 때 딤의 onClick으로 새어 닫히지 않도록 히트테스트를 먹는다.
@@ -75,6 +82,8 @@ fun PushOptInPopup(
                     indication = null,
                     onClick = {},
                 )
+                // 그래도 넘치면 카드 안에서 스크롤. 문구가 길어도 버튼은 항상 닿는다.
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(top = 28.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

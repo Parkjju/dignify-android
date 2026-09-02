@@ -195,9 +195,10 @@ private fun OnboardingFlow() {
             Session.onOnboardingComplete()
         }
     } else {
-        TutorialScreen(onDone = {
-            if (isLoading) waitingForRounds = true else showRounds = true
-        })
+        TutorialScreen(
+            busy = waitingForRounds,
+            onDone = { if (isLoading) waitingForRounds = true else showRounds = true },
+        )
     }
 }
 

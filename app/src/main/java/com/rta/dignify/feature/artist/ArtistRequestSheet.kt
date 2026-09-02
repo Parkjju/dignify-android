@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -84,7 +87,13 @@ fun ArtistRequestSheet(prefill: String = "", onDismiss: () -> Unit) {
         containerColor = DSColor.background,
     ) {
         Column(
-            Modifier.navigationBarsPadding().padding(24.dp),
+            // imePadding: 시트 안에 입력칸이 있는데 ModalBottomSheet은 키보드를 안 밀어준다.
+            // verticalScroll: 키보드가 올라오면 남는 높이가 확 줄어 전송 버튼이 잘린다.
+            Modifier
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (submitted) {

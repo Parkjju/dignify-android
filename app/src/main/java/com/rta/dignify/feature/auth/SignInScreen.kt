@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -33,6 +35,7 @@ import com.rta.dignify.core.auth.Session
 import com.rta.dignify.core.auth.requestGoogleIdToken
 import com.rta.dignify.core.designsystem.DSBrandMark
 import com.rta.dignify.core.designsystem.DSColor
+import com.rta.dignify.core.designsystem.DSFitOrScroll
 import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSTypography
 import kotlinx.coroutines.launch
@@ -58,13 +61,15 @@ fun SignInScreen(
     var isSigningIn by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    Column(
+    // 스크롤 지면이다 — 글꼴을 키운 기기에서는 로고+문구+버튼 둘이 화면보다 길어진다.
+    // safeDrawingPadding이 없으면 그때 맨 위 로고가 상태바 밑으로, 아래 버튼이 제스처 바
+    // 밑으로 들어간다.
+    DSFitOrScroll(
         Modifier
             .fillMaxSize()
             .background(DSColor.background)
-            .padding(horizontal = 32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .safeDrawingPadding(),
+        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 24.dp),
     ) {
         DSBrandMark(size = 72.dp)
         Text(

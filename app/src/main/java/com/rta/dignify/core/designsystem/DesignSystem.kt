@@ -11,6 +11,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -132,6 +136,37 @@ fun DSGenreChip(
         contentAlignment = Alignment.Center,
     ) {
         Text(title, color = foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/**
+ * 화면 높이를 채우되 내용이 넘치면 스크롤되는 가운데 정렬 지면.
+ *
+ * 안 쓰면 어떻게 되는지 실측했다 — 스크롤 없는 `Column(fillMaxSize)`에 내용을 쌓고 버튼을
+ * 마지막 자식으로 두면, Column이 **가중치 없는 자식부터** 재기 때문에 내용이 화면보다 길어지는
+ * 순간 잘리는 건 버튼이다. 1080x1920/480dpi/글꼴 1.8배에서 하단 버튼이 글자 반쯤 잘린 띠로
+ * 남았고, 1080x1780/글꼴 2.0배에서는 아예 안 보였다. 유저 눈에는 "버튼이 안 눌리는" 화면이다.
+ *
+ * `heightIn(min = maxHeight)`가 핵심이다 — 스크롤 안에서는 높이 제약이 무한이라 이게 없으면
+ * `Arrangement.Center`가 아무 일도 하지 않아 짧은 내용이 위로 붙는다.
+ */
+@Composable
+fun DSFitOrScroll(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BoxWithConstraints(modifier) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight)
+                .padding(contentPadding),
+            horizontalAlignment = horizontalAlignment,
+            verticalArrangement = Arrangement.Center,
+            content = content,
+        )
     }
 }
 

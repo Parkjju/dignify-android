@@ -6,16 +6,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,6 +52,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rta.dignify.R
@@ -169,6 +176,12 @@ fun CoachOverlay(
     steps: List<CoachStep>,
     screen: String,
     active: Boolean,
+    /**
+     * 화면 위에 떠 있는 탭바가 가리는 높이. 안 주면 안내 카드가 탭바 **밑으로** 들어가
+     * "다음"·"시작하기"가 반쯤 덮인다 — 덮인 자리를 누르면 탭이 바뀐다.
+     * 탭바 밖에서 부르는 화면(마이페이지 하위 화면)은 0이면 된다.
+     */
+    bottomInset: Dp = 0.dp,
     onFinish: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -182,7 +195,7 @@ fun CoachOverlay(
             LaunchedEffect(screen) {
                 Analytics.capture("coach_shown", mapOf("screen" to screen))
             }
-            CoachMarks(steps, screen, anchors, onFinish)
+            CoachMarks(steps, screen, anchors, bottomInset, onFinish)
         }
     }
 }
@@ -193,6 +206,7 @@ private fun CoachMarks(
     /** 어느 화면의 안내인지. 네 화면이 이벤트 이름을 같이 쓰므로 이 값으로만 구분된다. */
     screen: String,
     anchors: Map<CoachAnchor, Rect>,
+    bottomInset: Dp,
     onFinish: () -> Unit,
 ) {
     var index by remember { mutableIntStateOf(0) }
@@ -228,10 +242,13 @@ private fun CoachMarks(
         val topPad = with(density) { (if (below && spot != null) spot.bottom + pad * 3 else 0f).toDp() }
         val bottomPad =
             with(density) { (if (!below && spot != null) height - spot.top + pad * 3 else 0f).toDp() }
+        // 카드가 놓일 자리. 구멍 반대쪽 여백에서 시스템 바와 탭바를 뺀 만큼이 전부다 —
+        // 빼지 않으면 카드가 상태바 밑에서 시작하거나 탭바 밑으로 내려가 버튼이 덮인다.
+        val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(top = topPad, bottom = bottomPad)
+                .padding(top = maxOf(topPad, statusTop), bottom = bottomPad + bottomInset)
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             contentAlignment = if (below) Alignment.TopCenter else Alignment.BottomCenter,
         ) {
@@ -298,24 +315,35 @@ private fun CoachCard(step: CoachStep, index: Int, count: Int, onNext: () -> Uni
         Modifier
             .widthIn(max = 420.dp)
             .clip(RoundedCornerShape(28.dp))
-            .background(DSColor.pickElevated)
-            .padding(24.dp),
+            .background(DSColor.pickElevated),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            stringResource(step.title),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            stringResource(step.body),
-            fontSize = 15.sp,
-            color = Color.White.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 10.dp),
-        )
+        // 설명만 스크롤한다. `fill = false`라 짧으면 카드가 내용만큼만 커지고, 길면 남는
+        // 높이까지만 차지한다 — 이걸 안 하면 높이가 모자랄 때 Column이 **마지막 자식인
+        // 버튼부터** 눌러서, 글꼴 2.0배에서 "시작하기"가 5dp짜리 띠로 남았다(실측).
+        Column(
+            Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(top = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                stringResource(step.title),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                stringResource(step.body),
+                fontSize = 15.sp,
+                color = Color.White.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
         // 현재 스텝만 길쭉한 알약. 개수는 스텝 수에서 나온다.
         Row(
             Modifier.padding(top = 20.dp),
@@ -335,8 +363,10 @@ private fun CoachCard(step: CoachStep, index: Int, count: Int, onNext: () -> Uni
         Spacer(Modifier.height(20.dp))
         Box(
             Modifier
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp)
                 .fillMaxWidth()
-                .height(52.dp)
+                .heightIn(min = 52.dp)
                 .clip(RoundedCornerShape(50))
                 .background(DSColor.brand)
                 .clickable(onClick = onNext),
@@ -347,6 +377,7 @@ private fun CoachCard(step: CoachStep, index: Int, count: Int, onNext: () -> Uni
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
+                modifier = Modifier.padding(vertical = 14.dp),
             )
         }
     }

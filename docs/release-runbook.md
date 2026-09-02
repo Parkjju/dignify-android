@@ -1,6 +1,6 @@
 # 릴리즈 배포
 
-Play Console 업로드까지. 현재 기준값: `versionCode 5` / `versionName 1.0.1` / `targetSdk 36`.
+Play Console 업로드까지. 현재 기준값: `versionCode 8` / `versionName 1.0.1` / `targetSdk 36`.
 
 ## 1. 버전 올리기
 

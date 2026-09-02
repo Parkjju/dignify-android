@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.outlined.Album
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,7 +71,15 @@ private val pages = listOf(
 )
 
 @Composable
-fun TutorialScreen(onDone: () -> Unit) {
+fun TutorialScreen(
+    /**
+     * 마지막 장에서 "시작하기"를 눌렀는데 다음 화면이 아직 준비되지 않은 상태.
+     * 이게 없으면 눌러도 화면이 그대로라 유저에겐 **버튼이 안 눌린 것과 구별되지 않는다** —
+     * 후보 요청이 느린 망에서 몇 초씩 그랬다.
+     */
+    busy: Boolean = false,
+    onDone: () -> Unit,
+) {
     val pagerState = rememberPagerState { pages.size }
     val scope = rememberCoroutineScope()
     val isLast = pagerState.currentPage == pages.size - 1
@@ -159,19 +168,27 @@ fun TutorialScreen(onDone: () -> Unit) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(DSRadius.medium))
                 .background(DSColor.brand)
-                .clickable {
+                .clickable(enabled = !busy) {
                     if (isLast) onDone()
                     else scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                 }
                 .padding(vertical = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                stringResource(if (isLast) R.string.tutorial_start else R.string.tutorial_next),
-                fontSize = 16.sp,
-                color = Color.White,
-                style = DSTypography.headline,
-            )
+            if (busy) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    color = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            } else {
+                Text(
+                    stringResource(if (isLast) R.string.tutorial_start else R.string.tutorial_next),
+                    fontSize = 16.sp,
+                    color = Color.White,
+                    style = DSTypography.headline,
+                )
+            }
         }
     }
 }

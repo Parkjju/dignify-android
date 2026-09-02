@@ -21,6 +21,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -31,8 +33,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
@@ -89,6 +94,8 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -112,6 +119,7 @@ import com.rta.dignify.R
 import com.rta.dignify.core.auth.AuthState
 import com.rta.dignify.core.auth.Session
 import com.rta.dignify.core.designsystem.DSColor
+import com.rta.dignify.core.designsystem.DSFitOrScroll
 import com.rta.dignify.core.designsystem.DSSearchBar
 import com.rta.dignify.core.designsystem.DSShimmer
 import com.rta.dignify.core.model.Feed
@@ -170,6 +178,14 @@ fun FeedScreen(
 
     var isSearching by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
+
+    // 상단 오버레이(검색 버튼 행 + 성향 칩 + 컨텍스트 배지)가 실제로 먹는 높이.
+    // 카드는 이 아래에서 시작한다 — 고정값(64dp)으로 두면 칩이 두 줄이 되거나 글꼴을 키운
+    // 기기에서 배지가 아트워크를 덮는다. 처음 한 프레임은 측정 전이라 옛 고정값을 바닥으로 쓴다.
+    val density = LocalDensity.current
+    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    var topOverlay by remember { mutableStateOf(0.dp) }
+    val cardTop = maxOf(topOverlay + 8.dp, statusTop + 64.dp)
 
     // 상세 시트는 trackId만 들고 있는다 — Feed를 그대로 붙잡으면 하입을 눌러도
     // 시트 안 아이콘이 옛 값에 머문다.
@@ -300,6 +316,7 @@ fun FeedScreen(
         steps = FeedCoach.steps,
         screen = "feed",
         active = showsCoach,
+        bottomInset = bottomInset,
         onFinish = { CoachSeen.mark(context, CoachSeen.FEED); seenCoach = true },
     ) {
     // Scaffold를 안 쓴다 — 앱 바가 없어서 content padding이 늘 0이고, 그걸 무시하면
@@ -330,6 +347,7 @@ fun FeedScreen(
                         }
                     },
                     bottomInset = bottomInset,
+                    topInset = cardTop,
                     onShare = {
                         val feed = vm.feeds[page]
                         scope.launch {
@@ -380,30 +398,6 @@ fun FeedScreen(
             }
         }
 
-        // 픽 재생 중이면 특집 대신 픽 배지. 같은 자리를 쓰므로 둘이 겹칠 일은 없다.
-        val nickname = vm.pickNickname
-        if (nickname != null) {
-            ContextBadge(
-                text = stringResource(
-                    R.string.pick_playing_badge,
-                    nickname,
-                    pagerState.currentPage + 1,
-                    vm.feeds.size,
-                ),
-                visible = !isSearching && vm.feeds.isNotEmpty(),
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-        }
-
-        CurationBadge(
-            index = pagerState.currentPage,
-            count = vm.curationCount,
-            // 검색 결과를 보는 중엔 숨긴다. 목록이 통째로 검색 결과인데 "이번 주 특집 1/7"이
-            // 뜨면 앞 7곡이 특집인 것처럼 읽힌다.
-            visible = !isSearching && vm.activeQuery.isEmpty(),
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
-
         SearchControls(
             isSearching = isSearching,
             text = searchText,
@@ -433,7 +427,37 @@ fun FeedScreen(
             onToggleMode = if (vm.pickNickname == null) {
                 { scope.launch { Session.setDiggingMode(!Session.diggingMode, "feed") } }
             } else null,
-            modifier = Modifier.align(Alignment.TopEnd),
+            // 배지를 오버레이 안에 넣는다. 예전엔 배지가 TopCenter에 `top = 56.dp`로 따로
+            // 떠 있었는데, 성향 칩이 정확히 같은 세로 띠를 써서 한국어 문구("하입한 곡
+            // 따라가는 중")에서는 둘이 가로로 겹쳤다. 같은 Column에 쌓으면 겹칠 수가 없다.
+            badge = {
+                // 픽 재생 중이면 특집 대신 픽 배지. 자리가 하나라 둘이 겹칠 일은 없다.
+                val nickname = vm.pickNickname
+                if (nickname != null) {
+                    ContextBadge(
+                        text = stringResource(
+                            R.string.pick_playing_badge,
+                            nickname,
+                            pagerState.currentPage + 1,
+                            vm.feeds.size,
+                        ),
+                        visible = !isSearching && vm.feeds.isNotEmpty(),
+                    )
+                } else {
+                    CurationBadge(
+                        index = pagerState.currentPage,
+                        count = vm.curationCount,
+                        // 검색 결과를 보는 중엔 숨긴다. 목록이 통째로 검색 결과인데
+                        // "이번 주 특집 1/7"이 뜨면 앞 7곡이 특집인 것처럼 읽힌다.
+                        visible = !isSearching && vm.activeQuery.isEmpty(),
+                    )
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .onGloballyPositioned {
+                    topOverlay = with(density) { it.size.height.toDp() }
+                },
         )
 
 
@@ -762,6 +786,8 @@ private fun FeedPage(
     onHype: () -> Unit,
     onHypeAt: (Offset) -> Unit,
     bottomInset: Dp,
+    /** 상단 오버레이가 먹는 높이(상태바 포함). 카드는 이 아래에서 시작한다. */
+    topInset: Dp,
     onShare: () -> Unit,
     onDetail: () -> Unit,
     /** 첫 카드만 true. 코치마크가 가리킬 하입 버튼이 목록에 하나여야 한다. */
@@ -797,6 +823,7 @@ private fun FeedPage(
         TrackCard(
             feed = feed,
             bottomInset = bottomInset,
+            topInset = topInset,
             onHype = onHype,
             onShare = onShare,
             onDetail = onDetail,
@@ -831,6 +858,7 @@ private fun BackgroundArtwork(feed: Feed) {
 private fun TrackCard(
     feed: Feed,
     bottomInset: Dp,
+    topInset: Dp,
     onHype: () -> Unit,
     onShare: () -> Unit,
     onDetail: () -> Unit,
@@ -841,32 +869,37 @@ private fun TrackCard(
         Column(
             Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                // navigationBarsPadding을 안 쓴다 — bottomInset이 이미 탭바+내비바를 포함해서
+                // statusBarsPadding을 안 쓴다 — topInset이 이미 상태바를 포함한다.
+                // navigationBarsPadding도 안 쓴다 — bottomInset이 이미 탭바+내비바를 포함해서
                 // 같이 걸면 제스처 바 높이만큼 두 번 밀린다.
-                .padding(top = 64.dp, bottom = 24.dp + bottomInset),
+                .padding(top = topInset, bottom = 24.dp + bottomInset),
         ) {
-            Spacer(Modifier.weight(1f))
-            Box(
-                Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .width(cardWidth)
-                    .aspectRatio(1f)
-                    .shadow(24.dp, RoundedCornerShape(24.dp))
-                    .clip(RoundedCornerShape(24.dp))
+            // 아트워크가 남는 높이를 가져간다 — **곡명·아티스트 줄보다 나중에 잰다**는 게
+            // 핵심이다. 예전엔 정사각형을 고정 크기로 두고 위아래를 Spacer(weight)로 밀었는데,
+            // 그러면 높이가 모자랄 때 밀려나는 게 아래 텍스트 줄이었다. 글꼴을 키운 기기에서
+            // 곡명과 아티스트가 통째로 사라지던 원인(실측: 480dpi/글꼴 2.0배).
+            BoxWithConstraints(
+                Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                DSShimmer(Modifier.fillMaxSize())
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(feed.artworkUrl(600))
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = feed.trackName,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                Box(
+                    Modifier
+                        .size(minOf(cardWidth, maxHeight))
+                        .shadow(24.dp, RoundedCornerShape(24.dp))
+                        .clip(RoundedCornerShape(24.dp))
+                ) {
+                    DSShimmer(Modifier.fillMaxSize())
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(feed.artworkUrl(600))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = feed.trackName,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
-            Spacer(Modifier.weight(1f))
 
             Column(
                 Modifier.padding(horizontal = 20.dp),
@@ -969,23 +1002,24 @@ private fun CurationBadge(index: Int, count: Int, visible: Boolean, modifier: Mo
  * 지금 무엇을 보고 있는지 알려주는 배지. 특집 세트와 픽 재생이 **같은 자리**를 쓴다
  * (iOS `contextBadge`) — 두 상태가 동시에 성립하지 않으므로 자리를 나눌 이유가 없다.
  *
+ * **자기 위치를 스스로 정하지 않는다.** 부르는 쪽(`SearchControls`의 badge 슬롯)이 성향 칩
+ * 아래에 쌓아 준다 — 예전처럼 `top = 56.dp`로 따로 띄우면 그 자리가 곧 칩의 자리다.
+ *
  * 탭을 안 먹는다. 배지는 나가는 문이 아니라 표시라, 눌리면 뒤 카드의 재생 토글을 가로챈다.
  */
 @Composable
 private fun ContextBadge(text: String, visible: Boolean, modifier: Modifier = Modifier) {
     if (!visible) return
-    Box(modifier.statusBarsPadding().padding(top = 56.dp)) {
-        Text(
-            text,
-            color = Color.White,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(Color.Black.copy(alpha = 0.55f))
-                .padding(horizontal = 14.dp, vertical = 7.dp),
-        )
-    }
+    Text(
+        text,
+        color = Color.White,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.55f))
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
 }
 
 /**
@@ -1004,11 +1038,14 @@ private fun SearchControls(
     onClearQuery: () -> Unit,
     /** null이면 성향 버튼·칩을 아예 안 그린다(픽 재생 지면). */
     onToggleMode: (() -> Unit)? = null,
+    /** 칩들 아래 가운데에 쌓이는 컨텍스트 배지. 없으면 자리를 안 먹는다. */
+    badge: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     Column(
         modifier
+            .fillMaxWidth()
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.End,
@@ -1104,6 +1141,11 @@ private fun SearchControls(
                 )
             }
         }
+
+        Box(
+            Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
+            content = { badge() },
+        )
     }
 }
 
@@ -1127,13 +1169,14 @@ private fun EmptyState(
     onRetry: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Column(
+    // 상단 검색·성향 칩이 이 위에 떠 있다. safeDrawingPadding이 없으면 문구가 상태바
+    // 아래로 파고들고, 스크롤이 없으면 글꼴을 키웠을 때 재시도 버튼이 화면 밖으로 나간다.
+    DSFitOrScroll(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .padding(horizontal = 32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .safeDrawingPadding(),
+        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 96.dp),
     ) {
         Text(
             when {
