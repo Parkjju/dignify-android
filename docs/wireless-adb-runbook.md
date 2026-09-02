@@ -6,6 +6,30 @@ Android Studio가 `Unavailable on device <기기> at <IP>:<포트>` 를 띄울 �
 adb=~/Library/Android/sdk/platform-tools/adb
 ```
 
+## 붙이기 (복붙)
+
+폰: `설정 → 개발자 옵션 → 무선 디버깅` 켜기 → **페어링 코드로 기기 페어링** (이 화면을 열어둔 채로)
+
+```sh
+adb=~/Library/Android/sdk/platform-tools/adb
+$adb kill-server; $adb start-server
+
+# 1. 페어링 — 화면에 뜬 IP:포트와 6자리 코드. 이 포트는 이 대화상자 전용이다
+$adb pair 192.168.0.170:46753 201780
+
+# 2. 붙었는지 확인 (페어링 후 mDNS로 자동 연결된다. 10초쯤 걸림)
+$adb devices -l
+
+# 3. 자동으로 안 붙으면 — 연결 포트는 위와 다른 숫자다
+$adb mdns services                       # adb-XXXX  _adb-tls-connect._tcp  192.168.0.170:43375
+$adb connect 192.168.0.170:43375
+
+# 4. 로그 뽑기
+$adb logcat -c && $adb logcat -d | grep -iE "credential|signin|28444|GoogleId|dignify"
+```
+
+IP는 폰의 `설정 → 무선 디버깅` 화면에 같이 떠 있다. 안 되면 아래 진단으로.
+
 ## 왜 생기나
 
 - **연결 포트는 무선 디버깅이 재시작될 때마다 바뀐다.** Studio는 옛 포트를 캐시하고 죽은 주소로 계속 시도한다. `Unavailable on device`는 그 결과지 원인이 아니다.
