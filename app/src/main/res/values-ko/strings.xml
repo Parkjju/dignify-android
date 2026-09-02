@@ -164,9 +164,9 @@
     <string name="whatsnew_title">새로운 기능</string>
     <string name="whatsnew_version">버전 %1$s</string>
     <string name="whatsnew_got_it">확인</string>
-    <string name="whatsnew_111_onboarding">처음이신가요? 곡을 들어보고 마음에 드는 걸 고르면 피드가 거기서 시작해요.</string>
-    <string name="whatsnew_111_compose">픽을 만들 때 하입한 곡이 날짜별로 정리되고, 고르면서 바로 들어볼 수 있어요.</string>
-    <string name="whatsnew_111_plays">내가 만든 픽이 몇 번 재생됐는지 볼 수 있어요.</string>
+    <string name="whatsnew_112_onboarding">처음이신가요? 곡을 들어보고 마음에 드는 걸 고르면 피드가 거기서 시작해요.</string>
+    <string name="whatsnew_112_compose">픽을 만들 때 하입한 곡이 날짜별로 정리되고, 고르면서 바로 들어볼 수 있어요.</string>
+    <string name="whatsnew_112_plays">내가 만든 픽이 몇 번 재생됐는지 볼 수 있어요.</string>
     <string name="whatsnew_110_hypefeed">이제 하입한 곡을 기준으로 피드가 만들어져요. 비슷한 소리와 분위기의 곡이 이어져요.</string>
     <string name="whatsnew_110_genres">장르 설정이 없어졌어요. 몇 곡만 하입하면 피드가 취향을 따라와요.</string>
     <string name="whatsnew_110_seeds">피드의 기준이 될 곡을 최대 3곡까지 고를 수 있어요. 고르지 않으면 최근에 하입한 3곡을 기준으로 삼아요.</string>

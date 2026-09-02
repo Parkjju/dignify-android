@@ -2,20 +2,25 @@
 
 작성 2026-09-02. iOS 쪽은 `../dignify-iOS/TODO.md`, 백엔드는 `../dignify-backend/TODO.md`.
 
-**현재 상태 — `versionName 1.1.1` / `versionCode 10`.** iOS 1.1.1 포트가 코드에 다 들어갔다
+**현재 상태 — `versionName 1.1.2` / `versionCode 11`.** iOS 1.1.1 포트가 코드에 다 들어갔다
 (`docs/1.1.1-port-checklist.md` §2 전 항목). **남은 건 올리는 것뿐이다**(`docs/release-runbook.md`).
 
+**버전 이름이 iOS(1.1.1)와 다르다.** 같은 포트지만 안드로이드는 1.1.2로 나간다 — 체크리스트 §4가
+말한 대로 두 플랫폼의 이름은 갈려도 되고, 백엔드는 `versionCode`로만 버전을 가른다.
+포트 노트도 1.1.2 항목으로 옮겨 뒀다(`Changelog.shouldShow`가 노트 없는 버전을 걸러내므로
+이름과 노트가 어긋나면 새 소식 화면이 통째로 안 뜬다).
+
 1.1.0은 코드 변경 없이 번호와 노트만 붙인 릴리즈였다. 그걸 아직 Play에 안 올렸어도 문제없다 —
-What's New 시트가 로그 전체를 그리므로 업데이트 유저는 1.1.1과 1.1.0 노트를 함께 본다.
+What's New 시트가 로그 전체를 그리므로 업데이트 유저는 1.1.2와 1.1.0 노트를 함께 본다.
 
 ---
 
-## P0. 1.1.1 올리기
+## P0. 1.1.2 올리기
 
 `./gradlew testReleaseUnitTest bundleRelease` → 서명 확인 → Play Console.
 빌드·서명·검증 절차는 전부 `docs/release-runbook.md`에 있다.
 
-⚠️ **`versionCode 10`은 이미 커밋돼 있다.** 업로드 전에 또 올리지 말 것 — 한 번 쓴 번호는
+⚠️ **`versionCode 11`은 이미 커밋돼 있다.** 업로드 전에 또 올리지 말 것 — 한 번 쓴 번호는
 그 업로드를 지워도 다시 못 쓴다.
 
 ---

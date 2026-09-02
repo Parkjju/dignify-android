@@ -20,12 +20,16 @@ object Changelog {
     val releases: List<Release> = listOf(
         // 세 줄 다 이 릴리즈에서 실제로 바뀐 것이다(온보딩 교체·픽 작성 목록·재생 수).
         // **노트는 만든 뒤에 적는다** — 안 만든 걸 새 소식이라 말하면 그대로 거짓말이 된다.
+        //
+        // 버전 이름은 iOS(1.1.1)와 다르다. 같은 포트지만 안드로이드는 1.1.2로 나간다 —
+        // **노트는 versionName을 따라가야 한다.** `shouldShow`가 노트 없는 버전을 걸러내므로
+        // 여기 "1.1.1"이 남아 있으면 화면이 통째로 안 뜬다.
         Release(
-            version = "1.1.1",
+            version = "1.1.2",
             notes = listOf(
-                R.string.whatsnew_111_onboarding,
-                R.string.whatsnew_111_compose,
-                R.string.whatsnew_111_plays,
+                R.string.whatsnew_112_onboarding,
+                R.string.whatsnew_112_compose,
+                R.string.whatsnew_112_plays,
             ),
         ),
         // 이 다섯 줄은 **이미 1.0.1로 나간 기능들**이다. 그땐 노트를 안 달아서 아무도 통보받지 못했고,

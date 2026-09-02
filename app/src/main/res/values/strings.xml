@@ -177,9 +177,9 @@
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
     <string name="whatsnew_got_it">Got it</string>
-    <string name="whatsnew_111_onboarding">New here? Play a few tracks and pick the ones you like — your feed starts there.</string>
-    <string name="whatsnew_111_compose">Making a pick: your hypes are now sorted by day, and you can play them while you choose.</string>
-    <string name="whatsnew_111_plays">Your picks now show how many times people played them.</string>
+    <string name="whatsnew_112_onboarding">New here? Play a few tracks and pick the ones you like — your feed starts there.</string>
+    <string name="whatsnew_112_compose">Making a pick: your hypes are now sorted by day, and you can play them while you choose.</string>
+    <string name="whatsnew_112_plays">Your picks now show how many times people played them.</string>
     <string name="whatsnew_110_hypefeed">Your feed now follows the tracks you hype: same sound, same mood.</string>
     <string name="whatsnew_110_genres">Genre settings are gone. Hype a few tracks and the feed picks up your taste.</string>
     <string name="whatsnew_110_seeds">Choose up to 3 tracks to steer the feed, or leave it to your recent hypes.</string>
