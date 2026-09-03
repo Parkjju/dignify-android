@@ -18,12 +18,23 @@ data class Release(val version: String, val notes: List<Int>)
 object Changelog {
     // 최신이 위. WhatsNewSheet가 이 순서 그대로 그린다.
     val releases: List<Release> = listOf(
-        // 세 줄 다 이 릴리즈에서 실제로 바뀐 것이다(온보딩 교체·픽 작성 목록·재생 수).
-        // **노트는 만든 뒤에 적는다** — 안 만든 걸 새 소식이라 말하면 그대로 거짓말이 된다.
+        // 네 줄 다 이 릴리즈에서 실제로 나간 것이다(백그라운드 재생·잠금화면 컨트롤·
+        // 백그라운드 자동 넘김·잠금화면 하입). **노트는 만든 뒤에 적는다** — 안 만든 걸
+        // 새 소식이라 말하면 그대로 거짓말이 된다.
         //
-        // 버전 이름은 iOS(1.1.1)와 다르다. 같은 포트지만 안드로이드는 1.1.2로 나간다 —
-        // **노트는 versionName을 따라가야 한다.** `shouldShow`가 노트 없는 버전을 걸러내므로
-        // 여기 "1.1.1"이 남아 있으면 화면이 통째로 안 뜬다.
+        // 1.1.2까지 iOS와 이름이 갈려 있었는데 이 릴리즈에서 다시 맞춘다(iOS도 1.2.0).
+        // 백엔드는 어차피 versionCode로만 가르므로 이름 자체는 자유지만,
+        // **노트는 versionName을 정확히 따라가야 한다** — `shouldShow`가 노트 없는 버전을
+        // 걸러내므로 한 글자만 어긋나도 새 소식 화면이 통째로 안 뜬다.
+        Release(
+            version = "1.2.0",
+            notes = listOf(
+                R.string.whatsnew_120_background,
+                R.string.whatsnew_120_controls,
+                R.string.whatsnew_120_autoadvance,
+                R.string.whatsnew_120_hype,
+            ),
+        ),
         Release(
             version = "1.1.2",
             notes = listOf(

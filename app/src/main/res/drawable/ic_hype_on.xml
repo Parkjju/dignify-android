@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    알림·잠금화면 하입 버튼의 "하입함" 상태. 안 한 상태는 `ic_hype`(삽)가 맡는다.
+
+    **왜 색이 아니라 모양인가.** 브랜드는 하입을 색으로 구분하지만(디자인 시스템 `HypeIcon.tsx`의
+    #4B3FD8 / #9CA3AF), 미디어 알림 액션 아이콘은 시스템이 알파를 마스크 삼아 단색으로 틴트한다 —
+    실기기에서 확인했다. 앱이 지정한 색은 그대로 벗겨진다. 그래서 이 지면에서만 모양으로 가른다.
+
+    **왜 삽이 아니라 체크인가.** 삽의 외곽선 버전과 원 노크아웃 버전을 먼저 실기기에서 봤는데,
+    둘 다 24dp에서 "어느 쪽이 하입된 상태인지"가 안 읽혔다. 삽이라는 같은 그림의 변주라
+    상태가 아니라 렌더링 차이처럼 보인다. 체크는 다른 그림이라 그 혼동이 없다
+    (YouTube Music이 `+` ↔ `✓`로 쓰는 방식과 같다).
+
+    굵기 96은 삽의 자루 굵기에 맞춘 값이다. 더 얇으면 삽 옆에서 가벼워 보이고,
+    더 굵으면 32dp에서 꺾이는 지점이 뭉갠다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="720"
+    android:viewportHeight="720">
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="96"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M90 425 L274 587 L630 176" />
+</vector>

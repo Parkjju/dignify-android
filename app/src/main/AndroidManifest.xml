@@ -4,6 +4,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 13(TIRAMISU)부터 런타임 권한. 그 미만은 설치 시 자동 허용이라 요청 자체가 없다. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+        화면을 꺼도 재생이 이어지려면 포그라운드 서비스가 필수다(iOS는 Info.plist 한 줄로 끝나는 자리).
+        ⚠️ MEDIA_PLAYBACK 쪽은 **Android 14(API 34)부터 필수**다. 빠뜨려도 빌드는 통과하고 13에서도
+        멀쩡히 돌지만, 14+에서는 서비스 시작 순간 SecurityException으로 죽는다.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
         android:allowBackup="false"
@@ -35,6 +42,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!--
+            잠금화면·알림·블루투스·Wear가 붙는 미디어 세션 창구. 자세한 건 DiggingPlaybackService 참고.
+            ⚠️ exported="true"는 오타가 아니다 — 시스템 미디어 컨트롤이 바인딩하려면 Media3가 요구한다.
+            lint 경고가 뜨는 게 정상이다.
+        -->
+        <service
+            android:name=".feature.feed.DiggingPlaybackService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
 
         <!-- 토큰 회전을 받는 자리. 알림 표시 자체는 시스템이 하므로 이것만 있으면 된다. -->
         <service

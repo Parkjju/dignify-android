@@ -107,9 +107,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -219,11 +216,43 @@ fun FeedScreen(
         audio.onListen = { trackId -> vm.recordListen(trackId) }
         // 청취 임계값(5초) 튜닝용 원시 분포. track_listened는 임계값 통과 여부만 알려줘서
         // 임계선을 어디로 옮길지 못 본다. 소수점 한 자리까지만 — 그 아래는 노이즈다.
-        audio.onDwell = { trackId, seconds ->
+        //
+        // `background`는 **발사 시점이 아니라 백그라운드 진입 시점**에 찍힌 값이다. 이유는
+        // DwellTracker.markBackground 참고 — 주머니 체류 하나가 분포를 통째로 망가뜨린다.
+        audio.onDwell = { trackId, seconds, hadBackground ->
             Analytics.capture(
                 "track_dwell",
-                mapOf("track_id" to trackId, "seconds" to round(seconds * 10) / 10),
+                mapOf(
+                    "track_id" to trackId,
+                    "seconds" to round(seconds * 10) / 10,
+                    "background" to hadBackground,
+                ),
             )
+        }
+        // 알림·잠금화면·이어폰·차량의 다음/이전과 백그라운드 자동 넘김이 전부 여기로 온다.
+        // **화면 효과에 기대면 안 된다** — 백그라운드에선 재구성이 없어 `LaunchedEffect`가
+        // 한 줄도 안 돈다. 그래서 윈도우 이동·노출 계측·페이징을 여기서 직접 부른다.
+        //
+        // 현재 위치를 pagerState가 아니라 vm.lastPage에서 읽는 것도 같은 이유다. 잠금화면에서
+        // 연달아 넘기면 페이저는 프레임이 없어 아직 안 움직였고, settledPage로 재면 제자리를 맴돈다.
+        // 발사 시점에 읽어야 한다 — 끝에서 붙은 페이지를 스냅샷은 못 본다.
+        audio.hasNextTrack = { vm.lastPage + 1 in vm.feeds.indices }
+        audio.onRemoteSeek = { delta ->
+            val next = vm.lastPage + delta
+            if (next in vm.feeds.indices) {
+                vm.lastPage = next
+                audio.updateWindow(vm.feeds, next)
+                vm.onTrackViewed(next)
+                vm.loadMoreIfNeeded(next)
+                scope.launch { pagerState.scrollToPage(next) }
+            }
+        }
+        // 화면 하입 버튼과 같은 함수로 간다. 갈라두면 낙관적 갱신·롤백·`track_hyped`가 두 벌이 된다.
+        // 게스트면 아무 일도 안 일어난다 — 잠금화면에서 로그인을 띄울 방법이 없다.
+        audio.onHype = { trackId ->
+            if (vm.toggleHype(trackId)) {
+                audio.syncHype(vm.feeds.any { it.trackId == trackId && it.isHyped })
+            }
         }
         vm.loadInitial()
     }
@@ -288,21 +317,12 @@ fun FeedScreen(
         }
     }
 
-    // 백그라운드로 나가면 멈추고 돌아오면 잇는다. 유저가 직접 멈춘 상태는 건드리지 않는다.
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_PAUSE -> audio.pauseCurrent()
-                Lifecycle.Event.ON_RESUME -> audio.resumeCurrent()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            audio.stop()
-        }
+    // 백그라운드에서도 재생이 이어진다 — 여기 있던 ON_PAUSE/ON_RESUME 핸들러를 걷어냈다.
+    // 멈출지 말지는 [FeedAudioController]가 `ProcessLifecycleOwner`로 직접 본다. 화면 단위
+    // 라이프사이클로는 판단할 수 없어서다: 기준은 어느 컴포저블이 resumed인지가 아니라
+    // 어떤 재생 세션이 살아있는지고, 마이페이지 프리뷰는 여전히 멈춰야 한다.
+    DisposableEffect(Unit) {
+        onDispose { audio.stop() }
     }
 
     // 하입이 무엇을 하는지, 모드 칩이 무슨 뜻인지 한 번만 짚어 준다. 픽 재생 지면과 검색

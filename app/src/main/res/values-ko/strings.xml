@@ -164,6 +164,10 @@
     <string name="whatsnew_title">새로운 기능</string>
     <string name="whatsnew_version">버전 %1$s</string>
     <string name="whatsnew_got_it">확인</string>
+    <string name="whatsnew_120_background">앱을 나가거나 화면을 꺼도 노래가 계속 나와요.</string>
+    <string name="whatsnew_120_controls">잠금화면, 이어폰, 차에서 다음 곡으로 넘길 수 있어요.</string>
+    <string name="whatsnew_120_autoadvance">화면을 꺼두면 한 곡이 끝날 때 알아서 다음 곡으로 넘어가요.</string>
+    <string name="whatsnew_120_hype">잠금화면에서 바로 하입할 수 있어요.</string>
     <string name="whatsnew_112_onboarding">처음이신가요? 곡을 들어보고 마음에 드는 걸 고르면 피드가 거기서 시작해요.</string>
     <string name="whatsnew_112_compose">픽을 만들 때 하입한 곡이 날짜별로 정리되고, 고르면서 바로 들어볼 수 있어요.</string>
     <string name="whatsnew_112_plays">내가 만든 픽이 몇 번 재생됐는지 볼 수 있어요.</string>

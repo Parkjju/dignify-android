@@ -243,6 +243,13 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                 "artist" to feed.artistName,
                 // 로케일 무관한 영문명. 표시용 라벨을 보내면 Rock/록이 다른 값으로 집계된다.
                 "genre" to (feed.genreNameEn ?: feed.genreName ?: ""),
+                // 잠금화면 넘김·백그라운드 자동 넘김으로 생긴 노출인지. 노출은 생기는 그 순간
+                // 발사되므로 여기선 지금 값을 그대로 읽어도 된다(track_dwell은 아니다).
+                //
+                // 알려진 한계, iOS도 같다: 자동 넘김과 유저가 직접 누른 넘김이 둘 다
+                // `background: true`라 구분되지 않는다. "백그라운드를 쓰긴 하나"엔 답하지만
+                // "직접 넘기고 있나"엔 답 못 한다. 물어볼 이유가 생기기 전엔 속성을 더 안 붙인다.
+                "background" to AppForeground.isBackground,
             ),
         )
     }
@@ -291,7 +298,10 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleHype(trackId: Int): Boolean {
         if (Session.state != AuthState.SIGNED_IN) return false
         val index = feeds.indexOfFirst { it.trackId == trackId }
-        if (index < 0) return true
+        if (index < 0) {
+            Log.w(TAG, "hype ignored: track $trackId is not in the current feed")
+            return true
+        }
 
         val target = !feeds[index].isHyped
         setHypeLocally(trackId, target)
@@ -304,6 +314,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                 if (!response.status.isSuccess() &&
                     response.status.value != 409 && response.status.value != 404
                 ) {
+                    // 되돌리기만 하고 화면엔 아무 말도 안 하는 자리다. 로그가 없으면
+                    // "눌렀는데 안 된다"를 밖에서 가를 방법이 없다(픽 게시 4xx 때와 같은 함정).
+                    Log.w(TAG, "hype failed (track=$trackId on=$target status=${response.status.value})")
                     setHypeLocally(trackId, !target)
                     return@launch
                 }
@@ -311,6 +324,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                 // 낙관적 시점에 알리면 재조회가 변경을 앞질러 옛 숫자를 그대로 받아온다.
                 Session.onHypeChanged()
             } catch (e: Exception) {
+                Log.w(TAG, "hype failed (track=$trackId on=$target)", e)
                 setHypeLocally(trackId, !target)
             }
         }

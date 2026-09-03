@@ -177,6 +177,10 @@
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
     <string name="whatsnew_got_it">Got it</string>
+    <string name="whatsnew_120_background">Tracks keep playing when you leave the app or turn the screen off.</string>
+    <string name="whatsnew_120_controls">Skip tracks from the lock screen, your earbuds, or your car.</string>
+    <string name="whatsnew_120_autoadvance">With the screen off, each track rolls into the next one on its own.</string>
+    <string name="whatsnew_120_hype">Hype a track right from the lock screen.</string>
     <string name="whatsnew_112_onboarding">New here? Play a few tracks and pick the ones you like — your feed starts there.</string>
     <string name="whatsnew_112_compose">Making a pick: your hypes are now sorted by day, and you can play them while you choose.</string>
     <string name="whatsnew_112_plays">Your picks now show how many times people played them.</string>
