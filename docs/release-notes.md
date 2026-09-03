@@ -13,6 +13,38 @@
 
 ---
 
+## 1.2.0 (versionCode 12)
+
+기준: `versionCode 11` (1.1.2, 마지막으로 Play에 올라간 빌드). 그 사이 코드 변경은 이 릴리즈
+하나뿐이라 기준과 내용이 처음으로 딱 떨어진다.
+
+기능 하나짜리 릴리즈다. 앱 안 노트(`Changelog.kt`의 `whatsnew_120_*`)와 **같은 기능을 다르게
+쓴 글이다** — 저쪽은 이미 받은 사람에게 "무엇이 바뀌었는지"만 알리면 되지만, 이쪽은 스토어에서
+업데이트 목록을 훑는 사람이라 "그래서 뭐가 좋아지는지"까지 말해야 한다.
+
+버그 수정 줄은 없다. 이번에 고친 건 하입 실패 로그처럼 유저에게 안 보이던 것뿐이라,
+"고쳤어요"라고 쓰면 겪은 적 없는 문제를 있었다고 말하는 셈이 된다.
+
+### KO
+
+```
+• 화면을 꺼도 디깅이 이어집니다. 앱을 나가거나 주머니에 넣어도 노래가 계속 나와요.
+• 잠금화면과 알림에서 바로 조작할 수 있어요. 이어폰 버튼이나 차 오디오로 다음 곡으로 넘겨도 됩니다.
+• 화면을 꺼두면 한 곡이 끝날 때 알아서 다음 곡으로 넘어가요. 손대지 않아도 디깅이 계속됩니다.
+• 잠금화면에서 마음에 드는 곡을 바로 하입할 수 있어요.
+```
+
+### EN (보류 — 등록정보가 KO만이라 지금은 안 올린다)
+
+```
+• Digging keeps going with the screen off. Leave the app or pocket your phone and the music keeps playing.
+• Control it from the lock screen and the notification. Skip with your earbuds or your car stereo.
+• With the screen off, each track rolls into the next one on its own. Digging continues untouched.
+• Hype a track right from the lock screen.
+```
+
+---
+
 ## 1.1.2 (versionCode 11)
 
 기준: `versionCode 8` (1.0.1, 마지막으로 Play에 올라간 빌드).
