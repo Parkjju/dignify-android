@@ -70,9 +70,11 @@ android {
         release {
             // 위에서 키를 못 읽었으면 null이고, 그럼 서명 없이 나간다.
             signingConfig = signingConfigs.findByName("release")
-            // ponytail: R8을 끈 채로 첫 출시한다. 켜면 Ktor·kotlinx.serialization·Compose 쪽
-            // 규칙을 손봐야 하는데, 그 디버깅을 출시일에 할 이유가 없다. APK 15.8MB면 충분히 작다.
-            isMinifyEnabled = false
+            // Play 앱 최적화 점수가 난독화 0%를 잡아서 켰다. 쓰는 라이브러리(Ktor·kotlinx.serialization·
+            // Compose·media3·Firebase·PostHog)가 전부 consumer 규칙을 들고 오므로 proguard-rules.pro는
+            // 비워둔 채로 통과한다 — 규칙을 손으로 쓰기 전에 R8 경고부터 읽을 것.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
