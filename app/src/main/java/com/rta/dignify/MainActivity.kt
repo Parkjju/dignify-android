@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -142,7 +143,18 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun DignifyApp() {
-    when (Session.state) {
+    // 넓은 화면에서 지면을 폰 폭으로 묶어 가운데 세운다.
+    //
+    // **폰에서는 아무것도 안 바뀐다** — 폰은 이 상한보다 좁아서 제한이 걸릴 일이 없다.
+    // 태블릿·폴더블에서만 걸리는데, 안 걸어두면 가로에서 카드 제목·하입은 왼쪽 끝으로,
+    // 공유 버튼은 오른쪽 끝으로 흩어진다(1480dp 화면에서 실측했다). 폰에선 아트워크 아래
+    // 모여 있던 것들이라, 폭이 넓어질수록 서로 무관한 요소처럼 보인다.
+    //
+    // 화면마다 손대지 않고 여기 한 곳에 두는 이유: 로그인·온보딩·탭 지면이 전부 이 함수를
+    // 지나가고, 지면마다 상한을 걸면 새 화면을 추가할 때마다 빠뜨릴 자리가 하나씩 늘어난다.
+    Box(Modifier.fillMaxSize().background(Color.Black), Alignment.TopCenter) {
+      Box(Modifier.widthIn(max = MAX_CONTENT_WIDTH).fillMaxSize()) {
+        when (Session.state) {
         AuthState.UNKNOWN -> {
             LaunchTitle()
             LaunchedEffect(Unit) { Session.resolveInitialState() }
@@ -154,8 +166,16 @@ private fun DignifyApp() {
         // 띄우면 빈 화면만 보인다.
         AuthState.GUEST, AuthState.SIGNED_IN ->
             if (OnboardingMock.forcing) OnboardingFlow() else MainTabs()
+        }
+      }
     }
 }
+
+/**
+ * 지면의 최대 폭. 600dp는 안드로이드가 "compact 화면"을 가르는 그 문턱이라, 이 값이면
+ * 폰은 한 픽셀도 안 움직이고 태블릿·폴더블에서만 묶인다.
+ */
+private val MAX_CONTENT_WIDTH = 600.dp
 
 /**
  * 신규 유저 온보딩. iOS `NewUserOnboardingView` 이식.

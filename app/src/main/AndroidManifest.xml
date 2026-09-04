@@ -19,6 +19,19 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Dignify">
+        <!--
+            ⚠️ Play Console이 "크기 조절 및 방향 제한을 삭제하세요"라고 경고한다. **지우면 안 된다.**
+            지워보고 실측했다: 폰 가로(높이 393dp)에서는 상단 오버레이와 하단 텍스트·탭바를 빼면
+            카드에 남는 높이가 0이라 아트워크가 통째로 사라진다.
+
+            그런데 경고가 가리키는 대상은 폰이 아니다. Android 16은 이 속성을 **최소 너비 600dp
+            이상 화면에서만** 무시한다. 즉 이 줄을 남겨두면 원하는 동작이 그대로 나온다 —
+            폰은 세로 고정, 태블릿·폴더블은 알아서 회전. 회전한 대형 화면이 볼 만한지가 진짜
+            숙제였고 그건 MainActivity의 MAX_CONTENT_WIDTH가 받아준다.
+
+            경고를 없애려면 폰 가로 레이아웃을 따로 짜야 한다(아트워크와 텍스트를 좌우로 나누는 식).
+            targetSdk 37로 올리기 전까지는 급하지 않다.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
