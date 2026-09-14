@@ -2,7 +2,9 @@
 
 작성 2026-09-02. iOS 쪽은 `../dignify-iOS/TODO.md`, 백엔드는 `../dignify-backend/TODO.md`.
 
-**현재 상태 — `versionName 1.2.0` / `versionCode 12`, 코드 반영 완료. 아직 Play 업로드 전.**
+**현재 상태 — `versionName 1.2.1` / `versionCode 13`, 코드 반영 완료. 아직 Play 업로드 전.**
+1.2.1은 코치마크 "다음"이 실기기에서 안 눌리던 버그 수정 하나다(`CoachMarks.kt`, 앱 안 노트 없음).
+1.2.0(`versionCode 12`)은 Play에 올라갔다.
 iOS 1.2.0 포트가 전부 들어갔다(`docs/1.2.0-port-checklist.md` §2 전 항목).
 **실기기(moto g 2025 / Android 16)에서 핵심 경로는 확인했고 일부가 남았다 — 체크리스트 §4.**
 
@@ -16,7 +18,7 @@ iOS 1.2.0 포트가 전부 들어갔다(`docs/1.2.0-port-checklist.md` §2 전 �
 그래서 Play 출시 노트의 기준이 되는 직전 업로드는 `versionCode 11`(1.1.2)이고,
 1.2.0 문안은 `docs/release-notes.md`에 써뒀다.
 
-**다음 업로드는 `versionCode 13`부터다.** 12는 썼으므로 그 업로드를 지워도 다시 못 쓴다.
+**다음 업로드는 `versionCode 14`부터다.** 13은 1.2.1에 썼으므로 그 업로드를 지워도 다시 못 쓴다.
 
 ---
 

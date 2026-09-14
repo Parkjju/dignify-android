@@ -214,18 +214,7 @@ private fun CoachMarks(
     val density = LocalDensity.current
     val pad = with(density) { 8.dp.toPx() }
 
-    BoxWithConstraints(
-        Modifier
-            .fillMaxSize()
-            // 뒤쪽 UI가 눌리면 안 된다. 안내 중에 재생이 시작되면 설명이 무슨 말인지 알 수 없다.
-            // **소비까지 해야 막힌다** — 위에 얹기만 하면 아래 clickable이 그대로 받는다.
-            // 카드의 버튼은 이 노드의 자식이라 먼저 히트되므로 안 막힌다.
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) awaitPointerEvent().changes.forEach { it.consume() }
-                }
-            },
-    ) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val height = with(density) { maxHeight.toPx() }
         val width = with(density) { maxWidth.toPx() }
         // 스크롤로 화면 밖에 밀린 대상은 **없는 것으로 친다.** 보이지도 않는 자리에 구멍을
@@ -278,6 +267,17 @@ private fun Dimmed(spot: Rect?, circular: Boolean) {
     Box(
         Modifier
             .fillMaxSize()
+            // 뒤쪽 UI가 눌리면 안 된다. 안내 중에 재생이 시작되면 설명이 무슨 말인지 알 수 없다.
+            // **소비까지 해야 막힌다** — 위에 얹기만 하면 아래 clickable이 그대로 받는다.
+            // 이 소비는 반드시 카드의 **형제**(딤)에 달아야 한다. 부모에 달면 카드 버튼도
+            // 그 자식이라 같은 이벤트를 받는데, 손가락 탭은 down~up 사이에 move가 거의
+            // 항상 끼고 clickable은 그 move가 Final 패스에서 소비돼 있으면 탭을 취소한다 —
+            // 마우스(에뮬레이터)는 move가 없어 통과하고 실기기에서만 "안 넘어가던" 원인.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent().changes.forEach { it.consume() }
+                }
+            }
             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
             .drawWithContent {
                 drawRect(Color.Black.copy(alpha = 0.72f))
