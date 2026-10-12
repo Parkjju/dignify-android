@@ -355,7 +355,7 @@ fun HypeCollection(
                     destructive = true,
                     icon = {
                         Icon(
-                            painterResource(R.drawable.ic_hype),
+                            painterResource(R.drawable.ic_heart_slash),
                             null,
                             tint = DSColor.destructive,
                             modifier = Modifier.size(18.dp),
