@@ -266,7 +266,7 @@ object Session {
 
     /**
      * 곡 고르기 직후 첫 피드를 받는 동안 "피드 구성 중"을 띄울 커버들. null이면 안 띄운다.
-     * 피드가 최소 1초·응답까지 보여 준 뒤 [onFeedBuilt]로 내린다. 온보딩(앱 상태 전환)과
+     * 최소 2초·응답까지 보여 준 뒤 [onFeedBuilt]로 내린다. 온보딩(앱 상태 전환)과
      * 피드(로딩 상태)가 서로 다른 화면이라 여기서 건넨다.
      */
     var buildingFeedFrom by mutableStateOf<List<String>?>(null)

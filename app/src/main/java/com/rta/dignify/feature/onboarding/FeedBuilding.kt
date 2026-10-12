@@ -44,7 +44,7 @@ import com.rta.dignify.core.designsystem.DSTypography
 
 /**
  * 피드 구성 중(디자인 레포 Components › FeedBuilding). 곡 고르기를 마치고 첫 피드를 받는 동안 —
- * 고른 곡이 피드를 만든다는 걸 보여 주는 대기 화면이다. 노출 시간(최소 1초, 늦으면 응답까지)은
+ * 고른 곡이 피드를 만든다는 걸 보여 주는 대기 화면이다. 노출 시간(최소 2초, 늦으면 응답까지)은
  * 부르는 쪽(피드)이 정한다.
  *
  * @param covers 고른 곡 아트워크 URL. 최대 3장만 그린다. 건너뛰었으면 비어 있고 문구만 뜬다.

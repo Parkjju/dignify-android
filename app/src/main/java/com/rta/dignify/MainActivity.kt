@@ -223,6 +223,9 @@ private fun OnboardingFlow() {
     }
 }
 
+/** 「피드 구성 중」 최소 노출 시간. 시안(FeedBuilding)은 1초였고 2026-10-12에 2초로 늘렸다. */
+private const val BUILDING_MIN_MS = 2_000L
+
 /**
  * 시드 고르기를 한 번이라도 태웠는지. 신규 가입·업데이트 유저가 같은 키를 쓴다.
  *
@@ -366,12 +369,13 @@ private fun MainTabs() {
         }
 
         // 곡 고르기 직후의 "피드 구성 중". 탭바까지 덮어야 해서 여기 둔다.
-        // 최소 1초(깜빡임 방지), 첫 피드 응답이 늦으면 올 때까지. 끝나면 페이드로 피드(코치마크)가 드러난다.
+        // 최소 2초 — 응답이 빨라도 고른 곡이 피드를 만든다는 걸 읽을 시간은 준다. 첫 피드 응답이
+        // 늦으면 올 때까지 더 보여 준다. 끝나면 페이드로 피드(코치마크)가 드러난다.
         val buildingFrom = Session.buildingFeedFrom
         if (buildingFrom != null) {
             val feedVm: FeedViewModel = viewModel()   // 피드 탭과 같은 인스턴스
             LaunchedEffect(Unit) {
-                delay(1_000)
+                delay(BUILDING_MIN_MS)
                 snapshotFlow { feedVm.isLoading }.first { !it }
                 Session.onFeedBuilt()
             }
