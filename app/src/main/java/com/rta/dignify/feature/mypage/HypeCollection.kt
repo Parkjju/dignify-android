@@ -79,8 +79,6 @@ import com.rta.dignify.core.network.itunesArtworkUrl
 import com.rta.dignify.core.designsystem.ScreenScaffold
 import com.rta.dignify.feature.feed.FeedAudioController
 import com.rta.dignify.feature.feed.TrackDetailSheet
-import com.rta.dignify.feature.onboarding.CoachAnchor
-import com.rta.dignify.feature.onboarding.coachAnchor
 import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -100,8 +98,6 @@ import java.time.format.FormatStyle
  * @param selection 선택 모드(추천 기준 곡 고르기). null이 아니면 **편집 모드보다 우선하고**
  *   탭이 재생 대신 선택 토글이 된다. 날짜 그룹·페이지네이션·셀 모양을 그대로 쓰려고 한 컴포넌트에 뒀다.
  * @param selectionLimit 고를 수 있는 최대 개수. 서버 `MoodRecommender.SEEDS`와 같아야 한다.
- * @param coachAnchors 선택 모드에서 **첫 셀에 코치마크 앵커**를 단다. 담은 곡 수도 날짜 묶음
- *   수도 유저마다 달라서 좌표를 적어 두면 누구에게도 안 맞는다.
  * @param isEditing 편집 모드. 셀마다 제거 배지가 붙고 탭이 재생 대신 제거가 된다.
  *   롱프레스는 이 화면을 처음 보는 사람에게 안 보여서, 제거하는 길을 눈에 보이게 하나 더 둔다.
  */
@@ -118,7 +114,6 @@ fun HypeCollection(
     selection: Set<Int>? = null,
     onSelectionChange: (Set<Int>) -> Unit = {},
     selectionLimit: Int = 3,
-    coachAnchors: Boolean = false,
     isEditing: Boolean = false,
 ) {
     val context = LocalContext.current
@@ -276,12 +271,7 @@ fun HypeCollection(
                         // 빠진 자리를 애니메이션 없이 지우면 옆 곡들이 순간이동해서
                         // 무엇이 빠졌는지가 안 읽힌다.
                         modifier = Modifier
-                            .animateItem()
-                            .coachAnchor(
-                                if (coachAnchors && track.userHypeTrackId == items.firstOrNull()?.userHypeTrackId) {
-                                    CoachAnchor.SEED_CELL
-                                } else null
-                            ),
+                            .animateItem(),
                     )
                     // 페이지네이션은 날짜 그룹이 아니라 **마지막 셀**에 건다 — 이유는 HypeGrouping 참고.
                     if (maxGroups == null && track.userHypeTrackId == anchor) {

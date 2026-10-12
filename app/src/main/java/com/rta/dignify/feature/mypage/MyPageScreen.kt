@@ -59,11 +59,6 @@ import com.rta.dignify.core.designsystem.DSTypography
 import com.rta.dignify.core.model.DiggingStats
 import com.rta.dignify.core.model.DiggingType
 import com.rta.dignify.feature.digging.displayName
-import com.rta.dignify.feature.onboarding.CoachAnchor
-import com.rta.dignify.feature.onboarding.CoachOverlay
-import com.rta.dignify.feature.onboarding.CoachSeen
-import com.rta.dignify.feature.onboarding.MyPageCoach
-import com.rta.dignify.feature.onboarding.coachAnchor
 import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -92,26 +87,14 @@ fun MyPageScreen(
     var confirmedType by remember { mutableStateOf<DiggingType?>(null) }
     var showWithdraw by remember { mutableStateOf(false) }
     var diggingModeFailed by remember { mutableStateOf(false) }
-    // 프로필을 받아 스위치가 실제 값으로 그려진 뒤에 코치마크를 띄운다 — 그전엔 기본값(켜짐)
-    // 이라 실제와 다른 화면을 설명하게 된다.
-    var profileLoaded by remember { mutableStateOf(false) }
-    var seenCoach by remember { mutableStateOf(CoachSeen.get(context, CoachSeen.MY_PAGE)) }
 
     LaunchedEffect(Unit) {
         // 배지는 실패해도 화면이 성립하므로 각각 따로 삼킨다.
         runCatching { Session.refreshProfile() }.onSuccess { nickname = it.nickname }
-        profileLoaded = true
         runCatching { Session.api.myStats("all") }
             .onSuccess { confirmedType = DiggingStats.from(it).type }
     }
 
-    // 피드를 실제로 바꾸는 설정 둘을 한 번만 짚어 준다.
-    CoachOverlay(
-        steps = MyPageCoach.steps,
-        screen = "mypage",
-        active = !seenCoach && profileLoaded,
-        onFinish = { CoachSeen.mark(context, CoachSeen.MY_PAGE); seenCoach = true },
-    ) {
     Column(
         Modifier
             .fillMaxSize()
@@ -155,7 +138,6 @@ fun MyPageScreen(
         // 그대로 쓰이는 설정이다. 꺼진 동안 무슨 뜻인지는 그 화면이 설명한다.
         SettingsRow(
             stringResource(R.string.seed_picker_title),
-            modifier = Modifier.coachAnchor(CoachAnchor.SEED_ROW),
             onClick = onOpenSeedPicker,
         )
         SettingsRow(stringResource(R.string.artist_requests), onClick = onOpenArtistRequests)
@@ -188,7 +170,6 @@ fun MyPageScreen(
             color = DSColor.border,
             modifier = Modifier.padding(vertical = 24.dp),
         )
-    }
     }
 
     if (showWithdraw) {
@@ -360,7 +341,6 @@ private fun DiggingModeRow(failed: Boolean, onChange: (Boolean) -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
-            .coachAnchor(CoachAnchor.FOLLOW_SWITCH)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {

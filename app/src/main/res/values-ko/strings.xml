@@ -182,8 +182,6 @@
     <string name="whatsnew_100_share">트랙·픽·내 취향을 카드로 공유할 수 있어요.</string>
 
     <string name="tutorial_skip">건너뛰기</string>
-    <string name="tutorial_next">다음</string>
-    <string name="tutorial_start">시작하기</string>
 
     <string name="quiz_q_loud">볼륨을 제일 키우는 순간은?</string>
     <string name="quiz_a_workout">운동할 때</string>
@@ -294,16 +292,6 @@
     <string name="select">선택</string>
     <string name="deselect">선택 해제</string>
 
-    <!-- 코치마크 -->
-    <string name="coach_play_title">커버를 눌러 재생</string>
-    <string name="coach_play_body">커버를 누르면 이 픽에 담긴 곡이 이어서 재생돼요.</string>
-    <string name="coach_react_title">🔥로 반응하기</string>
-    <string name="coach_react_body">마음에 들면 🔥를 눌러주세요. 만든 사람에게 개수가 보여요.</string>
-    <string name="coach_share_title">카드로 공유하기</string>
-    <string name="coach_share_body">픽을 이미지 카드로 만들어 인스타그램 같은 곳에 올릴 수 있어요.</string>
-    <string name="coach_compose_title">직접 만들어보기</string>
-    <string name="coach_compose_body">담아둔 곡을 묶어서 나만의 픽을 올려보세요.</string>
-
     <!-- 피드 구성 중(곡 고르기 직후) -->
     <string name="feed_building_title">취향에 맞춰 피드를 구성하고 있어요</string>
     <string name="feed_building_body">고른 곡과 비슷한 소리를 찾는 중이에요</string>
@@ -315,13 +303,5 @@
     <string name="coach_gesture_hyped_body">관심이 가는 노래를 더 찾으러 가볼까요?</string>
     <string name="coach_gesture_swipe_title">다음 노래로 넘어가 볼까요?</string>
     <string name="coach_gesture_swipe_body">화면을 위로 쓸어 올려보세요</string>
-    <string name="coach_follow_title">언제든 끌 수 있어요</string>
-    <string name="coach_follow_body">피드는 기본적으로 좋아요한 곡을 따라가요. 이 스위치를 끄면 다시 무작위로 재생돼요.</string>
-    <string name="coach_seedrow_title">기준이 될 곡을 직접 골라요</string>
-    <string name="coach_seedrow_body">기본은 최근에 좋아요한 3곡이에요. 여기서 기준으로 삼을 곡을 직접 고정할 수 있어요.</string>
-    <string name="coach_seedcell_title">곡을 누르면 고정돼요</string>
-    <string name="coach_seedcell_body">지금 하나 눌러 보세요. 최대 3곡까지 고를 수 있고, 고르면 최근 좋아요 대신 그 곡들만 기준이 돼요.</string>
-    <string name="coach_seedsave_title">그다음 저장하세요</string>
-    <string name="coach_seedsave_body">저장하면 피드가 바로 다시 만들어져요. 아무것도 고르지 않으면 최근에 좋아요한 3곡으로 돌아가요.</string>
 
 </resources>

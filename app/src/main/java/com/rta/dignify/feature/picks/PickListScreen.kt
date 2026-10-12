@@ -80,11 +80,6 @@ import com.rta.dignify.R
 import com.rta.dignify.core.auth.AuthState
 import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.core.auth.Session
-import com.rta.dignify.feature.onboarding.CoachAnchor
-import com.rta.dignify.feature.onboarding.CoachOverlay
-import com.rta.dignify.feature.onboarding.CoachSeen
-import com.rta.dignify.feature.onboarding.PicksCoach
-import com.rta.dignify.feature.onboarding.coachAnchor
 import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.feature.push.Push
 import com.rta.dignify.feature.push.PushOptInPopup
@@ -108,8 +103,8 @@ import java.time.temporal.ChronoUnit
  * 앱 전체가 라이트 지면인데 여기만 다크다(iOS와 동일). 흰 배경 위 surface 카드는 대비가
  * 거의 없어 아트워크가 떠 있기만 했다.
  *
- * ponytail: 코치마크(iOS `PicksCoachMarks`)와 줌 전환은 아직 없다. 목록·재생·반응이
- * 실제로 도는 걸 본 뒤에 붙인다.
+ * ponytail: 줌 전환은 아직 없다. 목록·재생·반응이 실제로 도는 걸 본 뒤에 붙인다.
+ * 설명 카드 코치마크는 feed_coachmark 1.2에서 지웠다 — 앱의 코치마크는 피드 제스처 하나뿐이다.
  */
 /** iOS와 같은 값. 소스별 수락률이 한 표에 모이려면 문자열이 같아야 한다. */
 private const val PUSH_SOURCE_PICK = "pick_created"
@@ -184,16 +179,6 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
             it.pickId.toString() !in LocalModeration.hiddenPickIds
     }
 
-    // 픽 지면을 처음 보는 사람에게 재생 → 반응 → 공유 → 만들기를 한 번만 짚어 준다.
-    var seenCoach by remember { mutableStateOf(CoachSeen.get(context, CoachSeen.PICKS)) }
-
-    CoachOverlay(
-        steps = PicksCoach.steps,
-        screen = "picks",
-        active = !seenCoach && !isLoading && visible.isNotEmpty(),
-        bottomInset = bottomInset,
-        onFinish = { CoachSeen.mark(context, CoachSeen.PICKS); seenCoach = true },
-    ) {
     Box(Modifier.fillMaxSize().background(DSColor.pickBackground)) {
         when {
             isLoading && picks.isEmpty() -> Box(
@@ -231,7 +216,6 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
                     itemsIndexed(visible, key = { _, it -> it.pickId }) { index, pick ->
                         PickCard(
                             pick = pick,
-                            coachAnchors = index == 0,
                             onPlay = {
                                 Analytics.capture(
                                     "pick_opened",
@@ -303,11 +287,9 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
                 onClick = { if (Session.requireAccount()) showCompose = true },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomInset + 16.dp)
-                    .coachAnchor(CoachAnchor.COMPOSE),
+                    .padding(bottom = bottomInset + 16.dp),
             )
         }
-    }
     }
 
     menuTarget?.let { pick ->
@@ -485,8 +467,6 @@ fun PickCard(
     onMenu: () -> Unit,
     /** null이면 공유 버튼을 숨긴다(프리뷰 카드). */
     onShare: (() -> Unit)? = null,
-    /** 목록 첫 카드만 true. 코치마크가 가리킬 요소가 목록에 하나씩만 있어야 한다. */
-    coachAnchors: Boolean = false,
 ) {
     Column(
         Modifier
@@ -546,7 +526,6 @@ fun PickCard(
                 .height(220.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(DSColor.pickBackground)
-                .coachAnchor(if (coachAnchors) CoachAnchor.PLAY else null)
                 .clickable(onClick = onPlay),
             contentAlignment = Alignment.Center,
         ) {
@@ -572,7 +551,6 @@ fun PickCard(
                 text = if (count > 0) "${PickReaction.PRIMARY} $count" else PickReaction.PRIMARY,
                 highlighted = mine,
                 onClick = onReact,
-                modifier = Modifier.coachAnchor(if (coachAnchors) CoachAnchor.REACT else null),
             )
             // 곡 수는 표시 전용이라 알약을 안 씌운다 — 같은 버블을 두르면 누르면 뭔가
             // 일어날 것처럼 보인다. 이 행에서 배경 있는 것만 버튼이다.
@@ -624,7 +602,6 @@ fun PickCard(
             onShare?.let { share ->
                 Box(
                     Modifier
-                        .coachAnchor(if (coachAnchors) CoachAnchor.SHARE else null)
                         .clip(CircleShape)
                         .background(DSColor.pickElevated)
                         .clickable(onClick = share)

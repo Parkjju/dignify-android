@@ -1,5 +1,6 @@
 package com.rta.dignify.feature.onboarding
 
+import android.content.Context
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.CubicBezierEasing
@@ -43,8 +44,9 @@ import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSTypography
 
 /**
- * 피드 제스처 코치마크(디자인 레포 Components › CoachGesture). 읽고 넘기는 [CoachOverlay]와 달리
- * **손 모션을 보고 실제로 따라 해야** 다음 단계로 간다 — "다음" 버튼도 점도 없다.
+ * 피드 제스처 코치마크(디자인 레포 Components › CoachGesture). 앱에 남은 유일한 코치마크다 —
+ * Picks·마이·추천 기준 곡의 설명 카드 코치마크는 feed_coachmark 1.2에서 지웠다.
+ * **손 모션을 보고 실제로 따라 해야** 다음 단계로 간다. "다음" 버튼도 점도 없다.
  *
  *     더블탭(= 실제 하입, 피드 좋아요 버스트의 큰 하트가 뜬다) → 화면 아무 데나 터치 → 위로 쓸어 다음 곡
  *
@@ -54,6 +56,22 @@ enum class CoachGestureStep(val title: Int, val body: Int) {
     DOUBLE_TAP(R.string.coach_gesture_doubletap_title, R.string.coach_gesture_doubletap_body),
     HYPED(R.string.coach_gesture_hyped_title, R.string.coach_gesture_hyped_body),
     SWIPE_UP(R.string.coach_gesture_swipe_title, R.string.coach_gesture_swipe_body),
+}
+
+/**
+ * "피드 코치마크를 봤는가" 플래그. iOS `@AppStorage`와 **같은 키를 쓴다** — 두 앱의 상태 이름이
+ * 갈리면 어느 쪽 버그인지 못 가린다.
+ */
+object CoachSeen {
+    const val FEED = "seenFeedCoach"
+
+    private fun prefs(context: Context) = context.getSharedPreferences("dignify", Context.MODE_PRIVATE)
+
+    fun get(context: Context, key: String): Boolean = prefs(context).getBoolean(key, false)
+
+    fun mark(context: Context, key: String) {
+        prefs(context).edit().putBoolean(key, true).apply()
+    }
 }
 
 /** 더블탭 손 주기: 1초 안에 두 번 누르고 1초 쉰다. */

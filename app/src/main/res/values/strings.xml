@@ -195,8 +195,6 @@
     <string name="whatsnew_100_share">Share a track, a pick, or your taste as a card.</string>
 
     <string name="tutorial_skip">Skip</string>
-    <string name="tutorial_next">Next</string>
-    <string name="tutorial_start">Get started</string>
 
     <string name="quiz_q_loud">When do you turn it all the way up?</string>
     <string name="quiz_a_workout">Working out</string>
@@ -302,16 +300,6 @@
     <string name="select">Select</string>
     <string name="deselect">Deselect</string>
 
-    <!-- 코치마크 -->
-    <string name="coach_play_title">Tap to play</string>
-    <string name="coach_play_body">Tap the cover and the tracks in this pick play one after another.</string>
-    <string name="coach_react_title">React with 🔥</string>
-    <string name="coach_react_body">Liked it? Tap 🔥 — the person who made it sees the count.</string>
-    <string name="coach_share_title">Share as a card</string>
-    <string name="coach_share_body">Turn a pick into an image card and post it to Instagram or anywhere else.</string>
-    <string name="coach_compose_title">Make your own</string>
-    <string name="coach_compose_body">Put the tracks you\'ve kept together and send out your own pick.</string>
-
     <!-- 피드 구성 중(곡 고르기 직후) -->
     <string name="feed_building_title">Building a feed around your taste</string>
     <string name="feed_building_body">Finding songs that sound like the ones you picked</string>
@@ -323,13 +311,5 @@
     <string name="coach_gesture_hyped_body">Want to go find more songs you\'re into?</string>
     <string name="coach_gesture_swipe_title">Ready for the next song?</string>
     <string name="coach_gesture_swipe_body">Swipe up on the screen</string>
-    <string name="coach_follow_title">Turn it off any time</string>
-    <string name="coach_follow_body">The feed follows your likes by default. Switch this off and it plays anything again.</string>
-    <string name="coach_seedrow_title">Choose what it follows</string>
-    <string name="coach_seedrow_body">By default the feed follows your three most recent likes. Open this to pin the tracks it should follow instead.</string>
-    <string name="coach_seedcell_title">Tap a track to pin it</string>
-    <string name="coach_seedcell_body">Try one now. Pick up to three, and the feed follows only those instead of your latest likes.</string>
-    <string name="coach_seedsave_title">Then save</string>
-    <string name="coach_seedsave_body">The feed rebuilds from your pick right away. Pin nothing and it goes back to your three most recent likes.</string>
 
 </resources>
