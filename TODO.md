@@ -2,6 +2,14 @@
 
 작성 2026-09-02. iOS 쪽은 `../dignify-iOS/TODO.md`, 백엔드는 `../dignify-backend/TODO.md`.
 
+> 🎨 **디자인 반영할 것은 `../dignify-design/app-changes.mdx`가 정본이다**(배포본: 디자인 Storybook 「가이드 › 앱 반영 목록」).
+> 시안 버전별로 화면 id · AS-IS · TO-BE · 앱 파일 위치(iOS 기준, Android 파일은 같은 이름의 Screen)가 적혀 있다. 아래 버전부터 차례로 반영하고, 끝나면 그 버전 상태에 Android 버전을 적는다.
+
+## 🎨 디자인 반영 대기 — feed_coachmark 1.2 (2026-10-12, 상세는 위 문서 1.2 절)
+
+- [ ] 좋아요 누르면 아트워크 가운데 큰 하트 팝(일반 피드·코치마크 공용 모션 하나로)
+- [ ] Picks·마이·추천 기준 곡 설명 카드 코치마크 삭제 — 남는 코치마크는 피드 제스처 하나. 플래그·디버그 리셋·`CoachMarks` 파일까지 정리
+
 **현재 상태 — `versionName 1.2.1` / `versionCode 13`, 코드 반영 완료. 아직 Play 업로드 전.**
 1.2.1은 코치마크 "다음"이 실기기에서 안 눌리던 버그 수정 하나다(`CoachMarks.kt`, 앱 안 노트 없음).
 1.2.0(`versionCode 12`)은 Play에 올라갔다.
