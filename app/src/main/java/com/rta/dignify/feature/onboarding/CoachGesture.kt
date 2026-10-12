@@ -2,10 +2,8 @@ package com.rta.dignify.feature.onboarding
 
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,12 +19,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,14 +41,12 @@ import com.rta.dignify.R
 import com.rta.dignify.core.designsystem.DSColor
 import com.rta.dignify.core.designsystem.DSRadius
 import com.rta.dignify.core.designsystem.DSTypography
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * 피드 제스처 코치마크(디자인 레포 Components › CoachGesture). 읽고 넘기는 [CoachOverlay]와 달리
  * **손 모션을 보고 실제로 따라 해야** 다음 단계로 간다 — "다음" 버튼도 점도 없다.
  *
- *     더블탭(= 실제 하입) → 하트 팝 → 화면 아무 데나 터치 → 위로 쓸어 다음 곡
+ *     더블탭(= 실제 하입, 피드 좋아요 버스트의 큰 하트가 뜬다) → 화면 아무 데나 터치 → 위로 쓸어 다음 곡
  *
  * 단계 전환·끝 판정은 피드가 한다(제스처를 받는 게 피드라서). 여기는 그림만 그린다.
  */
@@ -68,9 +61,6 @@ const val COACH_TAP_PERIOD_MS = 2_000L
 
 /** 스와이프 손·화면 힌트 주기. 둘이 같은 시계를 본다. */
 const val COACH_SWIPE_PERIOD_MS = 2_400L
-
-/** 하트가 다 커진 뒤 사라지기 전까지 머무는 시간(명세 `hold`). */
-private const val HOLD_MS = 300
 
 /** 손 중심이 아트워크 가운데에서 위로 얼마나(명세 `handOffset`). */
 private val HAND_OFFSET = (-18).dp
@@ -105,7 +95,6 @@ private val PEEK_UP = CubicBezierEasing(0.45f, 0f, 0.55f, 1f)
 private val PEEK_BACK = CubicBezierEasing(0.2f, 0.9f, 0.3f, 1.15f)
 private val TAP_EASE = CubicBezierEasing(0f, 0f, 0.58f, 1f)
 private val SWIPE_EASE = CubicBezierEasing(0.3f, 0f, 0.2f, 1f)
-private val POP_EASE = CubicBezierEasing(0.2f, 1.4f, 0.4f, 1f)
 
 /** CSS 키프레임 한 줄. [times]는 오름차순 ms, 구간마다 [easing]을 건다. */
 private fun keyframes(t: Float, times: FloatArray, values: FloatArray, easing: Easing): Float {
@@ -146,7 +135,9 @@ fun BoxScope.CoachGesture(step: CoachGestureStep, clock: Long, reduceMotion: Boo
                 when (current) {
                     CoachGestureStep.DOUBLE_TAP -> Hand(tapping = true, t = clock.toFloat(), reduceMotion)
                     CoachGestureStep.SWIPE_UP -> Hand(tapping = false, t = clock.toFloat(), reduceMotion)
-                    CoachGestureStep.HYPED -> HeartPop(reduceMotion)
+                    // 큰 하트는 더블탭이 일으킨 피드 좋아요 버스트(FeedScreen `BigHeart`)가 그린다 —
+                    // 일반 좋아요와 같은 모션 하나를 쓴다(feed_coachmark 1.2). 여기선 캡션만.
+                    CoachGestureStep.HYPED -> Unit
                 }
             }
             Caption(
@@ -228,34 +219,6 @@ private fun Hand(tapping: Boolean, t: Float, reduceMotion: Boolean) {
             )
         }
     }
-}
-
-/** 하입 순간 가운데에 찬 하트 160이 한 번 팝 → hold → 페이드. 캡션은 남는다. */
-@Composable
-private fun HeartPop(reduceMotion: Boolean) {
-    val scale = remember { Animatable(if (reduceMotion) 1f else .3f) }
-    val alpha = remember { Animatable(if (reduceMotion) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (!reduceMotion) {
-            launch { scale.animateTo(1f, tween(450, easing = POP_EASE)) }
-            alpha.animateTo(1f, tween(450, easing = POP_EASE))
-        }
-        delay(HOLD_MS.toLong())
-        launch { scale.animateTo(1.08f, tween(400, easing = EaseIn)) }
-        alpha.animateTo(0f, tween(400, easing = EaseIn))
-    }
-    Icon(
-        Icons.Filled.Favorite,
-        contentDescription = null,
-        tint = DSColor.brand,
-        modifier = Modifier
-            .layout { measurable, constraints ->
-                val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0, maxWidth = Int.MAX_VALUE, maxHeight = Int.MAX_VALUE))
-                layout(0, 0) { p.place(-p.width / 2, -p.height / 2) }
-            }
-            .graphicsLayer { scaleX = scale.value; scaleY = scale.value; this.alpha = alpha.value }
-            .size(160.dp),
-    )
 }
 
 /** 캡션: 아트워크 폭, 안쪽 세로 16·가로 20, radius.medium, pickElevated. */

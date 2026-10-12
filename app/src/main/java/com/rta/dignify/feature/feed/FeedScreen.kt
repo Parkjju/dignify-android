@@ -10,6 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.EaseIn
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -153,6 +155,7 @@ import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
 import com.rta.dignify.feature.push.PushOptInPopup
 import kotlin.math.round
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -206,6 +209,12 @@ fun FeedScreen(
     // 애니메이션이 처음부터 다시 돌게 하려는 것이다.
     var burst by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var burstSeq by remember { mutableIntStateOf(0) }
+    // 끝나면 비운다 — 남겨 두면 그 곡으로 다시 스크롤해 왔을 때 페이지가 새로 구성되며 버스트가 또 돈다.
+    LaunchedEffect(burst) {
+        if (burst == null) return@LaunchedEffect
+        delay(1_100)
+        burst = null
+    }
 
     // initialPage는 첫 구성에서만 쓰인다 = 탭에 다시 들어왔을 때 보던 자리로 복귀.
     val pagerState = rememberPagerState(initialPage = vm.lastPage) { vm.feeds.size }
@@ -907,6 +916,16 @@ private fun TrackCard(
     onDetail: () -> Unit,
     coach: (@Composable BoxScope.() -> Unit)? = null,
 ) {
+    // 좋아요 버스트 시계. 큰 하트·버튼·조각이 같이 본다(BURST_TOTAL_MS 참고).
+    val reduceMotion = rememberReduceMotion()
+    val burstClock = remember { Animatable(BURST_TOTAL_MS) }
+    LaunchedEffect(burstSeq) {
+        if (burstSeq == null || reduceMotion) return@LaunchedEffect
+        burstClock.snapTo(0f)
+        burstClock.animateTo(BURST_TOTAL_MS, tween(BURST_TOTAL_MS.toInt(), easing = LinearEasing))
+    }
+    val clock: (() -> Float)? = if (burstClock.isRunning) ({ burstClock.value }) else null
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val cardWidth = maxWidth - 48.dp
         Column(
@@ -948,6 +967,7 @@ private fun TrackCard(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        clock?.let { BigHeart(it) }
                         coach?.invoke(this)
                     }
                     // 공유 · 더보기. 아트워크 오른쪽 아래에 붙는다.
@@ -998,7 +1018,7 @@ private fun TrackCard(
                 }
                 // IconButton은 아이콘 아래로 10의 여백(48 − 28)/2가 있어서 그만큼 내려야 아래선이 맞는다.
                 Box(Modifier.offset(y = 10.dp)) {
-                    HypeButton(hyped = feed.isHyped, burstSeq = burstSeq, onClick = onHype)
+                    HypeButton(hyped = feed.isHyped, clock = clock, onClick = onHype)
                 }
             }
         }
@@ -1023,20 +1043,27 @@ private fun TrackActionButton(icon: ImageVector, label: String, onClick: () -> U
 }
 
 /**
- * 하입 버튼 + 버스트(디자인 레포 FeedTrack › 하입 버스트). 하입하는 순간 버튼이 1.35배로 팡 튀고
- * 조각 8개가 위로 튀었다가 아래로 우수수 떨어진다. 버튼·더블탭 둘 다 여기서 터진다.
+ * 좋아요 버스트 시계(디자인 레포 FeedTrack `burst`). 큰 하트·버튼 팡·하트 조각이 **이 시계 하나**를 본다 —
+ * 따로 타이머를 돌리면 박자가 어긋난다. 한 번, 총 1.0초:
+ *
+ *     0 ~ 0.3s   큰 하트 팝(오버슈트) · 버튼 1→1.35→1(0.15s 정점) · 조각 솟음
+ *     ~ +hold    큰 하트 머묾 · 조각은 떨어지기 시작
+ *     ~ +0.4s    큰 하트 1.08배로 커지며 페이드 — 조각도 같은 순간 다 떨어져 사라짐
+ *
+ * 좋아요 취소 땐 안 뜬다(부르는 쪽이 켤 때만 회차를 올린다). 동작 줄이기면 아예 안 돈다.
  */
+private const val BURST_RISE_MS = 300f
+private const val BURST_HOLD_MS = 300f
+private const val BURST_FADE_MS = 400f
+private const val BURST_TOTAL_MS = BURST_RISE_MS + BURST_HOLD_MS + BURST_FADE_MS
+
+private val POP_EASE = CubicBezierEasing(0.2f, 1.4f, 0.4f, 1f)
+private val BIT_RISE = CubicBezierEasing(0.2f, 0.8f, 0.4f, 1f)
+private val BIT_FALL = CubicBezierEasing(0.5f, 0f, 0.9f, 0.6f)
+
+/** 하입 버튼. [clock]이 있으면(버스트 중) 버튼이 팡 튀고 조각 8개가 튀었다 떨어진다. */
 @Composable
-private fun HypeButton(hyped: Boolean, burstSeq: Int?, onClick: () -> Unit) {
-    val reduceMotion = rememberReduceMotion()
-    val pop = remember { Animatable(1f) }
-    LaunchedEffect(burstSeq) {
-        if (burstSeq == null || reduceMotion) return@LaunchedEffect
-        // 0.16초에 1.35배, 0.36초에 제자리.
-        pop.snapTo(1f)
-        pop.animateTo(1.35f, tween(160, easing = CSS_EASE))
-        pop.animateTo(1f, tween(200, easing = CSS_EASE))
-    }
+private fun HypeButton(hyped: Boolean, clock: (() -> Float)?, onClick: () -> Unit) {
     // 조각이 버튼 밖으로 튀어야 해서 IconButton(제 모양으로 잘린다) 바깥 형제로 그린다.
     Box(contentAlignment = Alignment.Center) {
         IconButton(onClick = onClick) {
@@ -1046,17 +1073,20 @@ private fun HypeButton(hyped: Boolean, burstSeq: Int?, onClick: () -> Unit) {
                 if (hyped) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = stringResource(if (hyped) R.string.unhype else R.string.hype),
                 tint = if (hyped) DSColor.brand else DSColor.textTertiary,
-                modifier = Modifier.size(28.dp).scale(pop.value),
+                modifier = Modifier
+                    .size(28.dp)
+                    .graphicsLayer {
+                        // 0.3초 ease-out, 절반(0.15s)에 1.35배.
+                        val t = clock?.invoke() ?: BURST_TOTAL_MS
+                        val f = if (t < BURST_RISE_MS) EaseOut.transform(t / BURST_RISE_MS) else 1f
+                        val sc = 1f + 0.35f * (1f - abs(2f * f - 1f))
+                        scaleX = sc; scaleY = sc
+                    },
             )
         }
-        if (burstSeq != null && !reduceMotion) key(burstSeq) { BurstBits() }
+        if (clock != null) BurstBits(clock)
     }
 }
-
-/** CSS 키프레임 기본 곡선(`ease`). */
-private val CSS_EASE = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
-private val BIT_RISE = CubicBezierEasing(0.2f, 0.8f, 0.4f, 1f)
-private val BIT_FALL = CubicBezierEasing(0.5f, 0f, 0.9f, 0.6f)
 
 /** 조각 하나: 옆으로 dx, 솟는 높이, 회전, 크기. 시안 `BURST` 표 그대로. */
 private class BurstBit(val dx: Float, val up: Float, val rotation: Float, val size: Float)
@@ -1067,15 +1097,10 @@ private val burstBits = listOf(
     BurstBit(-46f, 52f, 260f, 12f), BurstBit(46f, 58f, -240f, 12f),
 )
 
-/**
- * 0.4초 동안 솟으며 커지고(0.3→1), 0.8초 동안 150 아래로 떨어지며 사라진다. 세 무리로 0.03초씩 엇갈린다.
- * 총 ≈1.2초. 끝나면 투명하게 남는다 — 다음 하입이 회차 키로 새로 그린다.
- */
+/** 0.3초 솟으며 커지고(0.3→1), 남은 0.7초(hold + 페이드) 동안 150 아래로 떨어지며 사라진다. */
 @Composable
-private fun BurstBits() {
-    val clock = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { clock.animateTo(1_300f, tween(1_300, easing = LinearEasing)) }
-    burstBits.forEachIndexed { i, bit ->
+private fun BurstBits(clock: () -> Float) {
+    burstBits.forEach { bit ->
         Icon(
             Icons.Filled.Favorite,
             contentDescription = null,
@@ -1083,22 +1108,56 @@ private fun BurstBits() {
             modifier = Modifier
                 .size(bit.size.dp)
                 .graphicsLayer {
-                    val t = clock.value - (i % 3) * 30f
-                    val x: Float; val y: Float; val s: Float; val r: Float; val a: Float
-                    if (t < 400f) {
-                        val f = BIT_RISE.transform((t / 400f).coerceIn(0f, 1f))
-                        x = bit.dx * .7f * f; y = -bit.up * f; s = .3f + .7f * f; r = bit.rotation * .3f * f
-                        a = if (t < 100f) BIT_RISE.transform((t / 100f).coerceIn(0f, 1f)) else 1f
+                    val t = clock()
+                    val x: Float; val y: Float; val sc: Float; val r: Float; val a: Float
+                    if (t < BURST_RISE_MS) {
+                        val f = BIT_RISE.transform(t / BURST_RISE_MS)
+                        x = bit.dx * .7f * f; y = -bit.up * f; sc = .3f + .7f * f; r = bit.rotation * .3f * f; a = f
                     } else {
-                        val f = BIT_FALL.transform(((t - 400f) / 800f).coerceIn(0f, 1f))
+                        val f = BIT_FALL.transform(((t - BURST_RISE_MS) / (BURST_TOTAL_MS - BURST_RISE_MS)).coerceIn(0f, 1f))
                         x = bit.dx * .7f + bit.dx * .3f * f
                         y = -bit.up + (150f + bit.up) * f
-                        s = 1f - .1f * f
+                        sc = 1f - .1f * f
                         r = bit.rotation * .3f + bit.rotation * .7f * f
                         a = 1f - f
                     }
                     translationX = x.dp.toPx(); translationY = y.dp.toPx()
-                    scaleX = s; scaleY = s; rotationZ = r; alpha = a
+                    scaleX = sc; scaleY = sc; rotationZ = r; alpha = a.coerceIn(0f, 1f)
+                },
+        )
+    }
+}
+
+/**
+ * 아트워크 가운데 큰 찬 하트 160. 일반 피드 좋아요와 코치마크 하트 단계가 **이 하나**를 쓴다.
+ * 그림자는 벡터에 drop-shadow가 없어 같은 모양을 반투명 검정으로 6 아래에 깐다(코치마크 손과 같은 방식).
+ */
+@Composable
+private fun BoxScope.BigHeart(clock: () -> Float) {
+    listOf(Color.Black.copy(alpha = 0.35f) to 6.dp, DSColor.brand to 0.dp).forEach { (tint, y) ->
+        Icon(
+            Icons.Filled.Favorite,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = y)
+                .size(160.dp)
+                .graphicsLayer {
+                    val t = clock()
+                    val sc: Float; val a: Float
+                    when {
+                        t < BURST_RISE_MS -> {
+                            val f = POP_EASE.transform(t / BURST_RISE_MS)
+                            sc = .3f + .7f * f; a = (t / BURST_RISE_MS).coerceIn(0f, 1f)
+                        }
+                        t < BURST_RISE_MS + BURST_HOLD_MS -> { sc = 1f; a = 1f }
+                        else -> {
+                            val f = EaseIn.transform(((t - BURST_RISE_MS - BURST_HOLD_MS) / BURST_FADE_MS).coerceIn(0f, 1f))
+                            sc = 1f + .08f * f; a = 1f - f
+                        }
+                    }
+                    scaleX = sc; scaleY = sc; alpha = a
                 },
         )
     }
