@@ -82,7 +82,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -146,12 +145,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.zIndex
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
-import kotlin.coroutines.coroutineContext
 import kotlin.math.abs
 import com.rta.dignify.feature.push.PushOptInPopup
 import kotlin.math.round
@@ -396,9 +391,13 @@ fun FeedScreen(
     }
 
     // 손 모션 시계. 스와이프 단계에선 같은 프레임에 곡 화면도 COACH_PEEK만큼 올렸다 내린다 —
-    // 따로 돌리면 박자가 어긋난다. 화면 힌트를 **실제 페이저 스크롤**로 내는 이유: 유저가 중간에
-    // 잡으면 사용자 입력이 이 스크롤을 끊고 그 위치에서 그대로 끌기로 이어진다. 잡는 동안 시계가
-    // 서므로 손도 멈추고, 놓아서 제자리로 돌아오면 둘 다 처음부터 다시 돈다.
+    // 따로 돌리면 박자가 어긋난다.
+    //
+    // 화면 힌트는 `dispatchRawDelta`로 페이저를 직접 민다. `scroll {}`로 돌리면 스크롤 잠금을 다른
+    // 쪽이 쥔 순간 시작하자마자 취소되고, 그때 "스크롤 중"은 꺼져 있어 기다림 없이 다시 도는
+    // 무한 루프가 됐다(앱 멈춤). 잠금 없이 밀기만 하니 취소될 일이 없고, 반복마다 프레임을 기다린다.
+    // 유저가 잡으면(드래그 = 스크롤 시작) 힌트와 시계가 서고 끌기는 그 위치에서 그대로 이어진다.
+    // 놓아서 자리를 잡으면 손과 화면 힌트가 같은 순간에 처음부터 다시 돈다.
     LaunchedEffect(showsCoach, coachStep, reduceMotion) {
         coachClock = 0L
         if (!showsCoach || reduceMotion || coachStep == CoachGestureStep.HYPED) return@LaunchedEffect
@@ -411,25 +410,29 @@ fun FeedScreen(
             snapshotFlow { pagerState.isScrollInProgress }.first { !it }
             // 놓은 자리가 다음 곡이면 끝이다(위 효과가 마무리한다). 새 곡에서 힌트를 또 돌리지 않는다.
             if (pagerState.settledPage != coachPage) return@LaunchedEffect
+            var applied = 0f
+            coachPeeking = true
             try {
-                pagerState.scroll {
-                    coachPeeking = true
-                    var applied = 0f
-                    val start = withFrameMillis { it }
-                    while (true) withFrameMillis {
+                val start = withFrameMillis { it }
+                while (!pagerState.isScrollInProgress) {
+                    withFrameMillis {
                         coachClock = (it - start) % COACH_SWIPE_PERIOD_MS
-                        applied += scrollBy(coachPeekFraction(coachClock) * peekPx - applied)
+                        applied += pagerState.dispatchRawDelta(coachPeekFraction(coachClock) * peekPx - applied)
                     }
                 }
-            } catch (e: CancellationException) {
-                coroutineContext.ensureActive()   // 이 효과 자체가 끝난 거면 그대로 나간다.
             } finally {
                 coachPeeking = false
+                // 코치마크가 끝나 효과가 걷힐 때 곡이 올라간 채로 남지 않게 되돌린다.
+                // 유저가 잡은 경우는 페이저가 놓을 때 알아서 자리를 잡는다.
+                if (!pagerState.isScrollInProgress) pagerState.dispatchRawDelta(-applied)
             }
         }
     }
-    val coachAlpha = if (coachPeeking) 1f
-    else (1f - abs(pagerState.currentPageOffsetFraction) * 4f).coerceIn(0f, 1f)
+    // 끌린 거리만큼 흐려진다(화면 1/4에서 0). 그리기 단계에서만 읽는다 — 컴포지션에서 읽으면
+    // 힌트가 도는 동안 피드 전체가 프레임마다 다시 구성된다.
+    val coachAlpha: () -> Float = {
+        if (coachPeeking) 1f else (1f - abs(pagerState.currentPageOffsetFraction) * 4f).coerceIn(0f, 1f)
+    }
 
     // Scaffold를 안 쓴다 — 앱 바가 없어서 content padding이 늘 0이고, 그걸 무시하면
     // lint(UnusedMaterial3ScaffoldPaddingParameter)가 빌드를 세운다.
@@ -451,8 +454,10 @@ fun FeedScreen(
                     feed = vm.feeds[page],
                     coach = if (showsCoach && page == coachPage) {
                         {
-                            Box(Modifier.matchParentSize().alpha(coachAlpha)) {
-                                CoachGesture(coachStep, coachClock, reduceMotion)
+                            // .alpha()가 아니라 graphicsLayer — .alpha()는 1이 아닐 때 제 크기로 잘라서
+                            // 아트워크 밑으로 삐져나온 캡션 아래쪽이 사라진다.
+                            Box(Modifier.matchParentSize().graphicsLayer { alpha = coachAlpha() }) {
+                                CoachGesture(coachStep, { coachClock }, reduceMotion)
                             }
                         }
                     } else null,
@@ -949,7 +954,8 @@ private fun TrackCard(
                 // 아트워크 + 바로 아래 액션 줄(12 + 32)이 한 덩어리로 가운데에 선다.
                 val art = minOf(cardWidth, maxHeight - ACTIONS_HEIGHT)
                 Column(horizontalAlignment = Alignment.End) {
-                    Box(Modifier.size(art)) {
+                    // zIndex: 코치마크 캡션이 아래 공유·더보기 줄 위로 삐져나와 그려져야 한다.
+                    Box(Modifier.size(art).zIndex(1f)) {
                         Box(
                             Modifier
                                 .matchParentSize()

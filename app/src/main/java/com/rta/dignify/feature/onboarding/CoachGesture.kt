@@ -3,6 +3,7 @@ package com.rta.dignify.feature.onboarding
 import android.content.Context
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
@@ -131,13 +132,17 @@ private fun keyframes(t: Float, times: FloatArray, values: FloatArray, easing: E
  * 좌표를 적지 않는다 — 손은 아트워크 가운데, 캡션은 아트워크 아래끝 기준이라 화면 높이가 달라도 안 어긋난다.
  *
  * @param clock 지금 주기의 경과 ms. 손과 스와이프 화면 힌트가 **같은 시계**를 봐야 박자가 맞아서 피드가 굴린다.
+ *   람다로 받아 그리기 단계에서만 읽는다 — 값으로 받으면 프레임마다 이 컴포저블이 다시 구성된다.
  */
 @Composable
-fun BoxScope.CoachGesture(step: CoachGestureStep, clock: Long, reduceMotion: Boolean) {
+fun BoxScope.CoachGesture(step: CoachGestureStep, clock: () -> Long, reduceMotion: Boolean) {
     AnimatedContent(
         targetState = step,
-        // 단계가 끝나면 캡션·손이 함께 0.2초 페이드.
-        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+        // 단계가 끝나면 캡션·손이 함께 0.2초 페이드. clip = false: 기본값은 전환 중 내용을 아트워크
+        // 크기로 잘라서, 아래로 25 삐져나온 캡션이 더블탭 순간 아래쪽부터 잘려 보였다.
+        transitionSpec = {
+            (fadeIn(tween(200)) togetherWith fadeOut(tween(200))).using(SizeTransform(clip = false))
+        },
         modifier = Modifier.matchParentSize(),
         label = "coachGesture",
     ) { current ->
@@ -151,8 +156,8 @@ fun BoxScope.CoachGesture(step: CoachGestureStep, clock: Long, reduceMotion: Boo
                 contentAlignment = Alignment.Center,
             ) {
                 when (current) {
-                    CoachGestureStep.DOUBLE_TAP -> Hand(tapping = true, t = clock.toFloat(), reduceMotion)
-                    CoachGestureStep.SWIPE_UP -> Hand(tapping = false, t = clock.toFloat(), reduceMotion)
+                    CoachGestureStep.DOUBLE_TAP -> Hand(tapping = true, clock, reduceMotion)
+                    CoachGestureStep.SWIPE_UP -> Hand(tapping = false, clock, reduceMotion)
                     // 큰 하트는 더블탭이 일으킨 피드 좋아요 버스트(FeedScreen `BigHeart`)가 그린다 —
                     // 일반 좋아요와 같은 모션 하나를 쓴다(feed_coachmark 1.2). 여기선 캡션만.
                     CoachGestureStep.HYPED -> Unit
@@ -172,35 +177,42 @@ fun BoxScope.CoachGesture(step: CoachGestureStep, clock: Long, reduceMotion: Boo
  * 손 72, 흰색 + 그림자. 손끝이 기준선에 오도록 상자를 오른쪽 아래로 둔다(시안 `translate: 6px -14px`가
  * 상자 위끝 기준이라, 가운데 기준으로 옮기면 x +6, y +22).
  */
-@Composable
-private fun Hand(tapping: Boolean, t: Float, reduceMotion: Boolean) {
-    val scale: Float
-    val alpha: Float
-    val dy: Float
-    val ringAlpha: Float
-    val ringScale: Float
-    if (reduceMotion) {
-        scale = 1f; alpha = 1f; dy = 0f; ringAlpha = 0f; ringScale = 1f
-    } else if (tapping) {
-        // 0.15s·0.48s에 누름(scale .86), 0.3s·0.63s에 뗌. 물결은 누를 때마다 커지며 사라진다.
-        scale = keyframes(t, floatArrayOf(0f, 150f, 300f, 480f, 630f), floatArrayOf(1f, .86f, 1f, .86f, 1f), TAP_EASE)
-        alpha = 1f
-        dy = 0f
+/** 시각 [t]의 손 모양. 그리기 단계에서 매 프레임 부른다. */
+private class HandPose(val scale: Float, val alpha: Float, val dy: Float, val ringAlpha: Float, val ringScale: Float)
+
+private fun handPose(tapping: Boolean, t: Float, reduceMotion: Boolean): HandPose = when {
+    reduceMotion -> HandPose(1f, 1f, 0f, 0f, 1f)
+    // 0.15s·0.48s에 누름(scale .86), 0.3s·0.63s에 뗌. 물결은 누를 때마다 커지며 사라진다.
+    tapping -> HandPose(
+        scale = keyframes(t, floatArrayOf(0f, 150f, 300f, 480f, 630f), floatArrayOf(1f, .86f, 1f, .86f, 1f), TAP_EASE),
+        alpha = 1f,
+        dy = 0f,
         ringAlpha = keyframes(
             t, floatArrayOf(0f, 150f, 330f, 360f, 480f, 690f), floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f), TAP_EASE,
-        )
+        ),
         ringScale = if (t < 345f) {
             keyframes(t, floatArrayOf(0f, 330f), floatArrayOf(.4f, 1.6f), TAP_EASE)
         } else {
             keyframes(t, floatArrayOf(360f, 690f), floatArrayOf(.4f, 1.6f), TAP_EASE)
-        }
-    } else {
-        // 아래(+70)에서 위(-70)로 1.2초, 0.24초에 다 나타나고 1.44초에 사라진다.
-        dy = keyframes(t, floatArrayOf(0f, 1_200f), floatArrayOf(70f, -70f), SWIPE_EASE)
-        alpha = keyframes(t, floatArrayOf(0f, 288f, 1_200f, 1_440f), floatArrayOf(0f, 1f, 1f, 0f), SWIPE_EASE)
-        scale = 1f; ringAlpha = 0f; ringScale = 1f
-    }
+        },
+    )
+    // 아래(+70)에서 위(-70)로 1.2초, 0.29초에 다 나타나고 1.44초에 사라진다.
+    else -> HandPose(
+        scale = 1f,
+        alpha = keyframes(t, floatArrayOf(0f, 288f, 1_200f, 1_440f), floatArrayOf(0f, 1f, 1f, 0f), SWIPE_EASE),
+        dy = keyframes(t, floatArrayOf(0f, 1_200f), floatArrayOf(70f, -70f), SWIPE_EASE),
+        ringAlpha = 0f,
+        ringScale = 1f,
+    )
+}
 
+/**
+ * 손 72, 흰색 + 그림자. 손끝이 기준선에 오도록 상자를 오른쪽 아래로 둔다(시안 `translate: 6px -14px`가
+ * 상자 위끝 기준이라, 가운데 기준으로 옮기면 x +6, y +22).
+ */
+@Composable
+private fun Hand(tapping: Boolean, clock: () -> Long, reduceMotion: Boolean) {
+    val pose = { handPose(tapping, clock().toFloat(), reduceMotion) }
     Box(
         Modifier
             .layout { measurable, constraints ->
@@ -209,7 +221,10 @@ private fun Hand(tapping: Boolean, t: Float, reduceMotion: Boolean) {
                 layout(0, 0) { p.place(-p.width / 2, -p.height / 2) }
             }
             .offset(x = 6.dp, y = 22.dp)
-            .graphicsLayer { translationY = dy.dp.toPx(); this.alpha = alpha }
+            .graphicsLayer {
+                val p = pose()
+                translationY = p.dy.dp.toPx(); alpha = p.alpha
+            }
             .size(72.dp),
     ) {
         // 물결: 손끝(아이콘 24 그리드의 (10.8, 3.2)) 자리에서 28짜리 고리가 커진다.
@@ -217,7 +232,10 @@ private fun Hand(tapping: Boolean, t: Float, reduceMotion: Boolean) {
             Modifier
                 .offset(x = 32.dp - 14.dp, y = 10.dp - 14.dp)
                 .size(28.dp)
-                .graphicsLayer { this.alpha = ringAlpha; scaleX = ringScale; scaleY = ringScale }
+                .graphicsLayer {
+                    val p = pose()
+                    alpha = p.ringAlpha; scaleX = p.ringScale; scaleY = p.ringScale
+                }
                 .border(2.dp, Color.White.copy(alpha = 0.9f), CircleShape),
         )
         // 그림자: 벡터엔 drop-shadow가 없어서 같은 모양을 반투명 검정으로 4 아래에 깐다.
@@ -231,7 +249,8 @@ private fun Hand(tapping: Boolean, t: Float, reduceMotion: Boolean) {
                     .offset(y = y)
                     .size(72.dp)
                     .graphicsLayer {
-                        scaleX = scale; scaleY = scale
+                        val sc = pose().scale
+                        scaleX = sc; scaleY = sc
                         transformOrigin = TransformOrigin(0.3f, 0.1f)
                     },
             )
