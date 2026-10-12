@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
@@ -70,6 +71,12 @@ class FeedAudioController(
     var onDwell: ((Int, Double, Boolean) -> Unit)? = null
 
     /**
+     * play()부터 재생 위치가 0을 처음 벗어나기까지(ms). iOS `onPlaybackStart`와 같은 자리.
+     * 버퍼링 중엔 위치가 0에 머무르므로 이 값이 곧 무음 구간이다. 계측 전용.
+     */
+    var onPlaybackStart: ((Int, Long) -> Unit)? = null
+
+    /**
      * 다음(+1)·이전(-1)으로 옮겨 달라. 알림·잠금화면·이어폰·차량 버튼과 백그라운드 자동 넘김이
      * 전부 이 하나로 들어온다.
      *
@@ -103,6 +110,8 @@ class FeedAudioController(
     private var ticker: Job? = null
     private val dwell = DwellTracker()
     private val listens = ListenTracker()
+    /** 지연 측정 시작 시각. 소리가 나면 비운다 — 루프로 위치가 0에 돌아와도 다시 안 쏜다. */
+    private var playRequestedAt: Long? = null
 
     /** 피드 세션인가(= [updateWindow]로 굴러가는가). 목록 프리뷰면 false. */
     private var isFeedSession = false
@@ -274,6 +283,7 @@ class FeedAudioController(
         val player = players[trackId] ?: return
         player.seekTo(0)
         player.volume = 0f
+        playRequestedAt = SystemClock.elapsedRealtime()
         player.play()
         isPaused = false        // 새 current는 항상 재생 상태로 시작
         startTicker(player, trackId)
@@ -290,6 +300,11 @@ class FeedAudioController(
                 if (duration != C.TIME_UNSET && duration > 0) {
                     val t = player.currentPosition / 1000.0
                     player.volume = Playback.fadeVolume(t, duration / 1000.0).toFloat()
+                    val requestedAt = playRequestedAt
+                    if (requestedAt != null && t > 0) {
+                        playRequestedAt = null
+                        onPlaybackStart?.invoke(trackId, SystemClock.elapsedRealtime() - requestedAt)
+                    }
                     if (listens.shouldRecord(trackId, t)) onListen?.invoke(trackId)
                     dwell.advance(t)
                 }

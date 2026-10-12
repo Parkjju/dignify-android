@@ -226,6 +226,20 @@ fun FeedScreen(
                     "track_id" to trackId,
                     "seconds" to round(seconds * 10) / 10,
                     "background" to hadBackground,
+                    "source" to vm.source(trackId),
+                ),
+            )
+        }
+        // track_viewed는 있는데 이게 없는 트랙 = 소리를 한 번도 못 들은 노출.
+        // 백그라운드 건은 볼 화면이 없어 판독에서 거른다.
+        audio.onPlaybackStart = { trackId, latencyMs ->
+            Analytics.capture(
+                "track_playback_started",
+                mapOf(
+                    "track_id" to trackId,
+                    "latency_ms" to latencyMs,
+                    "source" to vm.source(trackId),
+                    "background" to AppForeground.isBackground,
                 ),
             )
         }

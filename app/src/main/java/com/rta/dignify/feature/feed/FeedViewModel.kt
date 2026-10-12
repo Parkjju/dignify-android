@@ -250,8 +250,20 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                 // `background: true`라 구분되지 않는다. "백그라운드를 쓰긴 하나"엔 답하지만
                 // "직접 넘기고 있나"엔 답 못 한다. 물어볼 이유가 생기기 전엔 속성을 더 안 붙인다.
                 "background" to AppForeground.isBackground,
+                "source" to source(feed.trackId),
             ),
         )
+    }
+
+    /**
+     * 이 트랙이 어느 경로로 화면에 떴는지(iOS `source(for:)`와 같은 값). 검색은 장르 필터가 없고
+     * 큐레이션은 전 유저 동일이라, 셋을 안 가르면 취향 밖 청취를 경로 탓으로 돌릴 수 없다.
+     * 인덱스가 아니라 trackId로 판정한다 — dwell은 트랙을 떠난 뒤에 발사된다.
+     */
+    fun source(trackId: Int): String {
+        if (activeQuery.isNotEmpty()) return "search"
+        val index = feeds.indexOfFirst { it.trackId == trackId }
+        return if (index in 0 until curationCount) "curation" else "feed"
     }
 
     /** 화면이 신호를 받아 처리했음. 다시 올라오면 또 물어보게 된다. */
@@ -270,10 +282,16 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
             loadFailed = false
             try {
                 val res = api.search(query)
+                // query를 담는 이유: 찾는데 없는 아티스트가 곧 다음 큐레이션·수집 후보다.
+                Analytics.capture(
+                    "search_performed",
+                    mapOf("query" to query, "result_count" to res.items.size),
+                )
                 feeds = res.items.map { it.toFeed() }
                 nextCursor = res.nextCursor?.takeIf { res.hasMore == true }
             } catch (e: Exception) {
                 loadFailed = true
+                Analytics.capture("search_performed", mapOf("query" to query, "failed" to true))
             }
             isLoading = false
         }
@@ -306,7 +324,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         val target = !feeds[index].isHyped
         setHypeLocally(trackId, target)
         // 켤 때만 찍는다 — 해제는 하입의 반대 행동이라 같은 이벤트로 합치면 하입 수가 부풀려진다.
-        if (target) Analytics.capture("track_hyped", mapOf("track_id" to trackId))
+        if (target) {
+            Analytics.capture("track_hyped", mapOf("track_id" to trackId, "source" to source(trackId)))
+        }
         viewModelScope.launch {
             try {
                 val response = if (target) api.hype(trackId) else api.unhype(trackId)
@@ -353,7 +373,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun recordListen(trackId: Int) {
         // 스킵률 = 1 - track_listened/track_viewed. 게스트도 세야 하므로 서버 가드보다 먼저 찍는다.
-        Analytics.capture("track_listened", mapOf("track_id" to trackId))
+        Analytics.capture("track_listened", mapOf("track_id" to trackId, "source" to source(trackId)))
         if (Session.state != AuthState.SIGNED_IN) return
         viewModelScope.launch { runCatching { api.listen(trackId) } }
     }
