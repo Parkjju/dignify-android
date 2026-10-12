@@ -1,6 +1,9 @@
 package com.rta.dignify.core.auth
 
 import android.content.Context
+import android.content.SharedPreferences
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -129,8 +132,39 @@ object Session {
         return pending
     }
 
+    private lateinit var prefs: SharedPreferences
+
+    /**
+     * 게스트가 코치마크에서 한 첫 하입. 로그인 시트 없이 받아 두고 기기에 맡겼다가, 로그인하면
+     * 서버 하입으로 올리고 지운다(feed_coachmark 1.0 #8). **하입 기록으로만** 남는다 —
+     * 곡 고르기에 미리 골라 두지도, 추천 기준 3곡에 넣지도 않는다.
+     */
+    fun holdGuestHype(trackId: Int) {
+        val held = prefs.getStringSet(KEY_GUEST_HYPES, emptySet()).orEmpty()
+        prefs.edit().putStringSet(KEY_GUEST_HYPES, held + trackId.toString()).apply()
+    }
+
+    /**
+     * 맡아 둔 게스트 하입을 올린다. 이미 하입된 곡이면 서버가 409(`HYPE_ALREADY_REGISTERED`)를
+     * 주는데 원하던 상태와 같으니 성공으로 친다. 네트워크 실패는 남겨 뒀다가 다음 실행 때 다시 올린다.
+     */
+    private suspend fun flushGuestHypes() {
+        val held = prefs.getStringSet(KEY_GUEST_HYPES, emptySet()).orEmpty()
+        if (held.isEmpty()) return
+        val sent = held.filter { id ->
+            runCatching { api.hype(id.toInt()) }
+                .map { it.status.isSuccess() || it.status == HttpStatusCode.Conflict }
+                .getOrDefault(false)
+        }
+        if (sent.isNotEmpty()) onHypeChanged()
+        prefs.edit().putStringSet(KEY_GUEST_HYPES, held - sent.toSet()).apply()
+    }
+
+    private const val KEY_GUEST_HYPES = "pendingGuestHypes"
+
     fun init(context: Context) {
         if (::api.isInitialized) return
+        prefs = context.applicationContext.getSharedPreferences("dignify", Context.MODE_PRIVATE)
         api = ApiClient(
             store = PrefsTokenStore(context.applicationContext),
             // refresh까지 실패 = 재로그인 필요. 단 게스트는 잃을 세션이 없으므로 끌어내리지 않는다.
@@ -230,10 +264,23 @@ object Session {
         feedReloadTick++
     }
 
+    /**
+     * 곡 고르기 직후 첫 피드를 받는 동안 "피드 구성 중"을 띄울 커버들. null이면 안 띄운다.
+     * 피드가 최소 1초·응답까지 보여 준 뒤 [onFeedBuilt]로 내린다. 온보딩(앱 상태 전환)과
+     * 피드(로딩 상태)가 서로 다른 화면이라 여기서 건넨다.
+     */
+    var buildingFeedFrom by mutableStateOf<List<String>?>(null)
+        private set
+
+    fun onFeedBuilt() {
+        buildingFeedFrom = null
+    }
+
     /** 온보딩 완료 후 호출. 하입한 곡을 시드로 피드를 다시 받게 한다. */
-    fun onOnboardingComplete() {
+    fun onOnboardingComplete(buildingFrom: List<String>) {
         // 강제로 띄운 온보딩이었으면 여기서 푼다 — 안 풀면 완료를 눌러도 되돌아온다.
         OnboardingMock.stop()
+        buildingFeedFrom = buildingFrom
         state = AuthState.SIGNED_IN
         feedReloadTick++
     }
@@ -256,5 +303,7 @@ object Session {
         // 로그인이 확정된 뒤에 등록한다 — 토큰에 붙일 유저를 서버가 알아야 한다.
         // 앱 시작·로그인 양쪽이 여기를 지나므로 이 한 줄이면 두 경우가 다 걸린다.
         Push.register()
+        // 로그인 직후의 피드 재조회보다 먼저 끝나야 그 곡이 하입된 채로 보인다(signInWithGoogle이 기다린다).
+        flushGuestHypes()
     }
 }

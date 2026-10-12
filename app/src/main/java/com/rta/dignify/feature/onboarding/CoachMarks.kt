@@ -63,8 +63,9 @@ import com.rta.dignify.core.designsystem.DSColor
  * 코치마크 — 실제 UI 요소를 뚫어 보여주는 1회성 안내. iOS `CoachMarks.swift` 이식.
  * 튜토리얼 카드와 달리 **가리키는 대상이 화면에 실재한다**는 게 값이다.
  *
- * 네 곳이 한 벌을 나눠 쓴다: 피드(하입·모드 칩), 픽 탭, 마이페이지(피드를 바꾸는 설정 둘),
+ * 세 곳이 한 벌을 나눠 쓴다: 픽 탭, 마이페이지(피드를 바꾸는 설정 둘),
  * 추천 기준 곡(직접 골라 보게 하는 안내). 화면은 `CoachSeen` 플래그와 스텝 배열만 갖는다.
+ * 피드는 따라 해 보는 제스처 코치마크([CoachGesture])를 따로 쓴다.
  *
  * **좌표를 한 줄도 안 적는다.** 대상이 `coachAnchor()`로 실측 bounds를 올리고 오버레이가
  * 그걸 받아 구멍을 뚫는다 — 유저마다 담은 곡 수도 날짜 묶음 수도 다르므로 고정 좌표는
@@ -73,9 +74,6 @@ import com.rta.dignify.core.designsystem.DSColor
 enum class CoachAnchor {
     /** 픽 탭 */
     PLAY, REACT, SHARE, COMPOSE,
-
-    /** 피드 */
-    HYPE, FEED_MODE,
 
     /** 마이페이지 */
     FOLLOW_SWITCH, SEED_ROW,
@@ -99,14 +97,6 @@ object PicksCoach {
         CoachStep(CoachAnchor.REACT, R.string.coach_react_title, R.string.coach_react_body, circular = true),
         CoachStep(CoachAnchor.SHARE, R.string.coach_share_title, R.string.coach_share_body, circular = true),
         CoachStep(CoachAnchor.COMPOSE, R.string.coach_compose_title, R.string.coach_compose_body, circular = true),
-    )
-}
-
-/** 피드. **하입 버튼이 먼저다** — 그게 무슨 버튼인지 모르면 나머지 설명이 성립하지 않는다. */
-object FeedCoach {
-    val steps = listOf(
-        CoachStep(CoachAnchor.HYPE, R.string.coach_hype_title, R.string.coach_hype_body, circular = true),
-        CoachStep(CoachAnchor.FEED_MODE, R.string.coach_feedmode_title, R.string.coach_feedmode_body),
     )
 }
 

@@ -363,6 +363,19 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         return toggleHype(trackId)
     }
 
+    /**
+     * 게스트가 코치마크에서 한 첫 하입. 로그인 시트를 띄우지 않고 화면엔 하입된 채로 두고,
+     * 곡은 [Session.holdGuestHype]가 맡았다가 로그인하면 올린다. 두 번째부터는 지금처럼 로그인 시트다.
+     */
+    fun hypeAsGuest(trackId: Int): Boolean {
+        if (Session.state != AuthState.GUEST) return false
+        if (feeds.none { it.trackId == trackId && !it.isHyped }) return true
+        setHypeLocally(trackId, true)
+        Analytics.capture("track_hyped", mapOf("track_id" to trackId, "source" to source(trackId)))
+        Session.holdGuestHype(trackId)
+        return true
+    }
+
     private fun setHypeLocally(trackId: Int, value: Boolean) {
         feeds = feeds.map { if (it.trackId == trackId) it.copy(isHyped = value) else it }
     }

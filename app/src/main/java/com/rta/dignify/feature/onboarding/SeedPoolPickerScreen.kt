@@ -99,8 +99,8 @@ fun SeedPoolPickerScreen(
      * 신규 가입자는 튜토리얼 끝에 이어서 보므로 그 줄이 필요 없다.
      */
     isUpdate: Boolean = false,
-    /** 마지막 버튼. 인자는 실제로 고른 곡 수(건너뛰면 0). 실패를 던지면 화면에 남는다. */
-    onFinish: suspend (Int) -> Unit,
+    /** 마지막 버튼. 인자는 실제로 고른 곡(건너뛰면 빈 목록). 실패를 던지면 화면에 남는다. */
+    onFinish: suspend (List<Api.FeedItem>) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -191,7 +191,7 @@ fun SeedPoolPickerScreen(
         scope.launch {
             picked.forEach { runCatching { Session.api.hype(it.trackId) } }
             Analytics.capture("onboarding_seed_done", mapOf("count" to picked.size))
-            runCatching { onFinish(picked.size) }.onFailure { failed = true }
+            runCatching { onFinish(picked) }.onFailure { failed = true }
             isSubmitting = false
         }
     }
@@ -385,7 +385,7 @@ fun SeedPoolPickerScreen(
  */
 suspend fun fetchSeedPool(): List<Api.FeedItem> = runCatching {
     // 8초를 넘기면 없는 것으로 친다. HTTP 타임아웃이 안 걸려 있어 느린 망에서는 10초 넘게
-    // 매달리는데, 그동안 튜토리얼 마지막 장의 "시작하기"가 아무 반응도 못 한다.
+    // 매달리는데, 그동안 유저는 로고 로딩만 보고 있다.
     withTimeoutOrNull(8_000) {
         // 프리뷰가 없는 곡은 들어볼 수가 없다 — 소리로 고르는 화면에서 자리만 차지한다.
         Session.api.onboardingSeedPool().items.filter { it.previewUrl.isNotBlank() }

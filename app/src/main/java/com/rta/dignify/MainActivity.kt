@@ -37,13 +37,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -86,10 +86,14 @@ import com.rta.dignify.feature.feed.FeedScreen
 import com.rta.dignify.feature.mypage.HypeHistoryScreen
 import com.rta.dignify.feature.mypage.MyPageScreen
 import com.rta.dignify.feature.mypage.SeedPickerScreen
+import com.rta.dignify.feature.onboarding.FeedBuilding
 import com.rta.dignify.feature.onboarding.OnboardingMock
+import com.rta.dignify.feature.onboarding.rememberReduceMotion
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import com.rta.dignify.feature.onboarding.PredictedType
 import com.rta.dignify.feature.onboarding.SeedPoolPickerScreen
-import com.rta.dignify.feature.onboarding.TutorialScreen
 import com.rta.dignify.feature.onboarding.fetchSeedPool
 import com.rta.dignify.feature.push.Push
 import com.rta.dignify.feature.whatsnew.Changelog
@@ -180,7 +184,10 @@ private val MAX_CONTENT_WIDTH = 600.dp
 /**
  * 신규 유저 온보딩. iOS `NewUserOnboardingView` 이식.
  *
- *     튜토리얼 → 시드 고르기(인기곡 풀) → 피드
+ *     (곡 후보 받는 동안 로고 로딩) → 시드 고르기(인기곡 풀) → 피드(제스처 코치마크)
+ *
+ * 튜토리얼 카드는 없다(feed_coachmark 1.0) — 피드 조작은 피드 위 제스처 코치마크가 직접
+ * 따라 하게 해서 가르친다.
  *
  * **장르를 한 번도 묻지 않는다.** 장르 이름으로 자기 취향을 말할 수 있는 사람은 많지 않고,
  * 물어봐야 나오는 건 `user_genres` 몇 행뿐인데 서버는 그걸 더 이상 읽지 않는다.
@@ -191,23 +198,16 @@ private val MAX_CONTENT_WIDTH = 600.dp
  */
 @Composable
 private fun OnboardingFlow() {
-    var showSeedPicker by rememberSaveable { mutableStateOf(false) }
-    var pool by remember { mutableStateOf<List<Api.FeedItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    // 튜토리얼이 끝났는데 풀이 아직 안 온 상태. 이때는 튜토리얼 마지막 장에 두고 기다린다 —
-    // 빈 화면을 잠깐 보여주는 것보다 낫다.
-    var waitingForPool by remember { mutableStateOf(false) }
+    var pool by remember { mutableStateOf<List<Api.FeedItem>?>(null) }
     val context = LocalContext.current
 
-    // 피드 조작을 먼저 익히게 한다. 풀은 그동안 백그라운드로 받는다.
-    LaunchedEffect(Unit) {
-        pool = fetchSeedPool()
-        isLoading = false
-        if (waitingForPool) { waitingForPool = false; showSeedPicker = true }
-    }
+    LaunchedEffect(Unit) { pool = fetchSeedPool() }
 
-    if (showSeedPicker) {
-        SeedPoolPickerScreen(pool = pool) {
+    val loaded = pool
+    if (loaded == null) {
+        LaunchTitle()
+    } else {
+        SeedPoolPickerScreen(pool = loaded) { picked ->
             Session.api.completeOnboarding()
             // 업데이트 유저용 1회 트리거가 이 유저에게 또 걸리지 않게 같이 내린다.
             // 방금 가입한 유저에게 What's New를 안 띄우는 판정도 여기서 남긴다.
@@ -216,13 +216,8 @@ private fun OnboardingFlow() {
                 .putBoolean(KEY_DID_ROUNDS, true)
                 .putBoolean(KEY_DID_JUST_ONBOARD, true)
                 .apply()
-            Session.onOnboardingComplete()
+            Session.onOnboardingComplete(buildingFrom = picked.map { it.artworkUrl })
         }
-    } else {
-        TutorialScreen(
-            busy = waitingForPool,
-            onDone = { if (isLoading) waitingForPool = true else showSeedPicker = true },
-        )
     }
 }
 
@@ -268,7 +263,7 @@ private fun MainTabs() {
     val barHeight = barContentHeight +
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    // 업데이트로 들어온 유저에게만 새 소식을 띄운다. 신규 설치는 튜토리얼 대상이라 제외.
+    // 업데이트로 들어온 유저에게만 새 소식을 띄운다. 신규 설치는 온보딩 대상이라 제외.
     val context = LocalContext.current
     var autoWhatsNew by remember { mutableStateOf<String?>(null) }
     // 업데이트 유저에게 한 번 태우는 시드 고르기. 풀을 실제로 받은 뒤에 세팅한다 —
@@ -325,7 +320,11 @@ private fun MainTabs() {
                 // 픽 재생은 별도 화면을 만들지 않는다 — 서버가 픽 상세를 피드와 같은 형태로 주므로
                 // 피드 화면에 목록만 갈아끼워 태운다(iOS `FeedMode.pick`과 같은 판단).
                 AppTab.PICKS ->
-                    if (playingPick != null) {
+                    // 게스트는 마이 탭과 같은 로그인 유도. 픽은 반응·만들기가 다 계정이라
+                    // 목록만 보여 주면 누르는 것마다 로그인 시트가 뜬다.
+                    if (Session.state == AuthState.GUEST) {
+                        Box(Modifier.fillMaxSize().padding(bottom = barHeight)) { GuestSignInPrompt() }
+                    } else if (playingPick != null) {
                         PickPlayback(pick = playingPick!!, bottomInset = barHeight) { playingPick = null }
                     } else {
                         PickListScreen(bottomInset = barHeight, onPlay = { playingPick = it })
@@ -358,10 +357,27 @@ private fun MainTabs() {
                 updateSeedPool = null
                 // 방금 고른 곡이 시드다. 피드는 이미 불러온 뒤라 다시 받지 않으면
                 // 유저는 다 고르고도 예전 순서를 본다.
-                if (picked > 0) Session.onSeedsChanged()
+                if (picked.isNotEmpty()) Session.onSeedsChanged()
                 autoWhatsNew = pendingWhatsNew
                 pendingWhatsNew = null
             }
+        }
+
+        // 곡 고르기 직후의 "피드 구성 중". 탭바까지 덮어야 해서 여기 둔다.
+        // 최소 1초(깜빡임 방지), 첫 피드 응답이 늦으면 올 때까지. 끝나면 페이드로 피드(코치마크)가 드러난다.
+        val buildingFrom = Session.buildingFeedFrom
+        if (buildingFrom != null) {
+            val feedVm: FeedViewModel = viewModel()   // 피드 탭과 같은 인스턴스
+            LaunchedEffect(Unit) {
+                delay(1_000)
+                snapshotFlow { feedVm.isLoading }.first { !it }
+                Session.onFeedBuilt()
+            }
+        }
+        AnimatedVisibility(visible = buildingFrom != null, enter = fadeIn(), exit = fadeOut()) {
+            // 사라지는 동안엔 Session 값이 이미 null이라 들어올 때 받은 걸 붙잡아 둔다.
+            val covers = remember { buildingFrom.orEmpty() }
+            FeedBuilding(covers, rememberReduceMotion())
         }
 
         autoWhatsNew?.let { version ->
@@ -441,7 +457,6 @@ private fun MyTab(
                 onOpenSeedPicker = { onRoute(MyRoute.SEEDS) },
                 onOpenArtistRequests = { onRoute(MyRoute.ARTIST_REQUESTS) },
                 onOpenBlockedUsers = { onRoute(MyRoute.BLOCKED) },
-                onOpenTutorial = { onRoute(MyRoute.TUTORIAL) },
                 onOpenWhatsNew = { onRoute(MyRoute.WHATS_NEW) },
             )
 
@@ -462,7 +477,6 @@ private fun MyTab(
             MyRoute.SEEDS -> SeedPickerScreen(onBack = { onRoute(MyRoute.ROOT) })
             MyRoute.ARTIST_REQUESTS -> ArtistRequestScreen(onBack = { onRoute(MyRoute.ROOT) })
             MyRoute.BLOCKED -> BlockedUsersScreen(onBack = { onRoute(MyRoute.ROOT) })
-            MyRoute.TUTORIAL -> TutorialScreen(onDone = { onRoute(MyRoute.ROOT) })
             // 마이페이지에서 직접 열면 전체 로그(highlight = null).
             MyRoute.WHATS_NEW -> WhatsNewSheet(onDismiss = { onRoute(MyRoute.ROOT) })
         }
@@ -473,7 +487,7 @@ private fun MyTab(
 /** `depth`는 전환 방향 판정용 — 값이 커지는 쪽이 "더 들어가는" 것이다. */
 enum class MyRoute(val depth: Int) {
     ROOT(0),
-    DIGGING(1), SEEDS(1), ARTIST_REQUESTS(1), BLOCKED(1), TUTORIAL(1), WHATS_NEW(1),
+    DIGGING(1), SEEDS(1), ARTIST_REQUESTS(1), BLOCKED(1), WHATS_NEW(1),
     HYPES(2), MY_PICKS(2),
 }
 
@@ -529,11 +543,11 @@ private fun SignInGate() {
             .background(DSColor.background),
     ) {
         SignInScreen(isGate = true)
-        IconButton(
+        TextButton(
             onClick = { Session.dismissSignInGate() },
             modifier = Modifier.statusBarsPadding().padding(8.dp),
         ) {
-            Icon(Icons.Filled.Close, contentDescription = null, tint = DSColor.textSecondary)
+            Text(stringResource(R.string.cancel), style = DSTypography.body, color = DSColor.textSecondary)
         }
     }
 }

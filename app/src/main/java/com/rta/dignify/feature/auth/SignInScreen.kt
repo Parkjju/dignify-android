@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 private const val TAG = "DignifySignIn"
 
 /**
- * 로그인 화면. iOS `OnboardingFlowView`의 로그인 단계에 대응하되 튜토리얼·취향 테스트는 아직 없다.
+ * 로그인 화면. iOS `OnboardingFlowView`의 로그인 단계에 대응한다.
  *
  * 게스트 입구를 같이 두는 건 iOS와 같은 판단이다 — 로그인 벽을 세우면 첫 곡을 듣기 전에
  * 계정부터 만들라는 얘기가 되고, 이 앱은 "10초면 판단 가능"이 전제다.

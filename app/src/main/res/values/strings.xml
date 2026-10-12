@@ -172,7 +172,6 @@
     <string name="share_my_taste">Share my taste</string>
     <string name="share_my_type_eyebrow">MY DIGGING TYPE</string>
 
-    <string name="mypage_how_to_use">How to Use</string>
     <string name="mypage_whats_new">What\'s New</string>
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
@@ -198,20 +197,6 @@
     <string name="tutorial_skip">Skip</string>
     <string name="tutorial_next">Next</string>
     <string name="tutorial_start">Get started</string>
-    <string name="tutorial_doubletap_title">Double-tap to hype</string>
-    <string name="tutorial_doubletap_body">Love a track? Double-tap the card to hype it instantly.</string>
-    <string name="tutorial_hypebutton_title">Or use the hype button</string>
-    <string name="tutorial_hypebutton_body">Tap the hype button to save any track you like.</string>
-    <string name="tutorial_detail_title">See track details</string>
-    <string name="tutorial_detail_body">Tap the disc icon to view full info and where to listen.</string>
-    <string name="tutorial_longpress_title">Press and hold in My Page</string>
-    <string name="tutorial_longpress_body">Long-press a track in My Page to open details or remove it.</string>
-    <string name="tutorial_play_title">Play from My Page</string>
-    <string name="tutorial_play_body">Tap any track in My Page to play its preview right there.</string>
-    <string name="tutorial_pick_title">Make a pick</string>
-    <string name="tutorial_pick_body">Put a few tracks together in the Picks tab. Other people can play it and react with 🔥.</string>
-    <string name="tutorial_request_title">Missing an artist?</string>
-    <string name="tutorial_request_body">Search for them and tap Request — or add one from Artist Requests in My Page.</string>
 
     <string name="quiz_q_loud">When do you turn it all the way up?</string>
     <string name="quiz_a_workout">Working out</string>
@@ -327,10 +312,18 @@
     <string name="coach_share_body">Turn a pick into an image card and post it to Instagram or anywhere else.</string>
     <string name="coach_compose_title">Make your own</string>
     <string name="coach_compose_body">Put the tracks you\'ve kept together and send out your own pick.</string>
-    <string name="coach_hype_title">Hype what you like</string>
-    <string name="coach_hype_body">It saves the track to your crate, and the feed starts looking for tracks that sound like it.</string>
-    <string name="coach_feedmode_title">See where the feed came from</string>
-    <string name="coach_feedmode_body">This says whether the feed is following your hypes or playing at random. Tap it to switch.</string>
+
+    <!-- 피드 구성 중(곡 고르기 직후) -->
+    <string name="feed_building_title">Building a feed around your taste</string>
+    <string name="feed_building_body">Finding songs that sound like the ones you picked</string>
+
+    <!-- 피드 제스처 코치마크(feed_coachmark 1.1). 한국어가 정본이라 그 뜻에 맞춘 영어. -->
+    <string name="coach_gesture_doubletap_title">Found a song you like!</string>
+    <string name="coach_gesture_doubletap_body">Try tapping it twice, quickly.</string>
+    <string name="coach_gesture_hyped_title">You liked a song you love!</string>
+    <string name="coach_gesture_hyped_body">Want to go find more songs you\'re into?</string>
+    <string name="coach_gesture_swipe_title">Ready for the next song?</string>
+    <string name="coach_gesture_swipe_body">Swipe up on the screen</string>
     <string name="coach_follow_title">Turn it off any time</string>
     <string name="coach_follow_body">The feed follows your hypes by default. Switch this off and it plays anything again.</string>
     <string name="coach_seedrow_title">Choose what it follows</string>

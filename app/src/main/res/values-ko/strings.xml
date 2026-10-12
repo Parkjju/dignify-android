@@ -159,7 +159,6 @@
     <string name="share_my_taste">내 취향 공유</string>
     <string name="share_my_type_eyebrow">내 디깅 유형</string>
 
-    <string name="mypage_how_to_use">사용법</string>
     <string name="mypage_whats_new">새로운 기능</string>
     <string name="whatsnew_title">새로운 기능</string>
     <string name="whatsnew_version">버전 %1$s</string>
@@ -185,20 +184,6 @@
     <string name="tutorial_skip">건너뛰기</string>
     <string name="tutorial_next">다음</string>
     <string name="tutorial_start">시작하기</string>
-    <string name="tutorial_doubletap_title">더블 탭으로 하입</string>
-    <string name="tutorial_doubletap_body">마음에 드는 곡이 있나요? 카드를 더블 탭하면 바로 하입할 수 있어요.</string>
-    <string name="tutorial_hypebutton_title">하입 버튼을 눌러도 돼요</string>
-    <string name="tutorial_hypebutton_body">하입 버튼을 누르면 마음에 드는 곡을 저장할 수 있어요.</string>
-    <string name="tutorial_detail_title">트랙 정보 보기</string>
-    <string name="tutorial_detail_body">디스크 아이콘을 누르면 상세 정보와 감상할 수 있는 곳을 볼 수 있어요.</string>
-    <string name="tutorial_longpress_title">마이페이지에서 길게 누르기</string>
-    <string name="tutorial_longpress_body">마이페이지에서 트랙을 길게 누르면 상세 정보를 보거나 삭제할 수 있어요.</string>
-    <string name="tutorial_play_title">마이페이지에서 바로 재생</string>
-    <string name="tutorial_play_body">마이페이지에서 트랙을 누르면 미리듣기를 바로 재생할 수 있어요.</string>
-    <string name="tutorial_pick_title">첫 픽 만들기</string>
-    <string name="tutorial_pick_body">픽 탭에서 좋아하는 곡을 묶어 올릴 수 있어요. 다른 사람이 듣고 🔥로 반응해요.</string>
-    <string name="tutorial_request_title">찾는 아티스트가 없나요?</string>
-    <string name="tutorial_request_body">검색 후 요청 버튼을 누르거나, 마이페이지의 아티스트 요청에서 추가할 수 있어요.</string>
 
     <string name="quiz_q_loud">볼륨을 제일 키우는 순간은?</string>
     <string name="quiz_a_workout">운동할 때</string>
@@ -319,10 +304,18 @@
     <string name="coach_share_body">픽을 이미지 카드로 만들어 인스타그램 같은 곳에 올릴 수 있어요.</string>
     <string name="coach_compose_title">직접 만들어보기</string>
     <string name="coach_compose_body">담아둔 곡을 묶어서 나만의 픽을 올려보세요.</string>
-    <string name="coach_hype_title">마음에 들면 하입하세요</string>
-    <string name="coach_hype_body">하입한 곡은 담은 곡에 모여요. 그리고 피드가 그 곡과 비슷한 소리를 찾아 와요.</string>
-    <string name="coach_feedmode_title">지금 무엇을 따라가는지</string>
-    <string name="coach_feedmode_body">피드가 하입을 따라가는 중인지 무작위인지 여기서 알 수 있어요. 누르면 바뀌어요.</string>
+
+    <!-- 피드 구성 중(곡 고르기 직후) -->
+    <string name="feed_building_title">취향에 맞춰 피드를 구성하고 있어요</string>
+    <string name="feed_building_body">고른 곡과 비슷한 소리를 찾는 중이에요</string>
+
+    <!-- 피드 제스처 코치마크(feed_coachmark 1.1) -->
+    <string name="coach_gesture_doubletap_title">마음에 드는 노래를 찾았어요!</string>
+    <string name="coach_gesture_doubletap_body">빠르게 두 번 클릭해 볼까요?</string>
+    <string name="coach_gesture_hyped_title">마음에 드는 노래에 좋아요를 눌렀어요!</string>
+    <string name="coach_gesture_hyped_body">관심이 가는 노래를 더 찾으러 가볼까요?</string>
+    <string name="coach_gesture_swipe_title">다음 노래로 넘어가 볼까요?</string>
+    <string name="coach_gesture_swipe_body">화면을 위로 쓸어 올려보세요</string>
     <string name="coach_follow_title">언제든 끌 수 있어요</string>
     <string name="coach_follow_body">피드는 기본적으로 하입한 곡을 따라가요. 이 스위치를 끄면 다시 무작위로 재생돼요.</string>
     <string name="coach_seedrow_title">기준이 될 곡을 직접 골라요</string>

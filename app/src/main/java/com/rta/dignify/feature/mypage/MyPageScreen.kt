@@ -83,7 +83,6 @@ fun MyPageScreen(
     onOpenSeedPicker: () -> Unit,
     onOpenArtistRequests: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
-    onOpenTutorial: () -> Unit,
     onOpenWhatsNew: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -166,7 +165,6 @@ fun MyPageScreen(
         GroupDivider()
 
         // 2. 안내 — 읽기만 하는 행들.
-        SettingsRow(stringResource(R.string.mypage_how_to_use), onClick = onOpenTutorial)
         SettingsRow(stringResource(R.string.mypage_whats_new), onClick = onOpenWhatsNew)
         // 인스타도 "우리를 더 보는" 자리라 안내 묶음에 들어간다.
         SettingsRow(stringResource(R.string.mypage_instagram)) { openUrl(context, instagramUrl()) }

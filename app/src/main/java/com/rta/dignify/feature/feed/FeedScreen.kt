@@ -10,9 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.EaseIn
-import androidx.compose.animation.core.EaseOut
-import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,7 +33,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -79,7 +79,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -104,7 +103,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -128,24 +126,35 @@ import com.rta.dignify.core.share.loadArtwork
 import com.rta.dignify.core.share.shareBitmap
 import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.feature.push.Push
-import com.rta.dignify.feature.onboarding.CoachAnchor
-import com.rta.dignify.feature.onboarding.CoachOverlay
+import com.rta.dignify.feature.onboarding.COACH_PEEK
+import com.rta.dignify.feature.onboarding.COACH_SWIPE_PERIOD_MS
+import com.rta.dignify.feature.onboarding.COACH_TAP_PERIOD_MS
+import com.rta.dignify.feature.onboarding.CoachGesture
+import com.rta.dignify.feature.onboarding.CoachGestureStep
 import com.rta.dignify.feature.onboarding.CoachSeen
-import com.rta.dignify.feature.onboarding.FeedCoach
-import com.rta.dignify.feature.onboarding.coachAnchor
+import com.rta.dignify.feature.onboarding.coachPeekFraction
+import com.rta.dignify.feature.onboarding.rememberReduceMotion
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
+import kotlin.coroutines.coroutineContext
+import kotlin.math.abs
 import com.rta.dignify.feature.push.PushOptInPopup
-import kotlinx.coroutines.delay
 import kotlin.math.round
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.random.Random
 
 /** 푸시 옵트인을 어느 맥락에서 물었는지. iOS와 같은 값이어야 소스별 수락률이 한 표에 모인다. */
 private const val PUSH_SOURCE_CURATION = "curation_done"
@@ -187,12 +196,12 @@ fun FeedScreen(
     // 시트 안 아이콘이 옛 값에 머문다.
     var detailTrackId by remember { mutableStateOf<Int?>(null) }
 
-    // 더블탭 버스트. seq를 같이 들고 다니는 건 같은 자리를 연달아 두드려도 애니메이션이
-    // 처음부터 다시 돌게 하려는 것이다(좌표만 키로 쓰면 두 번째 탭이 무시된다).
     // 공유 카드 렌더 대상. 아트워크를 먼저 받아둬야 카드에 빈 자리가 안 찍힌다.
     var shareTarget by remember { mutableStateOf<Pair<Feed, ImageBitmap?>?>(null) }
 
-    var burst by remember { mutableStateOf<BurstState?>(null) }
+    // 하입 버스트(어느 곡, 몇 번째). 회차를 같이 들고 다니는 건 같은 곡을 연달아 하입해도
+    // 애니메이션이 처음부터 다시 돌게 하려는 것이다.
+    var burst by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var burstSeq by remember { mutableIntStateOf(0) }
 
     // initialPage는 첫 구성에서만 쓰인다 = 탭에 다시 들어왔을 때 보던 자리로 복귀.
@@ -209,7 +218,10 @@ fun FeedScreen(
     // 게스트는 **누르는 즉시** 로그인 화면이 뜬다 — 스낵바로 알리고 끝내면 유저가
     // 한 번 더 눌러야 하고, 그 사이 스낵바가 사라지면 아무 일도 안 일어난 게 된다.
     val hype: (Int) -> Unit = { trackId ->
-        if (Session.requireAccount()) vm.toggleHype(trackId)
+        val turningOn = vm.feeds.any { it.trackId == trackId && !it.isHyped }
+        if (Session.requireAccount() && vm.toggleHype(trackId) && turningOn) {
+            burst = trackId to burstSeq++
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -339,19 +351,74 @@ fun FeedScreen(
         onDispose { audio.stop() }
     }
 
-    // 하입이 무엇을 하는지, 모드 칩이 무슨 뜻인지 한 번만 짚어 준다. 픽 재생 지면과 검색
-    // 결과에선 안 띄운다 — 둘 다 모드 칩이 없는 화면이라 두 스텝 중 하나가 가리킬 데를 잃는다.
+    // 제스처 코치마크. 더블탭 → 하트 → 위로 쓸기를 **따라 해야** 넘어간다(CoachGesture 참고).
+    // 픽 재생 지면과 검색 결과에선 안 띄운다 — 처음 보는 피드에서 익히는 동작이다.
     var seenCoach by remember { mutableStateOf(CoachSeen.get(context, CoachSeen.FEED)) }
     val showsCoach = !seenCoach && vm.pickNickname == null && vm.activeQuery.isEmpty() &&
-        !vm.isLoading && vm.feeds.isNotEmpty()
+        !vm.isLoading && vm.feeds.isNotEmpty() && Session.buildingFeedFrom == null
+    var coachStep by rememberSaveable { mutableStateOf(CoachGestureStep.DOUBLE_TAP) }
+    // 코치마크가 붙은 곡. 스와이프 단계 전엔 유저가 넘기면 따라간다 — 안 그러면 안내가 화면 밖 곡에 남는다.
+    var coachPage by remember { mutableIntStateOf(0) }
+    // 손과 스와이프 화면 힌트가 같이 보는 시계(한 주기 안의 ms).
+    var coachClock by remember { mutableLongStateOf(0L) }
+    // 화면 힌트로 곡이 올라가 있는 중인가. 이때는 끌린 거리로 코치마크를 흐리지 않는다.
+    var coachPeeking by remember { mutableStateOf(false) }
+    val reduceMotion = rememberReduceMotion()
+    val finishCoach = {
+        Analytics.capture("coach_finished", mapOf("screen" to "feed", "last_step" to coachStep.ordinal))
+        CoachSeen.mark(context, CoachSeen.FEED)
+        seenCoach = true
+    }
 
-    CoachOverlay(
-        steps = FeedCoach.steps,
-        screen = "feed",
-        active = showsCoach,
-        bottomInset = bottomInset,
-        onFinish = { CoachSeen.mark(context, CoachSeen.FEED); seenCoach = true },
-    ) {
+    LaunchedEffect(showsCoach) {
+        if (!showsCoach) return@LaunchedEffect
+        coachPage = pagerState.settledPage
+        // 완주율의 분모. 기존 스포트라이트 코치마크와 같은 이벤트·같은 screen 값이다.
+        Analytics.capture("coach_shown", mapOf("screen" to "feed"))
+    }
+
+    LaunchedEffect(pagerState.settledPage, showsCoach) {
+        if (!showsCoach) return@LaunchedEffect
+        if (coachStep != CoachGestureStep.SWIPE_UP) coachPage = pagerState.settledPage
+        else if (pagerState.settledPage != coachPage) finishCoach()
+    }
+
+    // 손 모션 시계. 스와이프 단계에선 같은 프레임에 곡 화면도 COACH_PEEK만큼 올렸다 내린다 —
+    // 따로 돌리면 박자가 어긋난다. 화면 힌트를 **실제 페이저 스크롤**로 내는 이유: 유저가 중간에
+    // 잡으면 사용자 입력이 이 스크롤을 끊고 그 위치에서 그대로 끌기로 이어진다. 잡는 동안 시계가
+    // 서므로 손도 멈추고, 놓아서 제자리로 돌아오면 둘 다 처음부터 다시 돈다.
+    LaunchedEffect(showsCoach, coachStep, reduceMotion) {
+        coachClock = 0L
+        if (!showsCoach || reduceMotion || coachStep == CoachGestureStep.HYPED) return@LaunchedEffect
+        if (coachStep == CoachGestureStep.DOUBLE_TAP) {
+            val start = withFrameMillis { it }
+            while (true) withFrameMillis { coachClock = (it - start) % COACH_TAP_PERIOD_MS }
+        }
+        val peekPx = with(density) { COACH_PEEK.toPx() }
+        while (true) {
+            snapshotFlow { pagerState.isScrollInProgress }.first { !it }
+            // 놓은 자리가 다음 곡이면 끝이다(위 효과가 마무리한다). 새 곡에서 힌트를 또 돌리지 않는다.
+            if (pagerState.settledPage != coachPage) return@LaunchedEffect
+            try {
+                pagerState.scroll {
+                    coachPeeking = true
+                    var applied = 0f
+                    val start = withFrameMillis { it }
+                    while (true) withFrameMillis {
+                        coachClock = (it - start) % COACH_SWIPE_PERIOD_MS
+                        applied += scrollBy(coachPeekFraction(coachClock) * peekPx - applied)
+                    }
+                }
+            } catch (e: CancellationException) {
+                coroutineContext.ensureActive()   // 이 효과 자체가 끝난 거면 그대로 나간다.
+            } finally {
+                coachPeeking = false
+            }
+        }
+    }
+    val coachAlpha = if (coachPeeking) 1f
+    else (1f - abs(pagerState.currentPageOffsetFraction) * 4f).coerceIn(0f, 1f)
+
     // Scaffold를 안 쓴다 — 앱 바가 없어서 content padding이 늘 0이고, 그걸 무시하면
     // lint(UnusedMaterial3ScaffoldPaddingParameter)가 빌드를 세운다.
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -370,13 +437,31 @@ fun FeedScreen(
             ) { page ->
                 FeedPage(
                     feed = vm.feeds[page],
-                    coachAnchors = page == 0,
+                    coach = if (showsCoach && page == coachPage) {
+                        {
+                            Box(Modifier.matchParentSize().alpha(coachAlpha)) {
+                                CoachGesture(coachStep, coachClock, reduceMotion)
+                            }
+                        }
+                    } else null,
                     onTap = { audio.toggleCurrentPlayback() },
                     onHype = { hype(vm.feeds[page].trackId) },
-                    onHypeAt = { offset ->
-                        // 게스트면 로그인 화면부터. 버스트를 먼저 터뜨리면 "됐다"는 착각을 준다.
-                        if (Session.requireAccount() && vm.hypeOn(vm.feeds[page].trackId)) {
-                            burst = BurstState(offset, makeConfetti(), burstSeq++)
+                    burstSeq = burst?.takeIf { it.first == vm.feeds[page].trackId }?.second,
+                    onHypeAt = {
+                        val trackId = vm.feeds[page].trackId
+                        // 코치마크 첫 단계는 "실제로 하입해 보기"다. 게스트도 여기서만은 로그인 없이
+                        // 하입된다 — 따라 해 보라고 해 놓고 시트로 막으면 안내가 끊긴다.
+                        val coachTap = showsCoach && coachStep == CoachGestureStep.DOUBLE_TAP
+                        val hyped = if (coachTap && Session.state == AuthState.GUEST) {
+                            vm.hypeAsGuest(trackId)
+                        } else {
+                            // 그 밖의 게스트는 로그인 화면부터. 버스트를 먼저 터뜨리면 "됐다"는 착각을 준다.
+                            Session.requireAccount() && vm.hypeOn(trackId)
+                        }
+                        if (hyped) {
+                            burst = trackId to burstSeq++
+                            // 이미 하입된 곡이어도 해 본 건 맞다.
+                            if (coachTap) coachStep = CoachGestureStep.HYPED
                         }
                     },
                     bottomInset = bottomInset,
@@ -395,6 +480,25 @@ fun FeedScreen(
             }
         }
 
+        // 하트 단계: 화면 아무 데나 닿으면 스와이프 단계로. 닿은 손가락은 먹는다 —
+        // 흘려보내면 그 탭이 재생을 멈추거나 그대로 곡을 넘겨 다음 안내를 건너뛴다.
+        if (showsCoach && coachStep == CoachGestureStep.HYPED) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown().consume()
+                            coachStep = CoachGestureStep.SWIPE_UP
+                            do {
+                                val event = awaitPointerEvent()
+                                event.changes.forEach { it.consume() }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    },
+            )
+        }
+
         // 일시정지 표시는 카드 위, 검색 UI 아래.
         AnimatedVisibility(
             visible = audio.isPaused && !isSearching && vm.feeds.isNotEmpty(),
@@ -408,27 +512,6 @@ fun FeedScreen(
                 tint = Color.White.copy(alpha = 0.85f),
                 modifier = Modifier.size(72.dp),
             )
-        }
-
-        // 하입 버스트는 카드 위, 검색 UI 아래. iOS와 같이 0.65초 뒤 스스로 사라진다.
-        burst?.let { state ->
-            key(state.seq) {
-                HypeBurst(
-                    pieces = state.pieces,
-                    // iOS `.position()`은 중앙을 맞춘다. offset은 좌상단을 맞추므로 반쪽을 뺀다.
-                    modifier = Modifier.offset {
-                        val half = (burstSize / 2).toPx()
-                        IntOffset(
-                            (state.at.x - half).roundToInt(),
-                            (state.at.y - half).roundToInt(),
-                        )
-                    },
-                )
-                LaunchedEffect(state.seq) {
-                    delay(650)
-                    if (burst?.seq == state.seq) burst = null
-                }
-            }
         }
 
         SearchControls(
@@ -531,7 +614,6 @@ fun FeedScreen(
                 },
             )
         }
-    }
     }
 }
 
@@ -730,86 +812,8 @@ private fun formatHypedAt(raw: String): String = runCatching {
         .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT))
 }.getOrDefault("")
 
-/**
- * iOS `FeedView.HypeBurstView` 이식. 더블탭한 자리에서 색종이가 터지고 삽 아이콘이
- * 튀어올랐다 사라진다. 타이밍·개수·거리를 iOS 값 그대로 쓴다 — 두 앱의 손맛이 갈리면
- * 같은 제품으로 안 느껴지는 부분이 이런 곳이다.
- */
-private data class ConfettiPiece(val color: Color, val angle: Float, val distance: Float)
-
-/** 터진 자리·조각·회차. 회차가 바뀌면 애니메이션이 처음부터 다시 돈다. */
-private data class BurstState(val at: Offset, val pieces: List<ConfettiPiece>, val seq: Int)
-
-/** iOS의 `[DSColor.brand, .yellow, .pink, .mint, .orange]`. 뒤 넷은 SwiftUI 시스템 색 실측값. */
-private val confettiColors = listOf(
-    DSColor.brand,
-    Color(0xFFFFCC00),
-    Color(0xFFFF2D55),
-    Color(0xFF00C7BE),
-    Color(0xFFFF9500),
-)
-
-private fun makeConfetti(count: Int = 14) = List(count) {
-    ConfettiPiece(
-        color = confettiColors.random(),
-        angle = Random.nextFloat() * 360f,
-        distance = 40f + Random.nextFloat() * 50f,
-    )
-}
-
-/** 아이콘 한 변. 버스트를 탭 지점 중앙에 놓으려면 이 값의 절반을 빼야 한다. */
-private val burstSize = 96.dp
-
 /** 끝에서 이만큼 더 당기면 화면을 나간다. 실수로 나가지 않을 만큼은 돼야 한다. */
 private const val EDGE_EXIT_PX = 120f
-
-@Composable
-private fun HypeBurst(pieces: List<ConfettiPiece>, modifier: Modifier = Modifier) {
-    val spark = remember { Animatable(0f) }
-    val scale = remember { Animatable(0f) }
-    val alpha = remember { Animatable(0f) }
-
-    LaunchedEffect(Unit) {
-        launch { spark.animateTo(1f, tween(220, easing = EaseOut)) }
-        launch {
-            // response 0.28s → ω=2π/0.28 → stiffness≈ω²≈500. dampingFraction은 그대로 0.55.
-            scale.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 500f))
-        }
-        launch { alpha.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 500f)) }
-        delay(300)
-        launch { scale.animateTo(0.4f, tween(350, easing = EaseIn)) }
-        alpha.animateTo(0f, tween(350, easing = EaseIn))
-    }
-
-    Box(modifier.size(burstSize), contentAlignment = Alignment.Center) {
-        pieces.forEach { piece ->
-            val rad = piece.angle * PI.toFloat() / 180f
-            Box(
-                Modifier
-                    .offset {
-                        IntOffset(
-                            (cos(rad) * piece.distance * spark.value).roundToInt(),
-                            (sin(rad) * piece.distance * spark.value).roundToInt(),
-                        )
-                    }
-                    .rotate(piece.angle)
-                    .size(width = 3.dp, height = 10.dp)
-                    .alpha(1f - spark.value)
-                    .clip(CircleShape)
-                    .background(piece.color)
-            )
-        }
-        Icon(
-            painterResource(R.drawable.ic_hype),
-            contentDescription = null,
-            tint = DSColor.brand,
-            modifier = Modifier
-                .size(96.dp)
-                .scale(scale.value)
-                .alpha(alpha.value),
-        )
-    }
-}
 
 /** 한 곡 = 한 페이지. 배경(흐린 아트워크) → 그라디언트 → 카드 순으로 쌓는다. */
 @Composable
@@ -817,14 +821,16 @@ private fun FeedPage(
     feed: Feed,
     onTap: () -> Unit,
     onHype: () -> Unit,
-    onHypeAt: (Offset) -> Unit,
+    onHypeAt: () -> Unit,
+    /** 이 곡에 지금 터뜨릴 하입 버스트 회차. 바뀔 때마다 처음부터 다시 돈다. */
+    burstSeq: Int?,
     bottomInset: Dp,
     /** 상단 오버레이가 먹는 높이(상태바 포함). 카드는 이 아래에서 시작한다. */
     topInset: Dp,
     onShare: () -> Unit,
     onDetail: () -> Unit,
-    /** 첫 카드만 true. 코치마크가 가리킬 하입 버튼이 목록에 하나여야 한다. */
-    coachAnchors: Boolean = false,
+    /** 제스처 코치마크가 붙은 곡만 넘긴다. 아트워크 위에 얹힌다. */
+    coach: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     Box(
         Modifier
@@ -834,7 +840,7 @@ private fun FeedPage(
                 detectTapGestures(
                     // 더블탭(하입)에 우선권을 주므로 단일 탭엔 두 번째 탭 대기 지연이 붙는다 — iOS와 같다.
                     // 터진 자리에 버스트를 띄워야 해서 좌표를 그대로 올린다.
-                    onDoubleTap = { offset -> onHypeAt(offset) },
+                    onDoubleTap = { onHypeAt() },
                     onTap = { onTap() },
                 )
             }
@@ -858,9 +864,10 @@ private fun FeedPage(
             bottomInset = bottomInset,
             topInset = topInset,
             onHype = onHype,
+            burstSeq = burstSeq,
             onShare = onShare,
             onDetail = onDetail,
-            coachAnchors = coachAnchors,
+            coach = coach,
         )
     }
 }
@@ -893,9 +900,10 @@ private fun TrackCard(
     bottomInset: Dp,
     topInset: Dp,
     onHype: () -> Unit,
+    burstSeq: Int?,
     onShare: () -> Unit,
     onDetail: () -> Unit,
-    coachAnchors: Boolean = false,
+    coach: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val cardWidth = maxWidth - 48.dp
@@ -911,26 +919,30 @@ private fun TrackCard(
             // 핵심이다. 예전엔 정사각형을 고정 크기로 두고 위아래를 Spacer(weight)로 밀었는데,
             // 그러면 높이가 모자랄 때 밀려나는 게 아래 텍스트 줄이었다. 글꼴을 키운 기기에서
             // 곡명과 아티스트가 통째로 사라지던 원인(실측: 480dpi/글꼴 2.0배).
+            // zIndex: 코치마크 캡션이 아트워크 밑으로 삐져나와 아래 줄 위에 그려져야 한다.
             BoxWithConstraints(
-                Modifier.weight(1f).fillMaxWidth(),
+                Modifier.weight(1f).fillMaxWidth().zIndex(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    Modifier
-                        .size(minOf(cardWidth, maxHeight))
-                        .shadow(24.dp, RoundedCornerShape(24.dp))
-                        .clip(RoundedCornerShape(24.dp))
-                ) {
-                    DSShimmer(Modifier.fillMaxSize())
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(feed.artworkUrl(600))
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = feed.trackName,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                Box(Modifier.size(minOf(cardWidth, maxHeight))) {
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .shadow(24.dp, RoundedCornerShape(24.dp))
+                            .clip(RoundedCornerShape(24.dp))
+                    ) {
+                        DSShimmer(Modifier.fillMaxSize())
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(feed.artworkUrl(600))
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = feed.trackName,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    coach?.invoke(this)
                 }
             }
 
@@ -967,19 +979,7 @@ private fun TrackCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onHype,
-                        modifier = Modifier.coachAnchor(if (coachAnchors) CoachAnchor.HYPE else null),
-                    ) {
-                        // 삽 = 디깅. iOS `Assets.xcassets/HypeIcon`을 그대로 가져온 것이라
-                        // 두 앱의 하입 아이콘이 물리적으로 같은 파일이다.
-                        Icon(
-                            painterResource(R.drawable.ic_hype),
-                            contentDescription = stringResource(if (feed.isHyped) R.string.unhype else R.string.hype),
-                            tint = if (feed.isHyped) DSColor.brand else DSColor.textTertiary,
-                            modifier = Modifier.size(28.dp),
-                        )
-                    }
+                    HypeButton(hyped = feed.isHyped, burstSeq = burstSeq, onClick = onHype)
                     Spacer(Modifier.weight(1f))
                     // 상세는 버튼으로 연다 — 탭은 재생 토글, 더블탭은 하입이라 남은 제스처가 없고
                     // 롱프레스로 숨기면 있는 줄도 모른다.
@@ -1003,6 +1003,88 @@ private fun TrackCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * 하입 버튼 + 버스트(디자인 레포 FeedTrack › 하입 버스트). 하입하는 순간 버튼이 1.35배로 팡 튀고
+ * 조각 8개가 위로 튀었다가 아래로 우수수 떨어진다. 버튼·더블탭 둘 다 여기서 터진다.
+ */
+@Composable
+private fun HypeButton(hyped: Boolean, burstSeq: Int?, onClick: () -> Unit) {
+    val reduceMotion = rememberReduceMotion()
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(burstSeq) {
+        if (burstSeq == null || reduceMotion) return@LaunchedEffect
+        // 0.16초에 1.35배, 0.36초에 제자리.
+        pop.snapTo(1f)
+        pop.animateTo(1.35f, tween(160, easing = CSS_EASE))
+        pop.animateTo(1f, tween(200, easing = CSS_EASE))
+    }
+    // 조각이 버튼 밖으로 튀어야 해서 IconButton(제 모양으로 잘린다) 바깥 형제로 그린다.
+    Box(contentAlignment = Alignment.Center) {
+        IconButton(onClick = onClick) {
+            // 삽 = 디깅. iOS `Assets.xcassets/HypeIcon`을 그대로 가져온 것이라
+            // 두 앱의 하입 아이콘이 물리적으로 같은 파일이다.
+            Icon(
+                painterResource(R.drawable.ic_hype),
+                contentDescription = stringResource(if (hyped) R.string.unhype else R.string.hype),
+                tint = if (hyped) DSColor.brand else DSColor.textTertiary,
+                modifier = Modifier.size(28.dp).scale(pop.value),
+            )
+        }
+        if (burstSeq != null && !reduceMotion) key(burstSeq) { BurstBits() }
+    }
+}
+
+/** CSS 키프레임 기본 곡선(`ease`). */
+private val CSS_EASE = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
+private val BIT_RISE = CubicBezierEasing(0.2f, 0.8f, 0.4f, 1f)
+private val BIT_FALL = CubicBezierEasing(0.5f, 0f, 0.9f, 0.6f)
+
+/** 조각 하나: 옆으로 dx, 솟는 높이, 회전, 크기. 시안 `BURST` 표 그대로. */
+private class BurstBit(val dx: Float, val up: Float, val rotation: Float, val size: Float)
+
+private val burstBits = listOf(
+    BurstBit(-58f, 70f, -200f, 14f), BurstBit(-34f, 96f, 160f, 18f), BurstBit(-10f, 84f, -120f, 12f),
+    BurstBit(14f, 104f, 220f, 20f), BurstBit(36f, 78f, -160f, 14f), BurstBit(58f, 92f, 140f, 16f),
+    BurstBit(-46f, 52f, 260f, 12f), BurstBit(46f, 58f, -240f, 12f),
+)
+
+/**
+ * 0.4초 동안 솟으며 커지고(0.3→1), 0.8초 동안 150 아래로 떨어지며 사라진다. 세 무리로 0.03초씩 엇갈린다.
+ * 총 ≈1.2초. 끝나면 투명하게 남는다 — 다음 하입이 회차 키로 새로 그린다.
+ */
+@Composable
+private fun BurstBits() {
+    val clock = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { clock.animateTo(1_300f, tween(1_300, easing = LinearEasing)) }
+    burstBits.forEachIndexed { i, bit ->
+        Icon(
+            Icons.Filled.Favorite,
+            contentDescription = null,
+            tint = DSColor.brand,
+            modifier = Modifier
+                .size(bit.size.dp)
+                .graphicsLayer {
+                    val t = clock.value - (i % 3) * 30f
+                    val x: Float; val y: Float; val s: Float; val r: Float; val a: Float
+                    if (t < 400f) {
+                        val f = BIT_RISE.transform((t / 400f).coerceIn(0f, 1f))
+                        x = bit.dx * .7f * f; y = -bit.up * f; s = .3f + .7f * f; r = bit.rotation * .3f * f
+                        a = if (t < 100f) BIT_RISE.transform((t / 100f).coerceIn(0f, 1f)) else 1f
+                    } else {
+                        val f = BIT_FALL.transform(((t - 400f) / 800f).coerceIn(0f, 1f))
+                        x = bit.dx * .7f + bit.dx * .3f * f
+                        y = -bit.up + (150f + bit.up) * f
+                        s = 1f - .1f * f
+                        r = bit.rotation * .3f + bit.rotation * .7f * f
+                        a = 1f - f
+                    }
+                    translationX = x.dp.toPx(); translationY = y.dp.toPx()
+                    scaleX = s; scaleY = s; rotationZ = r; alpha = a
+                },
+        )
     }
 }
 
@@ -1122,7 +1204,6 @@ private fun SearchControls(
         if (onToggleMode != null && !isSearching && activeQuery.isEmpty()) {
             Row(
                 Modifier
-                    .coachAnchor(CoachAnchor.FEED_MODE)
                     .clip(RoundedCornerShape(50))
                     .background(Color.White.copy(alpha = 0.2f))
                     .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
