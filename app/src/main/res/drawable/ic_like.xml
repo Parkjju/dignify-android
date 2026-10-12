@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    알림·잠금화면 하입(좋아요) 버튼의 "안 함" 상태. 디자인 레포 `ic-heart`(SF heart) 그대로.
+
+    미디어 알림 액션 아이콘은 시스템이 알파를 마스크 삼아 단색으로 틴트해 앱 색을 벗겨낸다
+    (실기기 확인). 그래서 상태를 색이 아니라 모양 — 빈 하트 ↔ 찬 하트(`ic_like_on`) — 으로 가른다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.9"
+        android:strokeLineJoin="round"
+        android:pathData="M12,20.3s-7.6,-4.6 -9,-9.6C2.1,7.3 4.3,4 7.6,4c1.9,0 3.4,1 4.4,2.6C13,5 14.5,4 16.4,4c3.3,0 5.5,3.3 4.6,6.7 -1.4,5 -9,9.6 -9,9.6z" />
+</vector>

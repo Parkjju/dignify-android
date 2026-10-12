@@ -455,15 +455,15 @@ class FeedAudioController(
      *
      * **상태를 색이 아니라 모양으로 알린다.** 브랜드는 하입을 색으로 구분하지만(디자인 시스템의
      * #4B3FD8 / #9CA3AF), 미디어 알림 액션 아이콘은 시스템이 단색으로 틴트해 앱이 지정한 색을
-     * 벗겨낸다 — 실기기로 확인했다. 그래서 여기서만 삽 ↔ 체크로 간다([R.drawable.ic_hype_on]).
-     * 삽의 변주(외곽선·원 노크아웃)를 먼저 시도했다가 접었다. 이유는 그 드로어블 주석에 있다.
+     * 벗겨낸다 — 실기기로 확인했다. 그래서 빈 하트 ↔ 찬 하트로 모양을 가른다([R.drawable.ic_like_on]).
+     * (1.1 이전엔 삽 ↔ 체크였다. 삽의 변주는 24dp에서 상태가 안 읽혔는데, 하트는 빈 것/찬 것이 다른 그림이다.)
      */
     private fun customLayout(): List<CommandButton> {
         val hyped = currentFeed?.isHyped == true
         return listOf(
             CommandButton.Builder()
                 .setSessionCommand(SessionCommand(ACTION_HYPE, Bundle.EMPTY))
-                .setIconResId(if (hyped) R.drawable.ic_hype_on else R.drawable.ic_hype)
+                .setIconResId(if (hyped) R.drawable.ic_like_on else R.drawable.ic_like)
                 .setDisplayName(appContext.getString(if (hyped) R.string.unhype else R.string.hype))
                 .build(),
         )
