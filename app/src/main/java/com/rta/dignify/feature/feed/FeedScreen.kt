@@ -1245,9 +1245,10 @@ private fun SearchControls(
                     // 지금 피드가 무엇으로 만들어졌는지를 **항상** 띄운다. 껐을 때만 띄우면 켜진 상태가
                     // 무명(無名)이라, 유저가 이 버튼이 무엇을 바꾸는지 눌러 보기 전엔 알 수 없다.
                     // 문구는 설정 이름("켜짐/꺼짐")이 아니라 지금 보고 있는 것을 말한다.
+                    // 폭을 나눠 갖지 않는다 — 뒤 Spacer와 weight를 같이 걸면 남는 폭을 반씩 나눠서
+                    // 「좋아요한 곡 따라가는 중」이 말줄임으로 잘렸다.
                     Row(
                         Modifier
-                            .weight(1f, fill = false)
                             .clip(RoundedCornerShape(50))
                             .background(Color.White.copy(alpha = 0.2f))
                             .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
@@ -1264,8 +1265,6 @@ private fun SearchControls(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
                         )
                         Icon(
                             Icons.Filled.SwapHoriz,
