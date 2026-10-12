@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -205,7 +206,8 @@ private fun OnboardingFlow() {
 
     val loaded = pool
     if (loaded == null) {
-        LaunchTitle()
+        // 로그인 직후라 앱 실행 로딩과 달리 기다리는 중이라는 표시가 붙는다.
+        LaunchTitle(showsProgress = true)
     } else {
         SeedPoolPickerScreen(pool = loaded) { picked ->
             Session.api.completeOnboarding()
@@ -586,7 +588,7 @@ private fun GuestSignInPrompt() {
                 .fillMaxWidth()
                 .height(52.dp),
         ) {
-            Text(stringResource(R.string.signin_action), style = DSTypography.headline, color = Color.White)
+            Text(stringResource(R.string.guest_prompt_action), style = DSTypography.headline, color = Color.White)
         }
     }
 }
@@ -643,9 +645,12 @@ private fun TabItem(
     }
 }
 
-/** 저장된 토큰으로 /users/me를 확인하는 동안의 화면. iOS `LaunchLoadingView`와 같은 자리. */
+/**
+ * 저장된 토큰으로 /users/me를 확인하는 동안의 화면. iOS `LaunchLoadingView`와 같은 자리.
+ * 로그인 뒤 곡 후보를 받는 동안에도 같은 화면에 원형 인디케이터만 더해 쓴다(앱 실행 땐 없음).
+ */
 @Composable
-private fun LaunchTitle() {
+private fun LaunchTitle(showsProgress: Boolean = false) {
     Box(
         Modifier
             .fillMaxSize()
@@ -660,6 +665,13 @@ private fun LaunchTitle() {
                 color = DSColor.textPrimary,
                 modifier = Modifier.padding(top = 12.dp),
             )
+            if (showsProgress) {
+                CircularProgressIndicator(
+                    color = DSColor.textTertiary,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.padding(top = 12.dp).size(20.dp),
+                )
+            }
         }
     }
 }

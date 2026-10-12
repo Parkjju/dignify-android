@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.Info
@@ -35,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -565,10 +565,8 @@ private fun LensColumn(lens: Lens, items: List<DiggingStats.Count>, modifier: Mo
             if (lens == Lens.EXPLORE) {
                 Icon(Icons.Filled.Headphones, null, tint = tint, modifier = Modifier.size(12.dp))
             } else {
-                Icon(
-                    painterResource(R.drawable.ic_hype), null,
-                    tint = tint, modifier = Modifier.size(13.dp),
-                )
+                // 담음 = 좋아요한 것. 찬 하트(1.1부터, 이전 삽).
+                Icon(Icons.Filled.Favorite, null, tint = tint, modifier = Modifier.size(12.dp))
             }
             Text(
                 stringResource(if (lens == Lens.EXPLORE) R.string.lens_explore else R.string.lens_keep),

@@ -94,10 +94,7 @@ private const val SEED_LIMIT = 3
 @Composable
 fun SeedPoolPickerScreen(
     pool: List<Api.FeedItem>,
-    /**
-     * 업데이트로 들어온 기존 유저인가. "왜 지금 이게 떴는지" 한 줄이 더 붙는다 —
-     * 신규 가입자는 튜토리얼 끝에 이어서 보므로 그 줄이 필요 없다.
-     */
+    /** 업데이트로 들어온 기존 유저인가. 화면은 같고 계측(`is_update`)만 가른다. */
     isUpdate: Boolean = false,
     /** 마지막 버튼. 인자는 실제로 고른 곡(건너뛰면 빈 목록). 실패를 던지면 화면에 남는다. */
     onFinish: suspend (List<Api.FeedItem>) -> Unit,
@@ -216,26 +213,18 @@ fun SeedPoolPickerScreen(
                 )
             }
             Text(
-                stringResource(R.string.seed_title),
+                stringResource(R.string.seed_title, SEED_LIMIT),
                 style = DSTypography.title1,
                 color = DSColor.textPrimary,
             )
             // 한 줄만 둔다. 고르는 화면에서 규칙을 길게 설명하면 읽기 전에 넘긴다 —
             // 하입된다는 것도, 피드가 여기서 시작한다는 것도 고르고 나면 겪어서 알게 된다.
             Text(
-                stringResource(R.string.seed_hint, SEED_LIMIT),
+                stringResource(R.string.seed_hint),
                 style = DSTypography.body,
                 color = DSColor.textSecondary,
                 modifier = Modifier.padding(top = 6.dp),
             )
-            if (isUpdate) {
-                Text(
-                    stringResource(R.string.seed_update_note),
-                    style = DSTypography.caption,
-                    color = DSColor.textTertiary,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-            }
         }
 
         DSSearchBar(

@@ -11,13 +11,13 @@
     <string name="search_placeholder">Search artists, tracks</string>
     <string name="search">Search</string>
     <string name="share">Share</string>
-    <string name="hype">Hype</string>
-    <string name="unhype">Unhype</string>
+    <string name="hype">Like</string>
+    <string name="unhype">Unlike</string>
     <string name="curation_badge">This week\'s set %1$d/%2$d</string>
     <string name="track_detail">Track details</string>
     <string name="track_detail_failed">Couldn\'t load track info</string>
-    <string name="hyped_by">Hyped by</string>
-    <string name="no_hypes_yet">No hypes yet</string>
+    <string name="hyped_by">Liked by</string>
+    <string name="no_hypes_yet">No likes yet</string>
     <!-- 애플뮤직 버튼은 안드로이드에 없다. iOS TrackDetailView와 의도적으로 다른 유일한 지점. -->
     <string name="open_youtube_music">Find on YouTube Music</string>
     <!--
@@ -47,8 +47,7 @@
     <string name="push_pick_reaction_milestone_title">Your pick is catching on</string>
     <string name="push_pick_reaction_milestone">Your pick has %1$s 🔥</string>
 
-    <string name="signin_action">Sign in</string>
-    <string name="signin_tagline">Discover indie music and build your own taste.</string>
+    <string name="signin_tagline">Discover indie music and build your taste.</string>
     <string name="signin_google">Continue with Google</string>
     <string name="signin_browse">Browse without signing in</string>
     <string name="signin_failed">Sign-in failed. Please try again.</string>
@@ -59,7 +58,8 @@
     <string name="tab_my">My</string>
 
     <string name="guest_prompt_title">Build your own taste</string>
-    <string name="guest_prompt_message">Sign in to hype tracks, personalize your feed, and build your crate.</string>
+    <string name="guest_prompt_message">Sign in to save the songs you love,\nand build a feed that fits your taste.</string>
+    <string name="guest_prompt_action">Find my taste</string>
 
     <string name="mypage_title">My Page</string>
     <string name="mypage_instagram">dignify on Instagram</string>
@@ -70,7 +70,7 @@
     <string name="cancel">Cancel</string>
     <string name="withdraw_title">Delete account?</string>
     <!-- 픽을 반드시 언급한다 — CASCADE라 남의 지면에 올린 픽과 반응까지 실제로 사라진다. -->
-    <string name="withdraw_message">All your data, including your picks, hypes, and genres, will be deleted permanently.</string>
+    <string name="withdraw_message">All your data, including your picks, likes, and genres, will be deleted permanently.</string>
     <string name="withdraw_confirm">Delete</string>
 
     <!-- 닉네임 규칙은 백엔드 @Pattern과 글자 하나까지 같아야 한다. -->
@@ -87,7 +87,7 @@
     <string name="stats_hyped">tracks kept</string>
     <string name="stats_flavor">deep in %1$s</string>
     <string name="type_locked_title">Keep digging to unlock your type</string>
-    <string name="type_locked_message">Dig 10 tracks and hype 3 to reveal it.</string>
+    <string name="type_locked_message">Dig 10 tracks and like 3 to reveal it.</string>
 
     <string name="type_restless_curator">The Restless Curator</string>
     <string name="type_purist">The Purist</string>
@@ -99,7 +99,7 @@
     <string name="type_loyalist_blurb">You know your sound and you stay loyal to it.</string>
 
     <string name="your_type">YOUR TYPE</string>
-    <string name="your_hypes">Your hypes</string>
+    <string name="your_hypes">Your likes</string>
     <string name="stats_top_genres">Top genres</string>
     <string name="stats_top_artists">Top artists</string>
     <string name="lens_explore">You explore</string>
@@ -108,10 +108,10 @@
     <string name="headline_same">%1$s, top to bottom.</string>
     <string name="headline_differ">You listen to %1$s the most — but %2$s is what you keep.</string>
     <string name="see_all">See all</string>
-    <string name="see_all_hypes">See all hypes</string>
-    <string name="hype_history">Hype History</string>
-    <string name="no_hyped_tracks">No hyped tracks yet</string>
-    <string name="remove_hype">Remove hype</string>
+    <string name="see_all_hypes">See all likes</string>
+    <string name="hype_history">Like History</string>
+    <string name="no_hyped_tracks">No liked tracks yet</string>
+    <string name="remove_hype">Unlike</string>
     <string name="ok">Got it</string>
 
     <string name="tab_picks">Picks</string>
@@ -158,7 +158,7 @@
     <string name="pick_delete_message">This can\'t be undone, and the reactions on it go too.</string>
 
     <string name="pick_results_for">Results for \"%1$s\"</string>
-    <string name="pick_hypes_empty">No hyped tracks yet — search for tracks to add.</string>
+    <string name="pick_hypes_empty">No liked tracks yet — search for tracks to add.</string>
     <string name="pick_added_from_search">Added from search</string>
     <string name="pick_play_count">%1$d plays</string>
 
@@ -244,7 +244,7 @@
     <string name="quiz_a_allover">All over the place</string>
 
     <string name="likely_your_type">LIKELY YOUR TYPE</string>
-    <string name="type_locked_remaining">Dig %1$d more and hype %2$d to lock it in.</string>
+    <string name="type_locked_remaining">Dig %1$d more and like %2$d to lock it in.</string>
 
     <string name="artist_request_title">Request an artist</string>
     <string name="artist_request_body">Can\'t find an artist? Tell us who, and we\'ll look into adding their tracks.</string>
@@ -274,10 +274,10 @@
 
     <!-- 1.1.0 — 피드가 하입을 따라간다 -->
     <string name="feels_like">Feels like %1$s</string>
-    <string name="feed_mode_following">Following your hypes</string>
+    <string name="feed_mode_following">Following your likes</string>
     <string name="feed_mode_random">Random</string>
-    <string name="follow_my_hypes">Follow my hypes</string>
-    <string name="follow_my_hypes_note">On, the feed plays tracks that sound like the ones you hyped. Off, it plays anything.</string>
+    <string name="follow_my_hypes">Follow my likes</string>
+    <string name="follow_my_hypes_note">On, the feed plays tracks that sound like the ones you liked. Off, it plays anything.</string>
     <string name="save">Save</string>
     <string name="edit">Edit</string>
     <string name="done">Done</string>
@@ -285,18 +285,17 @@
     <!-- 추천 기준 곡 -->
     <string name="seed_picker_title">Recommend from</string>
     <string name="seed_picker_header">Pick up to %1$d tracks. The feed then follows only these.</string>
-    <string name="seed_picker_default">Pick none and the feed follows your %1$d most recent hypes, same as before.</string>
-    <string name="seed_picker_mode_off">Turn on \"Follow my hypes\" for these to take effect.</string>
+    <string name="seed_picker_default">Pick none and the feed follows your %1$d most recent likes, same as before.</string>
+    <string name="seed_picker_mode_off">Turn on \"Follow my likes\" for these to take effect.</string>
 
     <!-- 담은 곡 편집 -->
     <string name="remove_track_title">Remove this track?</string>
-    <string name="remove_track_message">You can hype it again anytime.</string>
+    <string name="remove_track_message">You can like it again anytime.</string>
     <string name="pick_rename">Edit title</string>
 
     <!-- 온보딩 시드 고르기 -->
-    <string name="seed_title">Which sound pulls you in?</string>
-    <string name="seed_hint">Tap to listen, then pick up to %1$d.</string>
-    <string name="seed_update_note">Your feed follows the tracks you hype now.</string>
+    <string name="seed_title">Pick up to %1$d songs\nyou love.</string>
+    <string name="seed_hint">We\'ll recommend songs based on what you pick.</string>
     <string name="seed_popular_now">Popular now</string>
     <string name="seed_start_digging">Start digging</string>
     <string name="track_limit">Up to %1$d tracks.</string>
@@ -325,12 +324,12 @@
     <string name="coach_gesture_swipe_title">Ready for the next song?</string>
     <string name="coach_gesture_swipe_body">Swipe up on the screen</string>
     <string name="coach_follow_title">Turn it off any time</string>
-    <string name="coach_follow_body">The feed follows your hypes by default. Switch this off and it plays anything again.</string>
+    <string name="coach_follow_body">The feed follows your likes by default. Switch this off and it plays anything again.</string>
     <string name="coach_seedrow_title">Choose what it follows</string>
-    <string name="coach_seedrow_body">By default the feed follows your three most recent hypes. Open this to pin the tracks it should follow instead.</string>
+    <string name="coach_seedrow_body">By default the feed follows your three most recent likes. Open this to pin the tracks it should follow instead.</string>
     <string name="coach_seedcell_title">Tap a track to pin it</string>
-    <string name="coach_seedcell_body">Try one now. Pick up to three, and the feed follows only those instead of your latest hypes.</string>
+    <string name="coach_seedcell_body">Try one now. Pick up to three, and the feed follows only those instead of your latest likes.</string>
     <string name="coach_seedsave_title">Then save</string>
-    <string name="coach_seedsave_body">The feed rebuilds from your pick right away. Pin nothing and it goes back to your three most recent hypes.</string>
+    <string name="coach_seedsave_body">The feed rebuilds from your pick right away. Pin nothing and it goes back to your three most recent likes.</string>
 
 </resources>

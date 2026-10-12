@@ -1,6 +1,8 @@
 package com.rta.dignify.core.share
 
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -109,7 +110,7 @@ fun TrackShareCard(
                         )
                     }
                 }
-                // 시그니처 하입 아이콘 배지 — 모서리에 걸쳐 앱 정체성을 드러낸다.
+                // 하입 배지 — 모서리에 걸쳐 "내가 좋아요한 곡"임을 드러낸다. 찬 하트(1.1부터, 이전 삽).
                 Box(
                     Modifier
                         .align(Alignment.TopEnd)
@@ -122,7 +123,7 @@ fun TrackShareCard(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        painterResource(R.drawable.ic_hype),
+                        Icons.Filled.Favorite,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(22.dp),

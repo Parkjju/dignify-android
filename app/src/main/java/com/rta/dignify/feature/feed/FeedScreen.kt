@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -55,7 +56,9 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.outlined.Album
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -543,9 +546,8 @@ fun FeedScreen(
             onToggleMode = if (vm.pickNickname == null) {
                 { scope.launch { Session.setDiggingMode(!Session.diggingMode, "feed") } }
             } else null,
-            // 배지를 오버레이 안에 넣는다. 예전엔 배지가 TopCenter에 `top = 56.dp`로 따로
-            // 떠 있었는데, 성향 칩이 정확히 같은 세로 띠를 써서 한국어 문구("하입한 곡
-            // 따라가는 중")에서는 둘이 가로로 겹쳤다. 같은 Column에 쌓으면 겹칠 수가 없다.
+            // 배지를 오버레이 안에 넣는다 — 오버레이 높이를 재서 카드를 그 아래로 내리므로,
+            // 밖에 따로 띄우면 글꼴을 키운 기기에서 배지가 아트워크를 덮는다.
             badge = {
                 // 픽 재생 중이면 특집 대신 픽 배지. 자리가 하나라 둘이 겹칠 일은 없다.
                 val nickname = vm.pickNickname
@@ -913,7 +915,8 @@ private fun TrackCard(
                 // statusBarsPadding을 안 쓴다 — topInset이 이미 상태바를 포함한다.
                 // navigationBarsPadding도 안 쓴다 — bottomInset이 이미 탭바+내비바를 포함해서
                 // 같이 걸면 제스처 바 높이만큼 두 번 밀린다.
-                .padding(top = topInset, bottom = 24.dp + bottomInset),
+                // 아래 44 = 정보 줄과 탭바 사이(1.1에서 20 올렸다 — iOS safe+72 → +92와 같은 폭).
+                .padding(top = topInset, bottom = 44.dp + bottomInset),
         ) {
             // 아트워크가 남는 높이를 가져간다 — **곡명·아티스트 줄보다 나중에 잰다**는 게
             // 핵심이다. 예전엔 정사각형을 고정 크기로 두고 위아래를 Spacer(weight)로 밀었는데,
@@ -924,33 +927,49 @@ private fun TrackCard(
                 Modifier.weight(1f).fillMaxWidth().zIndex(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.size(minOf(cardWidth, maxHeight))) {
-                    Box(
-                        Modifier
-                            .matchParentSize()
-                            .shadow(24.dp, RoundedCornerShape(24.dp))
-                            .clip(RoundedCornerShape(24.dp))
-                    ) {
-                        DSShimmer(Modifier.fillMaxSize())
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(feed.artworkUrl(600))
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = feed.trackName,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                // 아트워크 + 바로 아래 액션 줄(12 + 32)이 한 덩어리로 가운데에 선다.
+                val art = minOf(cardWidth, maxHeight - ACTIONS_HEIGHT)
+                Column(horizontalAlignment = Alignment.End) {
+                    Box(Modifier.size(art)) {
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .shadow(24.dp, RoundedCornerShape(24.dp))
+                                .clip(RoundedCornerShape(24.dp))
+                        ) {
+                            DSShimmer(Modifier.fillMaxSize())
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(feed.artworkUrl(600))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = feed.trackName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        coach?.invoke(this)
                     }
-                    coach?.invoke(this)
+                    // 공유 · 더보기. 아트워크 오른쪽 아래에 붙는다.
+                    // 상세는 버튼으로 연다 — 탭은 재생 토글, 더블탭은 하입이라 남은 제스처가 없고
+                    // 롱프레스로 숨기면 있는 줄도 모른다.
+                    Row(
+                        Modifier.padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        TrackActionButton(Icons.Filled.Share, stringResource(R.string.share), onShare)
+                        TrackActionButton(Icons.Filled.MoreHoriz, stringResource(R.string.track_detail), onDetail)
+                    }
                 }
             }
 
-            Column(
+            // 하입은 정보 줄 오른쪽, 아래끝을 아티스트명 아래선에 맞춘다.
+            Row(
                 Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // "이 트랙이 왜 떴는지" 힌트. 무드로 뽑힌 곡이면 그 근거가 된 **내 하입 곡**을,
                     // 아니면(콜드스타트·무작위·검색) 종전대로 장르명을 띄운다.
                     //
@@ -977,32 +996,29 @@ private fun TrackCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // IconButton은 아이콘 아래로 10의 여백(48 − 28)/2가 있어서 그만큼 내려야 아래선이 맞는다.
+                Box(Modifier.offset(y = 10.dp)) {
                     HypeButton(hyped = feed.isHyped, burstSeq = burstSeq, onClick = onHype)
-                    Spacer(Modifier.weight(1f))
-                    // 상세는 버튼으로 연다 — 탭은 재생 토글, 더블탭은 하입이라 남은 제스처가 없고
-                    // 롱프레스로 숨기면 있는 줄도 모른다.
-                    IconButton(onClick = onDetail) {
-                        Icon(
-                            // iOS `opticaldisc`. 정보 아이콘이 아니라 판이다 — 디깅 은유와 붙는다.
-                            Icons.Outlined.Album,
-                            contentDescription = stringResource(R.string.track_detail),
-                            tint = Color.White.copy(alpha = 0.82f),
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    IconButton(onClick = onShare) {
-                        Icon(
-                            Icons.Filled.Share,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.82f),
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
                 }
             }
         }
+    }
+}
+
+/** 아트워크 아래 액션 줄이 먹는 높이(위 여백 12 + 탭 영역 32). */
+private val ACTIONS_HEIGHT = 44.dp
+
+/** 공유·더보기: 22 아이콘, 흰색 82%, 탭 영역 32(iOS `TrackActionButton`). */
+@Composable
+private fun TrackActionButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = label, tint = Color.White.copy(alpha = 0.82f), modifier = Modifier.size(22.dp))
     }
 }
 
@@ -1024,10 +1040,10 @@ private fun HypeButton(hyped: Boolean, burstSeq: Int?, onClick: () -> Unit) {
     // 조각이 버튼 밖으로 튀어야 해서 IconButton(제 모양으로 잘린다) 바깥 형제로 그린다.
     Box(contentAlignment = Alignment.Center) {
         IconButton(onClick = onClick) {
-            // 삽 = 디깅. iOS `Assets.xcassets/HypeIcon`을 그대로 가져온 것이라
-            // 두 앱의 하입 아이콘이 물리적으로 같은 파일이다.
+            // 하트(1.1부터, 이전 삽). 삽만으론 무슨 버튼인지 안 읽혀서 「좋아요」로 읽히는 기본 하트로 바꿨다.
+            // 하입한 하트도 빨강이 아니라 브랜드 색이다. 코드·API 이름(hype)은 그대로.
             Icon(
-                painterResource(R.drawable.ic_hype),
+                if (hyped) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = stringResource(if (hyped) R.string.unhype else R.string.hype),
                 tint = if (hyped) DSColor.brand else DSColor.textTertiary,
                 modifier = Modifier.size(28.dp).scale(pop.value),
@@ -1117,8 +1133,8 @@ private fun CurationBadge(index: Int, count: Int, visible: Boolean, modifier: Mo
  * 지금 무엇을 보고 있는지 알려주는 배지. 특집 세트와 픽 재생이 **같은 자리**를 쓴다
  * (iOS `contextBadge`) — 두 상태가 동시에 성립하지 않으므로 자리를 나눌 이유가 없다.
  *
- * **자기 위치를 스스로 정하지 않는다.** 부르는 쪽(`SearchControls`의 badge 슬롯)이 성향 칩
- * 아래에 쌓아 준다 — 예전처럼 `top = 56.dp`로 따로 띄우면 그 자리가 곧 칩의 자리다.
+ * **자기 위치를 스스로 정하지 않는다.** 부르는 쪽(`SearchControls`의 badge 슬롯)이 버튼 줄
+ * 아래 safe+56에 붙여 준다.
  *
  * 탭을 안 먹는다. 배지는 나가는 문이 아니라 표시라, 눌리면 뒤 카드의 재생 토글을 가로챈다.
  */
@@ -1153,16 +1169,16 @@ private fun SearchControls(
     onClearQuery: () -> Unit,
     /** null이면 성향 버튼·칩을 아예 안 그린다(픽 재생 지면). */
     onToggleMode: (() -> Unit)? = null,
-    /** 칩들 아래 가운데에 쌓이는 컨텍스트 배지. 없으면 자리를 안 먹는다. */
+    /** 버튼 줄 아래 가운데(safe+56)에 붙는 컨텍스트 배지. 없으면 자리를 안 먹는다. */
     badge: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    // 한 줄(safe+8, 좌우 16): 왼쪽 성향 버튼 + 바로 옆 모드 알약(검색 결과면 쿼리 알약), 오른쪽 끝 검색.
+    // 배지는 그 아래 가운데 safe+56에 고정 — 줄 높이에 안 딸려 다녀야 곡을 넘겨도 안 흔들린다.
+    Box(
         modifier
             .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.End,
+            .statusBarsPadding(),
     ) {
         if (isSearching) {
             DSSearchBar(
@@ -1171,90 +1187,109 @@ private fun SearchControls(
                 placeholder = stringResource(R.string.search_placeholder),
                 // 키보드 내리기는 DSSearchBar가 한다(세 검색창이 같은 규칙을 쓴다).
                 onSubmit = onSubmit,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
             )
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // 성향 버튼이 검색 왼쪽에 선다. 피드 안에 두는 이유는 **효과가 보이는 자리가
-                // 여기뿐**이기 때문이다. 설정 화면에서 끄면 무엇이 달라졌는지 기억으로 비교해야 한다.
+            Row(
+                Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                // 성향 버튼을 피드 안에 두는 이유는 **효과가 보이는 자리가 여기뿐**이기 때문이다.
+                // 설정 화면에서 끄면 무엇이 달라졌는지 기억으로 비교해야 한다.
                 if (onToggleMode != null) {
-                    IconButton(onClick = onToggleMode) {
+                    IconButton(onClick = onToggleMode, modifier = Modifier.size(40.dp)) {
                         Icon(
                             if (Session.diggingMode) Icons.Filled.AutoAwesome else Icons.Filled.Shuffle,
                             contentDescription = stringResource(
                                 if (Session.diggingMode) R.string.feed_mode_following else R.string.feed_mode_random
                             ),
                             tint = Color.White,
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                 }
-                IconButton(onClick = onOpen) {
+
+                if (activeQuery.isNotEmpty()) {
+                    // iOS와 같이 **칩 전체가 버튼**이다. 예전엔 X 아이콘에 clickable이 없어서 탭이
+                    // 뒤 피드로 새고 재생만 멈췄다 — 닫기가 안 먹던 원인.
+                    // "전체 피드로 돌아가기"는 여기 두지 않는다. iOS는 검색 결과가 비었을 때만
+                    // (EmptyState) 내보내고, 결과가 있을 땐 이 칩이 나가는 문이다.
+                    Row(
+                        Modifier
+                            .weight(1f, fill = false)
+                            .clip(RoundedCornerShape(50))
+                            .background(DSColor.brand)
+                            .clickable(onClick = onClearQuery)
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            activeQuery,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.feed_back),
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+                } else if (onToggleMode != null) {
+                    // 지금 피드가 무엇으로 만들어졌는지를 **항상** 띄운다. 껐을 때만 띄우면 켜진 상태가
+                    // 무명(無名)이라, 유저가 이 버튼이 무엇을 바꾸는지 눌러 보기 전엔 알 수 없다.
+                    // 문구는 설정 이름("켜짐/꺼짐")이 아니라 지금 보고 있는 것을 말한다.
+                    Row(
+                        Modifier
+                            .weight(1f, fill = false)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
+                            .clickable(onClick = onToggleMode)
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            stringResource(
+                                if (Session.diggingMode) R.string.feed_mode_following else R.string.feed_mode_random
+                            ),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Icon(
+                            Icons.Filled.SwapHoriz,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+                }
+
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onOpen, modifier = Modifier.size(40.dp)) {
                     Icon(
                         Icons.Filled.Search,
                         contentDescription = stringResource(R.string.search),
                         tint = Color.White,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }
         }
 
-        // 지금 피드가 무엇으로 만들어졌는지를 **항상** 띄운다. 껐을 때만 띄우면 켜진 상태가
-        // 무명(無名)이라, 유저가 이 버튼이 무엇을 바꾸는지 눌러 보기 전엔 알 수 없다.
-        // 문구는 설정 이름("켜짐/꺼짐")이 아니라 지금 보고 있는 것을 말한다.
-        if (onToggleMode != null && !isSearching && activeQuery.isEmpty()) {
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
-                    .clickable(onClick = onToggleMode)
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    stringResource(
-                        if (Session.diggingMode) R.string.feed_mode_following else R.string.feed_mode_random
-                    ),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Icon(
-                    Icons.Filled.SwapHoriz,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(12.dp),
-                )
-            }
-        }
-
-        if (activeQuery.isNotEmpty() && !isSearching) {
-            // iOS와 같이 **칩 전체가 버튼**이다. 예전엔 X 아이콘에 clickable이 없어서 탭이
-            // 뒤 피드로 새고 재생만 멈췄다 — 닫기가 안 먹던 원인.
-            // "전체 피드로 돌아가기"는 여기 두지 않는다. iOS는 검색 결과가 비었을 때만
-            // (EmptyState) 내보내고, 결과가 있을 땐 이 칩이 나가는 문이다.
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(DSColor.brand)
-                    .clickable(onClick = onClearQuery)
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(activeQuery, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.feed_back),
-                    tint = Color.White,
-                    modifier = Modifier.size(12.dp),
-                )
-            }
-        }
-
         Box(
-            Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
+            Modifier.align(Alignment.TopCenter).padding(top = 56.dp),
             content = { badge() },
         )
     }
