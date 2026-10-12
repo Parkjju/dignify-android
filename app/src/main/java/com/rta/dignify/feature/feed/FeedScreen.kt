@@ -91,6 +91,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.FilterQuality
@@ -454,9 +455,14 @@ fun FeedScreen(
                     feed = vm.feeds[page],
                     coach = if (showsCoach && page == coachPage) {
                         {
-                            // .alpha()가 아니라 graphicsLayer — .alpha()는 1이 아닐 때 제 크기로 잘라서
-                            // 아트워크 밑으로 삐져나온 캡션 아래쪽이 사라진다.
-                            Box(Modifier.matchParentSize().graphicsLayer { alpha = coachAlpha() }) {
+                            // ModulateAlpha: 투명도가 1 미만이면 기본은 이 상자(= 아트워크) 크기의 오프스크린
+                            // 버퍼에 그려서, 아트워크 밑으로 삐져나온 캡션 아래쪽이 끄는 동안 잘렸다.
+                            Box(
+                                Modifier.matchParentSize().graphicsLayer {
+                                    alpha = coachAlpha()
+                                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                                },
+                            ) {
                                 CoachGesture(coachStep, { coachClock }, reduceMotion)
                             }
                         }
@@ -973,7 +979,8 @@ private fun TrackCard(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
-                        clock?.let { BigHeart(it) }
+                        // if로 둔다 — 조건 그룹이라 뒤의 코치마크 상태가 큰 하트가 생길 때 새로 만들어지지 않는다.
+                        if (clock != null) BigHeart(clock)
                         coach?.invoke(this)
                     }
                     // 공유 · 더보기. 아트워크 오른쪽 아래에 붙는다.

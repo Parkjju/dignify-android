@@ -2,14 +2,9 @@ package com.rta.dignify.feature.onboarding
 
 import android.content.Context
 import android.provider.Settings
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -24,6 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -136,40 +135,34 @@ private fun keyframes(t: Float, times: FloatArray, values: FloatArray, easing: E
  */
 @Composable
 fun BoxScope.CoachGesture(step: CoachGestureStep, clock: () -> Long, reduceMotion: Boolean) {
-    AnimatedContent(
-        targetState = step,
-        // 단계가 끝나면 캡션·손이 함께 0.2초 페이드. clip = false: 기본값은 전환 중 내용을 아트워크
-        // 크기로 잘라서, 아래로 25 삐져나온 캡션이 더블탭 순간 아래쪽부터 잘려 보였다.
-        transitionSpec = {
-            (fadeIn(tween(200)) togetherWith fadeOut(tween(200))).using(SizeTransform(clip = false))
-        },
-        modifier = Modifier.matchParentSize(),
-        label = "coachGesture",
-    ) { current ->
-        Box(Modifier.fillMaxWidth()) {
-            // 마크 기준선 = 아트워크 가운데 + handOffset. 높이 0인 줄이라 손·하트는 이 선에서 매달린다.
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .offset(y = HAND_OFFSET)
-                    .size(0.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                when (current) {
-                    CoachGestureStep.DOUBLE_TAP -> Hand(tapping = true, clock, reduceMotion)
-                    CoachGestureStep.SWIPE_UP -> Hand(tapping = false, clock, reduceMotion)
-                    // 큰 하트는 더블탭이 일으킨 피드 좋아요 버스트(FeedScreen `BigHeart`)가 그린다 —
-                    // 일반 좋아요와 같은 모션 하나를 쓴다(feed_coachmark 1.2). 여기선 캡션만.
-                    CoachGestureStep.HYPED -> Unit
+    // AnimatedContent를 쓰지 않는다. 단계마다 캡션 상자째 크로스페이드하면 전환 중 두 상자가
+    // 반투명으로 겹쳐 더블탭 순간 깜빡였고, 전환 중 크기·정렬을 다시 잡으며 상자가 흔들렸다.
+    // 상자는 그대로 두고 글자만 바꾸고, 손은 단계가 바뀔 때 새로 0.2초 페이드인한다.
+    Box(Modifier.matchParentSize()) {
+        // 마크 기준선 = 아트워크 가운데 + handOffset. 높이 0인 줄이라 손은 이 선에서 매달린다.
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .offset(y = HAND_OFFSET)
+                .size(0.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            // 하트 단계엔 손이 없다. 큰 하트는 더블탭이 일으킨 피드 좋아요 버스트(FeedScreen `BigHeart`)가
+            // 그린다 — 일반 좋아요와 같은 모션 하나를 쓴다(feed_coachmark 1.2).
+            if (step != CoachGestureStep.HYPED) {
+                key(step) {
+                    val fadeIn = remember { Animatable(if (reduceMotion) 1f else 0f) }
+                    LaunchedEffect(Unit) { fadeIn.animateTo(1f, tween(200)) }
+                    Hand(tapping = step == CoachGestureStep.DOUBLE_TAP, clock, reduceMotion, fadeIn = { fadeIn.value })
                 }
             }
-            Caption(
-                current,
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(y = CAPTION_BELOW),
-            )
         }
+        Caption(
+            step,
+            Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = CAPTION_BELOW),
+        )
     }
 }
 
@@ -211,7 +204,7 @@ private fun handPose(tapping: Boolean, t: Float, reduceMotion: Boolean): HandPos
  * 상자 위끝 기준이라, 가운데 기준으로 옮기면 x +6, y +22).
  */
 @Composable
-private fun Hand(tapping: Boolean, clock: () -> Long, reduceMotion: Boolean) {
+private fun Hand(tapping: Boolean, clock: () -> Long, reduceMotion: Boolean, fadeIn: () -> Float) {
     val pose = { handPose(tapping, clock().toFloat(), reduceMotion) }
     Box(
         Modifier
@@ -223,7 +216,9 @@ private fun Hand(tapping: Boolean, clock: () -> Long, reduceMotion: Boolean) {
             .offset(x = 6.dp, y = 22.dp)
             .graphicsLayer {
                 val p = pose()
-                translationY = p.dy.dp.toPx(); alpha = p.alpha
+                translationY = p.dy.dp.toPx(); alpha = p.alpha * fadeIn()
+                // 오프스크린 버퍼 없이 — 버퍼는 72 상자 크기라 상자 밖으로 커지는 물결이 잘린다.
+                compositingStrategy = CompositingStrategy.ModulateAlpha
             }
             .size(72.dp),
     ) {
