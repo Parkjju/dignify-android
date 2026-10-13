@@ -26,6 +26,15 @@ object Changelog {
         // 백엔드는 어차피 versionCode로만 가르므로 이름 자체는 자유지만,
         // **노트는 versionName을 정확히 따라가야 한다** — `shouldShow`가 노트 없는 버전을
         // 걸러내므로 한 글자만 어긋나도 새 소식 화면이 통째로 안 뜬다.
+        // iOS 1.3.0 노트 3줄을 그대로 가져왔다(`WhatsNewView.swift`).
+        Release(
+            version = "1.3.0",
+            notes = listOf(
+                R.string.whatsnew_130_like,
+                R.string.whatsnew_130_detail,
+                R.string.whatsnew_130_heart,
+            ),
+        ),
         Release(
             version = "1.2.0",
             notes = listOf(

@@ -176,6 +176,9 @@
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
     <string name="whatsnew_got_it">Got it</string>
+    <string name="whatsnew_130_like">Hype is now Like. Tap the heart or double-tap a track to save it.</string>
+    <string name="whatsnew_130_detail">Track details moved to the ••• button under the artwork.</string>
+    <string name="whatsnew_130_heart">Like a track and a big heart pops up on the cover.</string>
     <string name="whatsnew_120_background">Tracks keep playing when you leave the app or turn the screen off.</string>
     <string name="whatsnew_120_controls">Skip tracks from the lock screen, your earbuds, or your car.</string>
     <string name="whatsnew_120_autoadvance">With the screen off, each track rolls into the next one on its own.</string>
