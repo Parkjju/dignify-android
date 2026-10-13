@@ -5,6 +5,13 @@
 > 🎨 **디자인 반영할 것은 `../dignify-design/app-changes.mdx`가 정본이다**(배포본: 디자인 Storybook 「가이드 › 앱 반영 목록」).
 > 시안 버전별로 화면 id · AS-IS · TO-BE · 앱 파일 위치(iOS 기준, Android 파일은 같은 이름의 Screen)가 적혀 있다. 아래 버전부터 차례로 반영하고, 끝나면 그 버전 상태에 Android 버전을 적는다.
 
+## 🎨 디자인 반영 대기 — feed_coachmark 1.3 (2026-10-12, 상세는 위 문서 1.3 절)
+
+- [ ] 온보딩 곡 고르기: 3곡 다 고르면 안 고른 타일 연한 회색 비활성(미리듣기는 됨) — `SeedPoolPickerScreen.kt`
+- [ ] 온보딩 곡 고르기: 「디깅 시작」 위 고른 곡 트레이(n/3 · 커버 3칸 + 순서 번호 + ✕, 빈 칸 점선). 커버 탭 → 그 곡으로 스크롤·강조 — `SeedPoolPickerScreen.kt`
+- [ ] 마이 「추천 기준 곡」: 같은 비활성 + 탭바 위 떠 있는 트레이(순서 번호 없음) — `SeedPickerScreen.kt`
+- [ ] 끝나면 `../dignify-design/app-changes.mdx` 1.3 상태에 Android 버전 적기
+
 ## 🎨 디자인 반영 — feed_coachmark 1.0~1.2 · 코드 반영·실기기 확인 완료(2026-10-12), 출시 전
 
 1.3.0으로 나갈 묶음이다(디자인 문서 상태도 「Android 1.3.0」). **아직 `versionName 1.2.1`/`versionCode 13` 그대로** —
