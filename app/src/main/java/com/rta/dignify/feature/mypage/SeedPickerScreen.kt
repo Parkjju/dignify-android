@@ -29,6 +29,14 @@ import com.rta.dignify.core.designsystem.DSTypography
 import com.rta.dignify.core.designsystem.ScreenScaffold
 import com.rta.dignify.core.network.Api
 import kotlinx.coroutines.launch
+import com.rta.dignify.core.designsystem.SeedTraySlot
+import com.rta.dignify.core.designsystem.SeedTray
+import com.rta.dignify.core.designsystem.DSRadius
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 
 /**
  * 서버 `SeedTracksUpdateRequest @Size(max)` 및 `MoodRecommender.SEEDS`와 같아야 한다.
@@ -60,6 +68,8 @@ fun SeedPickerScreen(onBack: () -> Unit) {
     var isSaving by remember { mutableStateOf(false) }
     var loadFailed by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
+    // 트레이에서 누른 곡 — 목록이 그 곡까지 스크롤하고 비운다.
+    var scrollTo by remember { mutableStateOf<Int?>(null) }
 
     suspend fun load() {
         isLoading = true
@@ -82,129 +92,159 @@ fun SeedPickerScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { load() }
 
-    ScreenScaffold(
-        title = stringResource(R.string.seed_picker_title),
-        onBack = onBack,
-        trailing = {
-            if (isSaving) {
-                CircularProgressIndicator(
-                    color = DSColor.brand,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.padding(horizontal = 16.dp).size(20.dp),
-                )
-            } else {
-                // 바꾼 게 없으면 누를 이유가 없다. 저장을 눌렀는데 아무 일도 안 일어나면
-                // 실패한 것처럼 보인다.
-                val enabled = selected != savedSelection
-                Text(
-                    stringResource(R.string.save),
-                    style = DSTypography.bodyMedium,
-                    color = if (enabled) DSColor.brand else DSColor.textTertiary,
-                    modifier = Modifier
-                        .clickable(enabled = enabled) {
-                            saveFailed = false
-                            isSaving = true
-                            scope.launch {
-                                runCatching { Session.api.setSeedTracks(selected.toList()) }
-                                    .onSuccess {
-                                        savedSelection = selected
-                                        // 0도 의미 있는 값이다 — 고정을 전부 풀고
-                                        // 최근 하입으로 되돌린 것.
-                                        Analytics.capture(
-                                            "seed_saved",
-                                            mapOf("count" to selected.size),
-                                        )
-                                        // 기준 곡이 바뀌면 정렬 기준 자체가 바뀐다. 들고 있던
-                                        // 커서로 이어 보면 옛 기준으로 뽑힌 페이지가 계속 나와서
-                                        // 방금 고른 게 반영이 안 된 것처럼 보인다.
-                                        Session.onSeedsChanged()
-                                        onBack()
-                                    }
-                                    .onFailure { saveFailed = true }
-                                isSaving = false
+    Box(Modifier.fillMaxSize()) {
+        ScreenScaffold(
+            title = stringResource(R.string.seed_picker_title),
+            onBack = onBack,
+            trailing = {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = DSColor.brand,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp).size(20.dp),
+                    )
+                } else {
+                    // 바꾼 게 없으면 누를 이유가 없다. 저장을 눌렀는데 아무 일도 안 일어나면
+                    // 실패한 것처럼 보인다.
+                    val enabled = selected != savedSelection
+                    Text(
+                        stringResource(R.string.save),
+                        style = DSTypography.bodyMedium,
+                        color = if (enabled) DSColor.brand else DSColor.textTertiary,
+                        modifier = Modifier
+                            .clickable(enabled = enabled) {
+                                saveFailed = false
+                                isSaving = true
+                                scope.launch {
+                                    runCatching { Session.api.setSeedTracks(selected.toList()) }
+                                        .onSuccess {
+                                            savedSelection = selected
+                                            // 0도 의미 있는 값이다 — 고정을 전부 풀고
+                                            // 최근 하입으로 되돌린 것.
+                                            Analytics.capture(
+                                                "seed_saved",
+                                                mapOf("count" to selected.size),
+                                            )
+                                            // 기준 곡이 바뀌면 정렬 기준 자체가 바뀐다. 들고 있던
+                                            // 커서로 이어 보면 옛 기준으로 뽑힌 페이지가 계속 나와서
+                                            // 방금 고른 게 반영이 안 된 것처럼 보인다.
+                                            Session.onSeedsChanged()
+                                            onBack()
+                                        }
+                                        .onFailure { saveFailed = true }
+                                    isSaving = false
+                                }
                             }
-                        }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-        },
-    ) {
-        Column(
-            Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            },
         ) {
-            Text(
-                stringResource(R.string.seed_picker_header, SEED_LIMIT),
-                style = DSTypography.body,
-                color = DSColor.textSecondary,
-            )
-            Text(
-                stringResource(R.string.seed_picker_default, SEED_LIMIT),
-                style = DSTypography.caption,
-                color = DSColor.textTertiary,
-            )
-            // 꺼진 채로 들어올 수 있다. 고른 것이 지금 아무 데도 안 쓰인다는 걸 말해 주지
-            // 않으면 저장하고 나서 피드가 그대로인 것을 고장으로 읽는다.
-            if (!Session.diggingMode) {
+            Column(
+                Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 Text(
-                    stringResource(R.string.seed_picker_mode_off),
+                    stringResource(R.string.seed_picker_header, SEED_LIMIT),
+                    style = DSTypography.body,
+                    color = DSColor.textSecondary,
+                )
+                Text(
+                    stringResource(R.string.seed_picker_default, SEED_LIMIT),
                     style = DSTypography.caption,
-                    color = DSColor.brand,
+                    color = DSColor.textTertiary,
+                )
+                // 꺼진 채로 들어올 수 있다. 고른 것이 지금 아무 데도 안 쓰인다는 걸 말해 주지
+                // 않으면 저장하고 나서 피드가 그대로인 것을 고장으로 읽는다.
+                if (!Session.diggingMode) {
+                    Text(
+                        stringResource(R.string.seed_picker_mode_off),
+                        style = DSTypography.caption,
+                        color = DSColor.brand,
+                    )
+                }
+                if (saveFailed) {
+                    Text(
+                        stringResource(R.string.save_failed),
+                        style = DSTypography.caption,
+                        color = DSColor.destructive,
+                    )
+                }
+            }
+
+            when {
+                isLoading && items.isEmpty() -> Box(
+                    Modifier.fillMaxWidth().padding(vertical = 60.dp),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator(color = DSColor.brand) }
+
+                // 하입이 없으면 고를 것도 없다. 빈 목록에 "고르세요"만 남기지 않는다.
+                items.isEmpty() -> Text(
+                    stringResource(
+                        if (loadFailed) R.string.feed_load_failed else R.string.no_hyped_tracks
+                    ),
+                    style = DSTypography.body,
+                    color = DSColor.textSecondary,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp),
+                )
+
+                else -> HypeCollection(
+                    items = items,
+                    onItemsChange = { items = it },
+                    selection = selected,
+                    onSelectionChange = { selected = it },
+                    selectionLimit = SEED_LIMIT,
+                    onReachEnd = {
+                        val c = cursor
+                        if (c != null && !isPaging) {
+                            isPaging = true
+                            runCatching { Session.api.myHypes(c) }.onSuccess { res ->
+                                items = items + res.items
+                                cursor = res.nextCursor
+                                // 뒤 페이지에 있던 고정 곡을 이제야 알게 된다. 유저가 아직 손대지
+                                // 않은 것만 더한다 — **방금 해제한 곡이 되살아나면 안 된다.**
+                                res.items.filter { it.isSeed == true }
+                                    .map { it.trackId }
+                                    .filterNot { it in savedSelection }
+                                    .forEach {
+                                        selected = selected + it
+                                        savedSelection = savedSelection + it
+                                    }
+                            }
+                            isPaging = false
+                        }
+                    },
+                    onReloadNeeded = { load() },
+                    scrollTo = scrollTo,
+                    onScrolled = { scrollTo = null },
                 )
             }
-            if (saveFailed) {
-                Text(
-                    stringResource(R.string.save_failed),
-                    style = DSTypography.caption,
-                    color = DSColor.destructive,
-                )
-            }
+            // 떠 있는 트레이에 마지막 줄이 가리지 않게 그 높이만큼 비운다.
+            Spacer(Modifier.height(TRAY_CLEARANCE))
         }
 
-        when {
-            isLoading && items.isEmpty() -> Box(
-                Modifier.fillMaxWidth().padding(vertical = 60.dp),
-                contentAlignment = Alignment.Center,
-            ) { CircularProgressIndicator(color = DSColor.brand) }
-
-            // 하입이 없으면 고를 것도 없다. 빈 목록에 "고르세요"만 남기지 않는다.
-            items.isEmpty() -> Text(
-                stringResource(
-                    if (loadFailed) R.string.feed_load_failed else R.string.no_hyped_tracks
-                ),
-                style = DSTypography.body,
-                color = DSColor.textSecondary,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp),
-            )
-
-            else -> HypeCollection(
-                items = items,
-                onItemsChange = { items = it },
-                selection = selected,
-                onSelectionChange = { selected = it },
-                selectionLimit = SEED_LIMIT,
-                onReachEnd = {
-                    val c = cursor
-                    if (c != null && !isPaging) {
-                        isPaging = true
-                        runCatching { Session.api.myHypes(c) }.onSuccess { res ->
-                            items = items + res.items
-                            cursor = res.nextCursor
-                            // 뒤 페이지에 있던 고정 곡을 이제야 알게 된다. 유저가 아직 손대지
-                            // 않은 것만 더한다 — **방금 해제한 곡이 되살아나면 안 된다.**
-                            res.items.filter { it.isSeed == true }
-                                .map { it.trackId }
-                                .filterNot { it in savedSelection }
-                                .forEach {
-                                    selected = selected + it
-                                    savedSelection = savedSelection + it
-                                }
-                        }
-                        isPaging = false
-                    }
+        // 목록을 못 받았으면 고를 것도 없다. 빈 트레이만 떠 있으면 무엇을 하라는 건지 모른다.
+        if (items.isNotEmpty()) {
+            SeedTray(
+                // 서버 순서가 아니라 고른 순서(Set 삽입 순서)다. 이 화면엔 번호가 없어 순서가 의미는 없다.
+                slots = selected.mapNotNull { id ->
+                    items.firstOrNull { it.trackId == id }?.let { SeedTraySlot(id, it.artworkUrl) }
                 },
-                onReloadNeeded = { load() },
+                limit = SEED_LIMIT,
+                numbered = false,
+                onOpen = { scrollTo = it },
+                onRemove = { selected = selected - it },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                    .fillMaxWidth()
+                    .shadow(8.dp, RoundedCornerShape(DSRadius.medium))
+                    .background(DSColor.surface, RoundedCornerShape(DSRadius.medium))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             )
         }
     }
 }
+
+/** 트레이 카드(칸 52 + 안쪽 24 + 바닥 12)에 숨 쉴 틈을 더한 값. */
+private val TRAY_CLEARANCE = 108.dp

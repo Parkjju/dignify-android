@@ -297,6 +297,9 @@
     <string name="seed_popular_now">Popular now</string>
     <string name="seed_start_digging">Start digging</string>
     <string name="track_limit">Up to %1$d tracks.</string>
+    <string name="seed_tray_count">Picked %1$s</string>
+    <string name="seed_tray_hint">Tap one to jump to it</string>
+    <string name="seed_tray_full">Remove one to swap</string>
     <string name="select">Select</string>
     <string name="deselect">Deselect</string>
 

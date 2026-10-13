@@ -289,6 +289,9 @@
     <string name="seed_popular_now">지금 인기 있는 곡</string>
     <string name="seed_start_digging">디깅 시작</string>
     <string name="track_limit">최대 %1$d곡까지 담을 수 있어요.</string>
+    <string name="seed_tray_count">선택한 곡 %1$s</string>
+    <string name="seed_tray_hint">누르면 그 곡으로 가요</string>
+    <string name="seed_tray_full">바꾸려면 빼 주세요</string>
     <string name="select">선택</string>
     <string name="deselect">선택 해제</string>
 

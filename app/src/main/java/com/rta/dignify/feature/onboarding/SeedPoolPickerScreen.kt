@@ -67,6 +67,12 @@ import com.rta.dignify.core.network.Api
 import com.rta.dignify.core.network.itunesArtworkUrl
 import com.rta.dignify.feature.feed.FeedAudioController
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import com.rta.dignify.core.designsystem.SeedTraySlot
+import com.rta.dignify.core.designsystem.SeedTray
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "DignifySeedPool"
@@ -112,8 +118,12 @@ fun SeedPoolPickerScreen(
     var isSearching by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
-    // 상한을 넘겨 눌렀을 때만 뜬다. 아무 일도 안 일어나면 고장으로 읽힌다.
-    var limitHint by remember { mutableStateOf(false) }
+    val gridState = rememberLazyGridState()
+    // 트레이에서 누른 곡. 그리드가 그 곡을 그린 뒤에 스크롤해야 해서 상태로 넘긴다.
+    var jumpTarget by remember { mutableStateOf<Int?>(null) }
+    // 스크롤해 온 타일을 잠깐(0.6s) 강조한다 — 3열 그리드에선 어느 칸으로 왔는지 바로 안 읽힌다.
+    var highlighted by remember { mutableStateOf<Int?>(null) }
+    val full = selected.size >= SEED_LIMIT
 
     // 이 화면이 소리를 내는 동안 다른 소리가 나면 안 된다. 아래 피드는 컴포지션에서
     // 빠져 있으므로(이 화면이 탭 전체를 대신한다) 여기 플레이어만 정리하면 된다.
@@ -157,11 +167,8 @@ fun SeedPoolPickerScreen(
             selected.removeAt(index)
             return
         }
-        if (selected.size >= SEED_LIMIT) {
-            limitHint = true
-            return
-        }
-        limitHint = false
+        // 꽉 차면 안 고른 타일이 비활성이라 여기 올 일이 없다. 바꾸려면 트레이에서 뺀다.
+        if (full) return
         selected.add(item)
         // **검색에서 고른 비율이 이 개편의 핵심 질문이다** — 높으면 고정 풀이 취향을 못 덮는다는 뜻이다.
         Analytics.capture(
@@ -172,6 +179,22 @@ fun SeedPoolPickerScreen(
                 "selected_count" to selected.size,
             ),
         )
+    }
+
+    // 검색 결과를 보는 중이면 풀로 돌아간 뒤에 찾는다. 검색에서 고른 곡도 풀 앞에 붙어 있어
+    // 돌아가면 반드시 있다.
+    LaunchedEffect(jumpTarget) {
+        val id = jumpTarget ?: return@LaunchedEffect
+        val index = gridItems.indexOfFirst { it.trackId == id }
+        if (index >= 0) gridState.animateScrollToItem(index)
+        highlighted = id
+        jumpTarget = null
+    }
+    // 위에서 jumpTarget을 비우면 그 효과가 취소되므로 강조를 끄는 타이머는 따로 둔다.
+    LaunchedEffect(highlighted) {
+        if (highlighted == null) return@LaunchedEffect
+        delay(600)
+        highlighted = null
     }
 
     /**
@@ -314,6 +337,7 @@ fun SeedPoolPickerScreen(
                 }
 
                 LazyVerticalGrid(
+                    state = gridState,
                     columns = GridCells.Fixed(3),
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 0.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -325,6 +349,8 @@ fun SeedPoolPickerScreen(
                             number = selected.indexOfFirst { it.trackId == item.trackId }
                                 .takeIf { it >= 0 }?.plus(1),
                             isPlaying = audio.activeTrackId == item.trackId && !audio.isPaused,
+                            disabled = full,
+                            highlighted = highlighted == item.trackId,
                             onPlay = { play(item) },
                             onToggle = { toggle(item) },
                         )
@@ -339,13 +365,21 @@ fun SeedPoolPickerScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (limitHint) {
-                Text(
-                    stringResource(R.string.track_limit, SEED_LIMIT),
-                    style = DSTypography.caption,
-                    color = DSColor.textTertiary,
-                )
-            }
+            SeedTray(
+                slots = selected.map { SeedTraySlot(it.trackId, it.artworkUrl) },
+                limit = SEED_LIMIT,
+                numbered = true,
+                onOpen = { id ->
+                    if (activeQuery.isNotEmpty() || isSearching) {
+                        searchText = ""
+                        activeQuery = ""
+                        isSearching = false
+                    }
+                    jumpTarget = id
+                },
+                onRemove = { id -> selected.removeAll { it.trackId == id } },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            )
             if (failed) {
                 Text(
                     stringResource(R.string.save_failed),
@@ -393,9 +427,13 @@ private fun SeedCell(
     item: Api.FeedItem,
     number: Int?,
     isPlaying: Boolean,
+    /** 3곡을 다 골랐다. 안 고른 타일만 회색으로 잠그고 미리듣기는 남긴다 — 바꿀 곡을 들어봐야 한다. */
+    disabled: Boolean,
+    highlighted: Boolean,
     onPlay: () -> Unit,
     onToggle: () -> Unit,
 ) {
+    val locked = disabled && number == null
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(
             Modifier
@@ -403,6 +441,10 @@ private fun SeedCell(
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(DSColor.surface)
+                .then(
+                    if (highlighted) Modifier.border(3.dp, DSColor.brand, RoundedCornerShape(12.dp))
+                    else Modifier
+                )
                 .clickable(onClick = onPlay),
         ) {
             AsyncImage(
@@ -410,8 +452,10 @@ private fun SeedCell(
                     .data(item.artworkUrl.itunesArtworkUrl(300)).crossfade(true).build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                colorFilter = if (locked) GrayscaleFilter else null,
                 modifier = Modifier.fillMaxSize(),
             )
+            if (locked) Box(Modifier.fillMaxSize().background(DSColor.background.copy(alpha = 0.6f)))
             Box(
                 Modifier
                     .fillMaxSize()
@@ -429,7 +473,7 @@ private fun SeedCell(
             if (number != null) {
                 Box(Modifier.fillMaxSize().background(DSColor.brand.copy(alpha = 0.55f)))
             }
-            Box(
+            if (!locked) Box(
                 Modifier
                     .align(Alignment.TopEnd)
                     .size(44.dp)
@@ -448,19 +492,22 @@ private fun SeedCell(
             item.trackName,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = DSColor.textPrimary,
+            color = if (locked) LockedText else DSColor.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             item.artistName,
             fontSize = 10.5.sp,
-            color = DSColor.textTertiary,
+            color = if (locked) LockedText else DSColor.textTertiary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
 }
+
+private val GrayscaleFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+private val LockedText = DSColor.textTertiary.copy(alpha = 0.6f)
 
 /** 체크가 아니라 **번호**다 — 고른 순서가 곧 시드 순서라 몇 번째로 고른 건지가 보여야 한다. */
 @Composable

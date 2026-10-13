@@ -81,6 +81,12 @@ import com.rta.dignify.feature.feed.FeedAudioController
 import com.rta.dignify.feature.feed.TrackDetailSheet
 import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -98,6 +104,7 @@ import java.time.format.FormatStyle
  * @param selection 선택 모드(추천 기준 곡 고르기). null이 아니면 **편집 모드보다 우선하고**
  *   탭이 재생 대신 선택 토글이 된다. 날짜 그룹·페이지네이션·셀 모양을 그대로 쓰려고 한 컴포넌트에 뒀다.
  * @param selectionLimit 고를 수 있는 최대 개수. 서버 `MoodRecommender.SEEDS`와 같아야 한다.
+ * @param scrollTo 이 곡이 보이게 세로·가로로 스크롤한다(추천 기준 곡 트레이의 커버 탭). 다 하면 [onScrolled].
  * @param isEditing 편집 모드. 셀마다 제거 배지가 붙고 탭이 재생 대신 제거가 된다.
  *   롱프레스는 이 화면을 처음 보는 사람에게 안 보여서, 제거하는 길을 눈에 보이게 하나 더 둔다.
  */
@@ -114,6 +121,8 @@ fun HypeCollection(
     selection: Set<Int>? = null,
     onSelectionChange: (Set<Int>) -> Unit = {},
     selectionLimit: Int = 3,
+    scrollTo: Int? = null,
+    onScrolled: () -> Unit = {},
     isEditing: Boolean = false,
 ) {
     val context = LocalContext.current
@@ -169,6 +178,23 @@ fun HypeCollection(
             )
             val listState = rememberLazyListState()
             val trackCount = group.tracks.size
+            val rowRequester = remember { BringIntoViewRequester() }
+            var rowHeight by remember { mutableFloatStateOf(0f) }
+            val density = LocalDensity.current
+
+            LaunchedEffect(scrollTo) {
+                val index = group.tracks.indexOfFirst { it.trackId == scrollTo }
+                if (index < 0) return@LaunchedEffect
+                // 가로를 먼저 — LazyRow는 화면 밖 셀을 아예 안 그려서 세로만 맞추면 빈 자리로 간다.
+                listState.animateScrollToItem(index)
+                // 날짜 머리(위)와 떠 있는 트레이(아래)까지 넉넉히 잡아야 줄이 트레이 밑에 안 숨는다.
+                with(density) {
+                    rowRequester.bringIntoView(
+                        Rect(0f, -32.dp.toPx(), 1f, rowHeight + 120.dp.toPx())
+                    )
+                }
+                onScrolled()
+            }
 
             // iOS `fits` 판정의 이식: 트랙들이 뷰포트 안에 다 들어오면 See all도 당김 제스처도 없다.
             //
@@ -241,6 +267,8 @@ fun HypeCollection(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .padding(bottom = 20.dp)
+                    .bringIntoViewRequester(rowRequester)
+                    .onSizeChanged { rowHeight = it.height.toFloat() }
                     .then(dragWatcher),
             ) {
                 items(group.tracks, key = { it.userHypeTrackId }) { track ->
@@ -248,6 +276,9 @@ fun HypeCollection(
                         track = track,
                         isPlaying = audio.activeTrackId == track.trackId && !audio.isPaused,
                         selected = selection?.contains(track.trackId),
+                        // 꽉 찼을 때 안 고른 셀. 눌러도 어차피 아무 일 없으니 그렇게 보이게 한다.
+                        disabled = selection != null && selection.size >= selectionLimit &&
+                            track.trackId !in selection,
                         isEditing = isEditing,
                         onTap = {
                             when {
@@ -401,6 +432,7 @@ private fun HypeCell(
     isPlaying: Boolean,
     /** 선택 모드일 때만 non-null. true = 고정됨. */
     selected: Boolean?,
+    disabled: Boolean,
     isEditing: Boolean,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
@@ -413,7 +445,11 @@ private fun HypeCell(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box {
-            Artwork(track.artworkUrl, 72.dp, 16.dp)
+            Artwork(
+                track.artworkUrl, 72.dp, 16.dp,
+                modifier = if (disabled) Modifier.alpha(0.4f) else Modifier,
+                gray = disabled,
+            )
             if (isPlaying) {
                 Box(
                     Modifier
@@ -428,6 +464,7 @@ private fun HypeCell(
             // 배지는 아트워크 좌상단 모서리에 반쯤 걸친다 — 안쪽이면 72dp 썸네일에서 앨범 아트를
             // 가리고, 완전히 바깥이면 잘린다. 탭은 셀 전체가 받으므로 배지는 표시일 뿐이다.
             when {
+                disabled -> Unit
                 selected != null -> SelectionBadge(selected)
                 isEditing -> RemoveBadge()
             }
@@ -436,14 +473,14 @@ private fun HypeCell(
             track.trackName,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = DSColor.textPrimary,
+            color = if (disabled) DSColor.textTertiary.copy(alpha = 0.6f) else DSColor.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             track.artistName,
             fontSize = 10.sp,
-            color = DSColor.textTertiary,
+            color = if (disabled) DSColor.textTertiary.copy(alpha = 0.6f) else DSColor.textTertiary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -490,7 +527,13 @@ private fun RemoveBadge() {
 }
 
 @Composable
-private fun Artwork(url: String, size: androidx.compose.ui.unit.Dp, radius: androidx.compose.ui.unit.Dp) {
+private fun Artwork(
+    url: String,
+    size: androidx.compose.ui.unit.Dp,
+    radius: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+    gray: Boolean = false,
+) {
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(url.itunesArtworkUrl(200))
@@ -498,7 +541,8 @@ private fun Artwork(url: String, size: androidx.compose.ui.unit.Dp, radius: andr
             .build(),
         contentDescription = null,
         contentScale = ContentScale.Crop,
-        modifier = Modifier
+        colorFilter = if (gray) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null,
+        modifier = modifier
             .size(size)
             .clip(RoundedCornerShape(radius))
             .background(DSColor.surface),
