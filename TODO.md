@@ -5,21 +5,24 @@
 > 🎨 **디자인 반영할 것은 `../dignify-design/app-changes.mdx`가 정본이다**(배포본: 디자인 Storybook 「가이드 › 앱 반영 목록」).
 > 시안 버전별로 화면 id · AS-IS · TO-BE · 앱 파일 위치(iOS 기준, Android 파일은 같은 이름의 Screen)가 적혀 있다. 아래 버전부터 차례로 반영하고, 끝나면 그 버전 상태에 Android 버전을 적는다.
 
-## 🎨 디자인 반영 — feed_coachmark 1.3 · 코드 반영(2026-10-12), 실기기 확인 전
+## 🎨 1.3.1 — feed_coachmark 1.3 · 코드 반영(2026-10-12), 실기기 확인 전
 
-1.0~1.2와 같이 1.3.0으로 나간다. 트레이는 두 화면이 같이 쓰는 `core/designsystem/SeedTray.kt` 하나다.
+**1.3.0에는 안 들어간다(2026-10-12 결정, iOS도 같은 구분으로 1.3.1).** 1.3.0은 `release/1.3.0` 브랜치(`b0c12b4` — 1.0~1.2까지,
+`./gradlew build` 통과)에서 버전 올리고 노트 붙여 업로드하고, 그 버전 커밋을 main에 머지한다. main은 이 1.3 작업(`54396ed`)부터 1.3.1이다.
+
+트레이는 두 화면이 같이 쓰는 `core/designsystem/SeedTray.kt` 하나다.
 
 - [x] 온보딩 곡 고르기: 3곡 다 고르면 안 고른 타일 비활성(흑백 + 바탕 60%, 고르기 원 숨김, 미리듣기는 됨) — `SeedPoolPickerScreen.kt`
   - 「최대 3곡까지」 안내(`limitHint`)는 지웠다. 비활성 타일은 눌러도 고를 수 없고 트레이가 「바꾸려면 빼 주세요」라고 말한다
 - [x] 온보딩 곡 고르기: 「디깅 시작」 위 트레이(n/3 · 순서 번호 · ✕ · 빈 칸 점선). 커버 탭 → 검색 중이면 닫고 그 타일로 스크롤 + 0.6s 강조(브랜드 테두리)
 - [x] 마이 「추천 기준 곡」: 같은 비활성(흑백 40%) + 탭바 위 떠 있는 트레이(번호 없음). 커버 탭 → 날짜 줄 세로 + 셀 가로 스크롤 — `SeedPickerScreen.kt`, `HypeCollection.kt`(`scrollTo`)
-- [x] `../dignify-design/app-changes.mdx` 1.3 상태에 Android 1.3.0 적음
+- [x] `../dignify-design/app-changes.mdx` 1.3 상태를 「Android 1.3.1」로 고침(1.3.0으로 잘못 적혀 있었음)
 - ⚠️ **트레이 영문 문구는 내가 썼다**(`seed_tray_*`). iOS가 아직 1.3을 안 해서 xcstrings에 원본이 없다 — iOS가 반영하면 그 값으로 덮어쓸 것
 - ⬜ 실기기: 트레이 커버 탭 스크롤(특히 검색 중 → 풀 복귀), 마이에서 뒤 페이지 곡으로 스크롤, 꽉 찬 상태에서 회색 타일 미리듣기
 
 ## 🎨 디자인 반영 — feed_coachmark 1.0~1.2 · 코드 반영·실기기 확인 완료(2026-10-12), 출시 전
 
-1.3.0으로 나갈 묶음이다(디자인 문서 상태도 「Android 1.3.0」). **아직 `versionName 1.2.1`/`versionCode 13` 그대로** —
+1.3.0으로 나갈 묶음이다 — **`release/1.3.0` 브랜치에서 빌드**(디자인 문서 상태도 「Android 1.3.0」). **아직 `versionName 1.2.1`/`versionCode 13` 그대로** —
 출시할 때 1.3.0 / `versionCode 14`로 올리고, 앱 안 노트(`Changelog`)와 Play 출시 노트를 붙인다.
 
 - 1.0: 튜토리얼 카드 삭제 → 피드 제스처 코치마크(`CoachGesture.kt`), 피드 구성 중(`FeedBuilding.kt`, 최소 2초),
