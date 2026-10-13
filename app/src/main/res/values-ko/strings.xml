@@ -163,6 +163,9 @@
     <string name="whatsnew_title">새로운 기능</string>
     <string name="whatsnew_version">버전 %1$s</string>
     <string name="whatsnew_got_it">확인</string>
+    <string name="whatsnew_130_like">하입이 좋아요로 바뀌었어요. 하트를 누르거나 곡을 두 번 탭하면 저장돼요.</string>
+    <string name="whatsnew_130_detail">곡 상세는 이제 아트워크 아래 ••• 버튼에서 볼 수 있어요.</string>
+    <string name="whatsnew_130_heart">좋아요를 누르면 커버 위에 큰 하트가 떠요.</string>
     <string name="whatsnew_120_background">앱을 나가거나 화면을 꺼도 노래가 계속 나와요.</string>
     <string name="whatsnew_120_controls">잠금화면, 이어폰, 차에서 다음 곡으로 넘길 수 있어요.</string>
     <string name="whatsnew_120_autoadvance">화면을 꺼두면 한 곡이 끝날 때 알아서 다음 곡으로 넘어가요.</string>

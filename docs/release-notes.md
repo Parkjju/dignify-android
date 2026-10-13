@@ -13,6 +13,34 @@
 
 ---
 
+## 1.3.0 (versionCode 14)
+
+기준: `versionCode 13` (1.2.1, 마지막으로 Play에 올라간 빌드). feed_coachmark 1.0~1.2까지만 들어간다 —
+1.3(곡 고르기 트레이)은 1.3.1이다.
+
+앞 세 줄은 앱 안 노트(`whatsnew_130_*`)와 같은 내용이다. 마지막 줄은 새로 설치한 사람만 겪는
+변화(튜토리얼 카드 → 피드 제스처 코치마크)라 앱 안 노트에는 없고 스토어에만 쓴다.
+
+### KO
+
+```
+• 하입이 좋아요로 바뀌었어요. 하트를 누르거나 곡을 두 번 탭하면 저장돼요.
+• 좋아요를 누르면 커버 위에 큰 하트가 떠요.
+• 곡 상세는 이제 아트워크 아래 ••• 버튼에서 볼 수 있어요.
+• 처음 시작할 때 설명 카드 대신 피드에서 직접 따라 하며 사용법을 익혀요.
+```
+
+### EN (보류 — 등록정보가 KO만이라 지금은 안 올린다)
+
+```
+• Hype is now Like. Tap the heart or double-tap a track to save it.
+• Like a track and a big heart pops up on the cover.
+• Track details moved to the ••• button under the artwork.
+• New here? Learn the feed by trying the gestures yourself instead of reading cards.
+```
+
+---
+
 ## 1.2.1 (versionCode 13)
 
 기준: `versionCode 12` (1.2.0, 마지막으로 Play에 올라간 빌드).
