@@ -20,6 +20,14 @@
 - ⚠️ **트레이 영문 문구는 내가 썼다**(`seed_tray_*`). iOS가 아직 1.3을 안 해서 xcstrings에 원본이 없다 — iOS가 반영하면 그 값으로 덮어쓸 것
 - ⬜ 실기기: 트레이 커버 탭 스크롤(특히 검색 중 → 풀 복귀), 마이에서 뒤 페이지 곡으로 스크롤, 꽉 찬 상태에서 회색 타일 미리듣기
 
+### 📊 1.3.1 계측 변경 (2026-10-16, iOS와 같은 이름 — 판독 규칙은 `../09_analytics_queries.md` 규칙 18·B-2)
+
+- [x] 픽 안 청취 분리: `FeedViewModel.source()`가 픽 모드면 `"pick"`. `track_viewed`·`track_listened`·`track_dwell`·`track_playback_started`·`track_hyped` 전부. 이전 버전은 픽 청취가 `"feed"`에 섞여 있다
+- [x] `push_opened` 삭제 → 실행 경로 이벤트 `app_opened_push{type}`·`app_opened_now_playing`·`app_opened_link`·`app_opened_direct`(`core/analytics/AppOpen.kt`, 판정 입력은 `MainActivity.captureOpenSource`). 프로세스 onStart 뒤 2초 기다렸다 판정. SDK `Application Opened`는 그대로
+  - `now_playing` = 미디어 알림 탭. `FeedAudioController.launchIntent()`에 표식 extra + `FLAG_ACTIVITY_SINGLE_TOP`(없으면 살아 있는 태스크에 인텐트가 안 넘어온다)
+  - `app_opened_link` = `ACTION_VIEW` 인텐트. 매니페스트에 링크 intent-filter가 없어 지금은 0
+- ⬜ 실기기: 꺼진 상태·백그라운드 각각 푸시 탭 → `app_opened_push` / 재생 중 미디어 알림 탭 → `app_opened_now_playing` + **피드가 다시 그려지지 않고 그대로인지** / 아이콘·최근 앱 → `app_opened_direct`
+
 ## ✅ 1.3.0 (`versionCode 14`) — feed_coachmark 1.0~1.2 · Play 제출(2026-10-12)
 
 `release/1.3.0` 브랜치(`e76aec2`)에서 빌드해 제출했다. 앱 안 노트는 iOS 1.3.0 3줄(`whatsnew_130_*`),

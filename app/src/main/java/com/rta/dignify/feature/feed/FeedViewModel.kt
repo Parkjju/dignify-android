@@ -259,8 +259,10 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      * 이 트랙이 어느 경로로 화면에 떴는지(iOS `source(for:)`와 같은 값). 검색은 장르 필터가 없고
      * 큐레이션은 전 유저 동일이라, 셋을 안 가르면 취향 밖 청취를 경로 탓으로 돌릴 수 없다.
      * 인덱스가 아니라 trackId로 판정한다 — dwell은 트랙을 떠난 뒤에 발사된다.
+     * 픽 재생도 이 뷰모델을 쓰므로 맨 먼저 "pick"으로 가른다. 그 전 빌드에선 "feed"로 섞여 있다.
      */
     fun source(trackId: Int): String {
+        if (isPickMode) return "pick"
         if (activeQuery.isNotEmpty()) return "search"
         val index = feeds.indexOfFirst { it.trackId == trackId }
         return if (index in 0 until curationCount) "curation" else "feed"

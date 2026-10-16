@@ -26,6 +26,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.rta.dignify.R
+import com.rta.dignify.core.analytics.AppOpen
 import com.rta.dignify.core.model.Feed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -496,9 +497,15 @@ class FeedAudioController(
         }
     }
 
-    /** 알림을 누르면 앱으로 돌아온다. 없으면(런처 인텐트 부재) 세션 액티비티 없이 그냥 둔다. */
+    /**
+     * 알림을 누르면 앱으로 돌아온다. 없으면(런처 인텐트 부재) 세션 액티비티 없이 그냥 둔다.
+     * 표식은 `app_opened_now_playing`을 가르는 근거다. SINGLE_TOP이 없으면 살아 있는 태스크를
+     * 앞으로 가져오기만 하고 인텐트를 안 넘겨서 표식이 버려진다.
+     */
     private fun launchIntent(): PendingIntent? =
         appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)?.let {
+            it.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            it.putExtra(AppOpen.EXTRA_FROM_NOW_PLAYING, true)
             PendingIntent.getActivity(appContext, 0, it, PendingIntent.FLAG_IMMUTABLE)
         }
 

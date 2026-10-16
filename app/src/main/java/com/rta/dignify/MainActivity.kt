@@ -67,6 +67,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material3.IconButton
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rta.dignify.core.analytics.Analytics
+import com.rta.dignify.core.analytics.AppOpen
 import com.rta.dignify.core.network.Api
 import com.rta.dignify.feature.feed.FeedViewModel
 import com.rta.dignify.feature.artist.ArtistRequestScreen
@@ -110,13 +111,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // 세션보다 먼저 — 로그인 복원이 곧바로 signed_in을 쏜다.
         Analytics.init(applicationContext)
+        // onStart보다 먼저 붙어야 이번 실행도 센다.
+        AppOpen.start()
         Session.init(applicationContext)
         // 차단·숨김 목록은 서버가 모르는 로컬 상태라 앱 시작 때 읽어둔다.
         LocalModeration.init(applicationContext)
         PredictedType.init(applicationContext)
         // 채널이 없으면 도착한 알림이 조용히 버려진다. 만들어두는 건 권한과 무관하다.
         Push.ensureChannel(applicationContext)
-        capturePushOpen(intent)
+        captureOpenSource(intent)
         // 아트워크가 화면을 꽉 채우는 지면이라 시스템 바 뒤까지 그린다.
         enableEdgeToEdge()
         setContent { DignifyApp() }
@@ -126,22 +129,33 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        capturePushOpen(intent)
+        captureOpenSource(intent)
     }
 
     /**
-     * 알림을 눌러 들어온 경우에만 찍는다. FCM은 알림 탭으로 연 인텐트에만
-     * `google.message_id`를 붙이므로 그게 런처 실행과 가르는 유일한 표식이다.
+     * 이 인텐트가 어느 경로로 앱을 띄웠는지 [AppOpen]에 넘긴다. 이벤트는 거기서 한 번만 나간다.
+     * 미디어 알림은 [AppOpen.EXTRA_FROM_NOW_PLAYING]을, FCM 알림 탭은 `google.message_id`를 싣는다 —
+     * 둘 다 없으면 런처 실행이라 아무것도 안 넘긴다(→ `app_opened_direct`).
      *
      * `type`은 서버가 2026-09-02부터 데이터 페이로드로 싣는다(`curation`·`pick_reaction`·`notice`).
      * 목적지 분기는 [Session.onPushOpened]가 한다 — 여기서 갈라 두면 액티비티가 탭 상태를
      * 알아야 하고, 온보딩 중에 도착한 푸시가 갈 곳을 잃는다.
      */
-    private fun capturePushOpen(intent: Intent?) {
+    private fun captureOpenSource(intent: Intent?) {
+        // 링크 인텐트는 extras가 없을 수 있어 extras보다 먼저 본다. 지금은 매니페스트에 링크
+        // intent-filter가 없어 들어올 일이 없다 — 공유 링크를 붙이면 등록만 하면 찍힌다(iOS와 같은 이름).
+        if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
+            AppOpen.openedBy("app_opened_link")
+            return
+        }
         val extras = intent?.extras ?: return
+        if (extras.getBoolean(AppOpen.EXTRA_FROM_NOW_PLAYING)) {
+            AppOpen.openedBy("app_opened_now_playing")
+            return
+        }
         if (!extras.containsKey("google.message_id")) return
         val type = extras.getString("type") ?: "unknown"
-        Analytics.capture("push_opened", mapOf("type" to type))
+        AppOpen.openedBy("app_opened_push", mapOf("type" to type))
         Session.onPushOpened(type)
     }
 }
