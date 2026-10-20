@@ -340,6 +340,11 @@ class ApiClient(
 
     // MARK: Push
 
+    /** 알림을 눌렀다고 서버 발송 이력에 알린다. 토큰을 안 붙인다 — 만료 토큰이면 permitAll 경로에서도 401이다. */
+    suspend fun reportPushOpened(pushId: String) {
+        client.post("$baseUrl/push/$pushId/opened") { attributes.put(SkipAuth, Unit) }
+    }
+
     /**
      * FCM 토큰 등록. 같은 엔드포인트를 iOS가 APNs 토큰으로 쓰고 있고, `platform`이 발송 경로를 가른다.
      *

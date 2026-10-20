@@ -5,125 +5,43 @@
 > 🎨 **디자인 반영할 것은 `../dignify-design/app-changes.mdx`가 정본이다**(배포본: 디자인 Storybook 「가이드 › 앱 반영 목록」).
 > 시안 버전별로 화면 id · AS-IS · TO-BE · 앱 파일 위치(iOS 기준, Android 파일은 같은 이름의 Screen)가 적혀 있다. 아래 버전부터 차례로 반영하고, 끝나면 그 버전 상태에 Android 버전을 적는다.
 
-## 🎨 1.3.1 — feed_coachmark 1.3 · 코드 반영(2026-10-12), 실기기 확인 전
+## 1.3.1 (`versionCode 15`) — 코드 끝, 실기기 확인 남음
 
-**1.3.0에는 안 들어갔다(2026-10-12 결정, iOS도 같은 구분으로 1.3.1).** 1.3.0은 `release/1.3.0`(`e76aec2`)에서 빌드해 제출했고
-그 버전 커밋은 main에 머지됐다. 출시할 때 **1.3.1 / `versionCode 15`** 로 올리고 노트를 붙인다.
+**1.3.0(`versionCode 14`)은 Play 제출(2026-10-12)**, `release/1.3.0`(`e76aec2`)에서 빌드해 main에 머지됐다.
+출시할 때 **1.3.1 / `versionCode 15`** 로 올리고 노트를 붙인다(14는 재사용 불가).
 
-트레이는 두 화면이 같이 쓰는 `core/designsystem/SeedTray.kt` 하나다.
+들어간 것:
+- 🎨 feed_coachmark 1.3 — 3곡 다 고르면 안 고른 타일 비활성 + 시드 트레이(`core/designsystem/SeedTray.kt`, 온보딩·마이 「추천 기준 곡」 공용)
+- 📊 픽 안 청취 `source=pick` 분리, `push_opened` → `app_opened_push{type,push_id}`·`app_opened_now_playing`·`app_opened_link`·`app_opened_direct`(`core/analytics/AppOpen.kt`, 판정 입력은 `MainActivity.captureOpenSource`). 판독 규칙은 `../09_analytics_queries.md` 규칙 18·B-2, 발송 건별 열람률은 A-14
+  - `push_id`는 2026-10-19 서버부터 FCM data에 실린다. 그 전 알림은 키가 없다
+  - `now_playing`은 `FeedAudioController.launchIntent()`의 표식 extra + `FLAG_ACTIVITY_SINGLE_TOP`에 기댄다(없으면 살아 있는 태스크에 인텐트가 안 넘어온다)
+  - `app_opened_link`는 매니페스트에 링크 intent-filter가 없어 지금은 0
 
-- [x] 온보딩 곡 고르기: 3곡 다 고르면 안 고른 타일 비활성(흑백 + 바탕 60%, 고르기 원 숨김, 미리듣기는 됨) — `SeedPoolPickerScreen.kt`
-  - 「최대 3곡까지」 안내(`limitHint`)는 지웠다. 비활성 타일은 눌러도 고를 수 없고 트레이가 「바꾸려면 빼 주세요」라고 말한다
-- [x] 온보딩 곡 고르기: 「디깅 시작」 위 트레이(n/3 · 순서 번호 · ✕ · 빈 칸 점선). 커버 탭 → 검색 중이면 닫고 그 타일로 스크롤 + 0.6s 강조(브랜드 테두리)
-- [x] 마이 「추천 기준 곡」: 같은 비활성(흑백 40%) + 탭바 위 떠 있는 트레이(번호 없음). 커버 탭 → 날짜 줄 세로 + 셀 가로 스크롤 — `SeedPickerScreen.kt`, `HypeCollection.kt`(`scrollTo`)
-- [x] `../dignify-design/app-changes.mdx` 1.3 상태를 「Android 1.3.1」로 고침(1.3.0으로 잘못 적혀 있었음)
-- ⚠️ **트레이 영문 문구는 내가 썼다**(`seed_tray_*`). iOS가 아직 1.3을 안 해서 xcstrings에 원본이 없다 — iOS가 반영하면 그 값으로 덮어쓸 것
-- ⬜ 실기기: 트레이 커버 탭 스크롤(특히 검색 중 → 풀 복귀), 마이에서 뒤 페이지 곡으로 스크롤, 꽉 찬 상태에서 회색 타일 미리듣기
+⚠️ **트레이 영문 문구(`seed_tray_*`)는 내가 썼다.** iOS가 1.3을 반영하면 xcstrings 값으로 덮어쓸 것.
 
-### 📊 1.3.1 계측 변경 (2026-10-16, iOS와 같은 이름 — 판독 규칙은 `../09_analytics_queries.md` 규칙 18·B-2)
-
-- [x] 픽 안 청취 분리: `FeedViewModel.source()`가 픽 모드면 `"pick"`. `track_viewed`·`track_listened`·`track_dwell`·`track_playback_started`·`track_hyped` 전부. 이전 버전은 픽 청취가 `"feed"`에 섞여 있다
-- [x] `push_opened` 삭제 → 실행 경로 이벤트 `app_opened_push{type}`·`app_opened_now_playing`·`app_opened_link`·`app_opened_direct`(`core/analytics/AppOpen.kt`, 판정 입력은 `MainActivity.captureOpenSource`). 프로세스 onStart 뒤 2초 기다렸다 판정. SDK `Application Opened`는 그대로
-  - `now_playing` = 미디어 알림 탭. `FeedAudioController.launchIntent()`에 표식 extra + `FLAG_ACTIVITY_SINGLE_TOP`(없으면 살아 있는 태스크에 인텐트가 안 넘어온다)
-  - `app_opened_link` = `ACTION_VIEW` 인텐트. 매니페스트에 링크 intent-filter가 없어 지금은 0
-- ⬜ 실기기: 꺼진 상태·백그라운드 각각 푸시 탭 → `app_opened_push` / 재생 중 미디어 알림 탭 → `app_opened_now_playing` + **피드가 다시 그려지지 않고 그대로인지** / 아이콘·최근 앱 → `app_opened_direct`
-
-## ✅ 1.3.0 (`versionCode 14`) — feed_coachmark 1.0~1.2 · Play 제출(2026-10-12)
-
-`release/1.3.0` 브랜치(`e76aec2`)에서 빌드해 제출했다. 앱 안 노트는 iOS 1.3.0 3줄(`whatsnew_130_*`),
-Play 출시 노트는 `docs/release-notes.md` 1.3.0(KO만). **다음 업로드는 `versionCode 15`부터다.**
-
-- 1.0: 튜토리얼 카드 삭제 → 피드 제스처 코치마크(`CoachGesture.kt`), 피드 구성 중(`FeedBuilding.kt`, 최소 2초),
-  Picks 탭 게스트 화면, 게스트 로그인 시트 「취소」, 게스트의 코치마크 더블탭 하입(기기에 맡겼다 로그인 때 올림)
-- 1.1: 문구, 피드 상단 한 줄·하단 액션 배치, 하입 아이콘 삽 → 하트, 화면 문구 「하입」 → 「좋아요」
-- 1.2: 좋아요하면 가운데 큰 하트(버튼 팡·조각과 한 시계), Picks·마이·추천 기준 곡 코치마크 삭제
-- 문서 밖: 잠금화면·알림 하입 버튼과 「좋아요 취소」 행도 하트 계열로. 삽 아이콘(`ic_hype`)은 앱에서 사라졌다
-- 계측: `coach_shown`/`coach_finished`의 `screen=picks·mypage·seed_picker`는 더는 안 찍힌다
-
-1.2.1(`versionCode 13`)은 Play에 올라갔다. 1.2.1은 코치마크 "다음"이 실기기에서 안 눌리던 버그 수정 하나다(`CoachMarks.kt`, 앱 안 노트 없음).
-1.2.0(`versionCode 12`)은 Play에 올라갔다.
-iOS 1.2.0 포트가 전부 들어갔다(`docs/1.2.0-port-checklist.md` §2 전 항목).
-**실기기(moto g 2025 / Android 16)에서 핵심 경로는 확인했고 일부가 남았다 — 체크리스트 §4.**
-
-1.1.2까지 iOS와 갈려 있던 버전 이름을 이 릴리즈에서 **다시 맞췄다**(iOS도 1.2.0).
-백엔드는 어차피 `versionCode`로만 가르므로 이름 자체는 자유지만, 같은 기능이 같은 이름으로
-나가는 편이 두 리포를 오갈 때 덜 헷갈린다. 앱 안 노트도 1.2.0 항목이다
-(`Changelog.shouldShow`가 노트 없는 버전을 걸러내므로 이름과 노트가 어긋나면 새 소식 화면이
-통째로 안 뜬다).
-
-1.1.0은 코드 변경 없이 번호와 앱 안 노트만 붙인 릴리즈였고 **Play에는 안 올라갔다.**
-그래서 Play 출시 노트의 기준이 되는 직전 업로드는 `versionCode 11`(1.1.2)이고,
-1.2.0 문안은 `docs/release-notes.md`에 써뒀다.
-
-**다음 업로드는 `versionCode 15`부터다.** 14는 1.3.0에 썼으므로 그 업로드를 지워도 다시 못 쓴다.
+실기기:
+- ⬜ 트레이 커버 탭 스크롤(특히 검색 중 → 풀 복귀), 마이에서 뒤 페이지 곡으로 스크롤, 꽉 찬 상태에서 회색 타일 미리듣기
+- ⬜ 꺼진 상태·백그라운드 각각 푸시 탭 → `app_opened_push` / 재생 중 미디어 알림 탭 → `app_opened_now_playing` + **피드가 다시 그려지지 않는지** / 아이콘·최근 앱 → `app_opened_direct`
+- ✅ 어드민에서 본인 uid로 지정 발송 → 탭 → PostHog 이벤트의 `push_id`가 발송 이력 값과 같은지 (2026-10-19)
+- 알림 탭을 서버에도 직접 알린다: `POST /push/{pushId}/opened`(인증 헤더 없이, `ApiClient.reportPushOpened`). 어드민 발송 이력의 **열람·열람률**이 된다(서버 `fbd95ff`)
+- ✅ 실기기: 지정 발송 → 탭 → 어드민 발송 이력 그 행의 열람이 1 오르는지 (2026-10-19)
 
 ---
 
-## ✅ iOS 1.2.0 포트 — 코드는 끝났다. 남은 건 실기기다
+## 1.2.0 백그라운드 재생 — 실기기 남은 것
 
-**2026-09-03 반영.** 화면을 꺼도 디깅이 이어진다. 백엔드 작업은 없었다.
-정본은 `docs/1.2.0-port-checklist.md`.
+정본 `docs/1.2.0-port-checklist.md` §4. 1·2·5·6은 확인했다.
 
-| | 무엇 | 어디 |
-|---|---|---|
-| ① | `MediaSessionService` + 포그라운드 서비스 · 매니페스트 3종 | `feature/feed/DiggingPlaybackService.kt` |
-| ② | 백그라운드 일시정지 제거. 피드만 이어지고 미리듣기는 멈춘다 | `FeedAudioController`의 `isFeedSession` + `AppForeground.kt` |
-| ③ | `MediaSession` 트랜스포트 + 하입 커스텀 액션 | `FeedAudioController.syncSession/remotePlayer`, `FeedScreen`의 `onRemoteSeek`·`onHype` |
-| ④ | 백그라운드에선 루프 대신 다음 곡 | `Playback.handleTrackEnd` (단위 테스트 있음) |
-| ⑤ | 계측에 `background` 속성 | `track_viewed`(`FeedViewModel`), `track_dwell`(`DwellTracker.markBackground`) |
+- ⬜ 3: 마이페이지 미리듣기 → 홈 누르면 **멈춘다**(`isFeedSession` 분기)
+- ⬜ 4: 2분 잠가두면 곡이 알아서 넘어간다
+- ⬜ 7: 알림을 밀어 없애면 재생이 깔끔히 멈춘다
+- ⬜ 블루투스 헤드셋으로 다음 곡. **Play 1.2.0 문안이 「이어폰·차」를 약속했다** — 안 되면 그 줄을 지운다
 
-Live Activity는 포트하지 않았다(체크리스트 §1). 미디어 알림이 그 자리라 `CommandButton` 하나로 끝났다.
-
-### 직역이 안 맞아 다르게 간 세 군데
-
-- **`track_playback_started`는 안 만들었다.** 체크리스트 §2.5는 "기존 이벤트 3종"이라 했지만
-  안드로이드엔 이 이벤트가 애초에 없다. 여기선 재생 시작과 `track_viewed`가 같은 순간이라
-  `background`를 하나 더 실어봐야 같은 값이 두 번 들어온다. **iOS와 이벤트 목록이 하나 어긋난 상태다** —
-  대시보드에서 두 플랫폼을 같은 이벤트로 겹쳐 볼 때 이걸 기억할 것.
-- **다음 곡 유무를 스냅샷으로 안 들고 있다**(`FeedAudioController.hasNextTrack` 콜백).
-  끝에 닿아 페이지네이션이 뒤를 붙여도 백그라운드에선 재구성이 없어 스냅샷이 갱신될 자리가 없고,
-  그러면 마지막 곡에서 영영 되감기만 한다.
-- **현재 위치를 `pagerState`가 아니라 `vm.lastPage`에서 읽는다.** 잠금화면에서 연달아 넘기면
-  페이저는 프레임이 없어 아직 안 움직였고, `settledPage`로 재면 제자리를 맴돈다.
-
-### 실기기 확인 (체크리스트 §4) — moto g 2025 / Android 16
-
-에뮬레이터는 포그라운드 서비스·알림·블루투스가 전부 다르게 동작해서 이걸 못 잡는다.
-
-| | 항목 | 결과 |
-|---|---|---|
-| 1 | 재생 → 홈 → 잠금. 소리가 이어지고 미디어 알림이 뜬다 | ✅ |
-| 2 | 알림·잠금화면에서 다음 곡 | ✅ (블루투스 헤드셋은 미확인) |
-| 3 | 마이페이지 미리듣기 → 홈 누르면 **멈춘다**(`isFeedSession` 분기) | ⬜ |
-| 4 | 2분 잠가두면 곡이 알아서 넘어간다 | ⬜ |
-| 5 | 알림에서 하입 → 앱에도 반영 | ✅ |
-| 6 | **Android 14+** — `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | ✅ 테스트 기기가 Android 16이다 |
-| 7 | 알림을 밀어 없애면 재생이 깔끔히 멈춘다 | ⬜ |
-
-`ExportedService` lint 경고는 정상이다 — Media3가 시스템 미디어 컨트롤 바인딩을 위해 요구한다.
-
-### 잠금화면 하입 버튼 — 상태를 색으로 못 알린다
-
-**미디어 알림 액션 아이콘의 색은 앱이 못 정한다.** 시스템이 알파를 마스크 삼아 단색으로 틴트한다.
-브랜드 컬러(#4B3FD8)를 지정한 빌드를 실기기에 올려 직접 확인했고, 그대로 벗겨졌다.
-하필 디자인 시스템(`HypeIcon.tsx`)은 하입 상태를 **색으로만** 구분해서, 이 지면에만 다른 언어가 필요했다.
-
-그래서 **모양**으로 간다: 안 함 = 삽(`ic_hype`), 함 = 체크(`ic_hype_on`).
-삽의 변주(외곽선 / 원 노크아웃)를 먼저 시도했다가 접었다 — 같은 그림의 변주라 24dp에서
-"어느 쪽이 하입된 상태인지"가 안 읽힌다. 근거는 `ic_hype_on.xml` 주석에 남겼다.
-
-⚠️ **상태 연동 자체는 처음부터 되고 있었다.** `dumpsys notification`의 액션 제목이
-`하입` ↔ `하입 취소`로 바뀌는 걸로 확인했다. 안 보였던 건 두 상태의 아이콘이 같은 그림이어서다 —
-"알림 버튼이 안 먹는다"로 오진하기 쉬우니, 다음에 비슷한 걸 의심하면 `dumpsys`부터 볼 것.
-
-### 출시 문안
-
-- 앱 안 노트: iOS 1.2.0 문안 4줄을 en/ko 그대로 가져왔다(`whatsnew_120_*`).
-- Play 출시 노트: `docs/release-notes.md`의 1.2.0 항목. 기준은 직전 업로드 `versionCode 11`.
-
-⚠️ **Play 문안이 "이어폰·차"를 약속한다.** 그런데 §4의 2번에서 블루투스 경로는 아직 안 봤다
-(알림·잠금화면만 확인). 세션 명령이 같아 구조상 될 가능성이 높지만, **스토어에 적은 약속이므로
-업로드 전에 실제 헤드셋으로 한 번 확인할 것.** 안 되면 그 줄을 지우는 게 맞다.
+기억할 것:
+- **`track_playback_started`는 안드로이드에 없다**(재생 시작 = `track_viewed`). 두 플랫폼을 겹쳐 볼 때 하나 어긋난다
+- 미디어 알림 액션 아이콘 색은 시스템이 틴트해서 앱이 못 정한다 — 상태는 모양으로 구분한다(`ic_hype_on.xml` 주석)
+- 알림 버튼이 안 먹는 것 같으면 `dumpsys notification`의 액션 제목부터 볼 것. 상태 연동은 됐는데 아이콘이 같아 오진한 적이 있다
+- `ExportedService` lint 경고는 정상(Media3 요구)
 
 ---
 
@@ -176,22 +94,9 @@ Play Console 경고 두 개에서 출발했다. **하나는 이미 끝나 있었
 
 ---
 
-## P1~P5. iOS 1.1.1 포트 — 끝났다
+## P1~P5. iOS 1.1.1 포트 — 끝
 
-| | 무엇 | 어디 |
-|---|---|---|
-| P1 | 온보딩을 시드 풀에서 직접 고르는 한 화면으로 교체(라운드 삭제) | `feature/onboarding/SeedPoolPickerScreen.kt` |
-| P2 | 픽 작성화면: 3열 그리드 → 날짜별 리스트 + 행 탭 재생 | `feature/picks/PickComposeSheet.kt` |
-| P3 | 픽 카드 재생 수(5 미만 숨김) | `feature/picks/PickListScreen.kt` |
-| P4 | `Your crate` → `Your hypes` / `담은 곡` → `하입한 곡` | `values*/strings.xml` |
-| P5 | 신규 계측 9종(이름·키 iOS와 동일), `onboarding_sound_*` 은퇴 | 위 두 화면 |
-
-같이 나간 것 하나 더: 검색을 확정하거나 빈 데를 누르면 키보드가 내려간다. 시드 고르기에서
-키보드가 목록 절반을 덮은 채 안 내려가는 걸 실기기에서 밟았다.
-
-포트하면서 같이 고친 것 하나: **픽 게시가 4xx를 성공으로 알리고 있었다.** `createPick`이
-`HttpResponse`를 돌려주는데 `expectSuccess`가 없어서 400(금칙어·개수 위반)도 예외를 안 던졌다.
-이제 상태 코드를 직접 보고 `pick_submit_failed{reason=server}`를 남긴다.
+`SeedPoolPickerScreen.kt`·`PickComposeSheet.kt`·`PickListScreen.kt`. 같이 고친 것: `createPick`이 4xx를 성공으로 알리던 것(→ `pick_submit_failed{reason=server}`).
 
 ---
 

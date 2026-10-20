@@ -94,6 +94,7 @@ import com.rta.dignify.feature.onboarding.rememberReduceMotion
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import com.rta.dignify.feature.onboarding.PredictedType
 import com.rta.dignify.feature.onboarding.SeedPoolPickerScreen
 import com.rta.dignify.feature.onboarding.fetchSeedPool
@@ -155,7 +156,16 @@ class MainActivity : ComponentActivity() {
         }
         if (!extras.containsKey("google.message_id")) return
         val type = extras.getString("type") ?: "unknown"
-        AppOpen.openedBy("app_opened_push", mapOf("type" to type))
+        // push_id는 2026-10-19 서버부터 실린다. 그 전 알림엔 없어 키째 뺀다(어드민 발송 이력과 잇는 값).
+        val props = buildMap<String, Any> {
+            put("type", type)
+            extras.getString("push_id")?.let { put("push_id", it) }
+        }
+        AppOpen.openedBy("app_opened_push", props)
+        // 어드민 발송 이력의 열람 수. PostHog와 별개로 서버에 직접 남긴다 — 실패해도 앱 흐름엔 무관.
+        extras.getString("push_id")?.let { pushId ->
+            Session.appScope.launch { runCatching { Session.api.reportPushOpened(pushId) } }
+        }
         Session.onPushOpened(type)
     }
 }
