@@ -5,10 +5,12 @@
 > 🎨 **디자인 반영할 것은 `../dignify-design/app-changes.mdx`가 정본이다**(배포본: 디자인 Storybook 「가이드 › 앱 반영 목록」).
 > 시안 버전별로 화면 id · AS-IS · TO-BE · 앱 파일 위치(iOS 기준, Android 파일은 같은 이름의 Screen)가 적혀 있다. 아래 버전부터 차례로 반영하고, 끝나면 그 버전 상태에 Android 버전을 적는다.
 
-## 1.3.1 (`versionCode 15`) — 코드 끝, 실기기 확인 남음
+## 1.3.0 / `versionCode 15` — Play 심사 제출(2026-10-20), 실기기 확인 남음
 
-**1.3.0(`versionCode 14`)은 Play 제출(2026-10-12)**, `release/1.3.0`(`e76aec2`)에서 빌드해 main에 머지됐다.
-출시할 때 **1.3.1 / `versionCode 15`** 로 올리고 노트를 붙인다(14는 재사용 불가).
+**`versionName`은 1.3.0 그대로 두고 `versionCode`만 15로 올려 냈다**(14는 2026-10-12 제출본 `release/1.3.0` `e76aec2`가 썼다).
+아래 feed_coachmark 1.3 + 그 밑 seed_picker_opened 1.0(1·2차)이 이 빌드에 들어갔다. 이름이 같아 앱 안 새 소식(`Changelog` 1.3.0)도 그대로라
+**이 빌드의 새 기능을 알리는 노트는 없다.** 다음 업로드는 `versionCode 16`부터.
+대형 화면 대응(`large-screen` 브랜치)은 **안 들어갔다** — 여전히 다음 버전 몫.
 
 들어간 것:
 - 🎨 feed_coachmark 1.3 — 3곡 다 고르면 안 고른 타일 비활성 + 시드 트레이(`core/designsystem/SeedTray.kt`, 온보딩·마이 「추천 기준 곡」 공용)
@@ -28,25 +30,25 @@
 
 ---
 
-## 🎨 다음 버전 — seed_picker_opened 1.0 (마이 「추천 기준 곡」 개편) · 시안 확정 2026-10-20, 착수 전
+## 🎨 다음 버전 — seed_picker_opened 1.0 (마이 「추천 기준 곡」 개편) · 1·2차 코드 끝(2026-10-20), 실기기 남음
 
 정본은 `../dignify-design/app-changes.mdx` 「seed_picker_opened 1.0」 1~8번. 1.3의 마이 쪽(가로 CrateCell·비활성·커버 탭 스크롤)을 이 버전이 덮는다 — 위 1.3.1 실기기 항목 중 「마이에서 뒤 페이지 곡으로 스크롤」은 이 버전이 나가면 없어진다.
 **장르(3번, 1번의 「· 장르」)는 서버 `dignify-backend/TODO.md` P2-c가 먼저다.** 그 전엔 장르 칩·장르 표시만 숨기고 나머지를 먼저 낸다. iOS와 같은 순서로 간다.
 
-1차 — 서버 없이:
-- ⬜ 1. 세로 목록: `feature/mypage/SeedPickerScreen.kt`를 `LazyColumn`으로, 행 = 커버 52 · 제목 / 아티스트 · 체크 원 24(고르면 brand 원 안 흰 체크 **12**), 행 탭 = 고르기/풀기. 「좋아요한 곡 N」. 하입 기록·디깅 프로필 쪽은 손대지 않는다
-- ⬜ 2. 제목 `title2` 두 줄 + ⓘ → 말풍선(Tooltip 신규, 2초 뒤 페이드·바깥 탭 닫힘). 기존 캡션 삭제. 「따라가기」 꺼짐 안내·저장 실패 문구는 그대로
-- ⬜ 4. 3곡 다 고르면 안 고른 행 비활성(커버 흑백 40%, 글자 60%, **원은 60%로 남김**) + 탭 → 확인형 팝업 「선택한 곡 중 1개를 해제해 주세요 / 3개까지 선택할 수 있어요」
-- ⬜ 5. 트레이: 지면 `background` + 그림자, 남은 칸 수 안내(3곡은 「3곡을 다 골랐어요」), **커버 탭 = 빼기**. 공용 `core/designsystem/SeedTray.kt`라 온보딩 쪽 동작이 안 바뀌는지 확인
-- ⬜ 6. 저장 활성 규칙은 지금 그대로(들어올 때와 달라졌으면 활성, 0곡 저장 허용)
-- ⬜ 7. 빈 화면(EmptyState 신규) → 「곡 찾으러 가기」 = 피드 탭
-- ⬜ 8. 팝업 모션 — 앱 팝업 전부: `feature/push/PushOptInPopup.kt`를 `AnimatedVisibility` 두 겹으로(딤 0.2s 페이드 · 카드 `scaleIn(0.9f) + fadeIn(tween(200, LinearOutSlowInEasing))`, 닫힘 `scaleOut(0.9f) + fadeOut(tween(150, FastOutLinearInEasing))`). 새 확인 팝업도 같게. 애니메이션 끔이면 페이드만
-- ⬜ 문자열 `values`·`values-ko` 둘 다. 영어 값은 iOS xcstrings와 맞출 것
-- ⬜ `./gradlew build`(lint 포함) → 실기기: 3곡 꽉 참 → 회색 행 탭 팝업 / 0곡 저장 / 좋아요 0 계정 빈 화면
+1차 — 서버 없이 (코드 끝, `./gradlew build` 통과):
+- ✅ 1~2·4~7: `feature/mypage/SeedPickerScreen.kt` 새로 씀 — `LazyColumn` 체크형 행, 제목 + ⓘ `Popup` 말풍선, 꽉 차면 확인 팝업, 트레이 `background` + 남은 칸 안내 + 커버 탭 = 빼기, 빈 화면 → 피드 탭(`MyTab.onGoFeed`, 마이는 루트로 되돌림)
+  - `HypeCollection`의 선택 모드(`selection`·`scrollTo`·비활성 셀·선택 배지)는 쓰는 곳이 없어져 지웠다
+  - `SeedTray`: `onOpen = null`이면 커버 탭도 빼기, `hint`로 안내 문구 교체. 온보딩 호출은 그대로
+- ✅ 8: `DSPopup`(`core/designsystem/DesignSystem.kt`) — 딤·카드 `AnimatedVisibility` 두 겹. `PushOptInPopup(visible = …)`과 새 확인 팝업이 같이 쓴다. `rememberReduceMotion`도 여기로 옮겼다
+- 문자열은 iOS xcstrings(`60fb9bb` 이후 작업 트리) 값 그대로 — en·ko 둘 다
+- ⬜ 실기기: 3곡 꽉 참 → 회색 행 탭 팝업(뜨고 닫힐 때 모션) / 0곡 저장 / 좋아요 0 계정 빈 화면 → 「곡 찾으러 가기」 / ⓘ 말풍선 2초·바깥 탭·다시 누르면 다시 세기 / 알림 권유 팝업 모션(피드 특집 끝·픽 올린 뒤) / 온보딩 트레이가 그대로인지
 
-2차 — 서버 P2-c 배포 뒤:
-- ⬜ 3. 장르 칩(FilterChip 신규) · 행의 「아티스트 · 장르」 · 「좋아요한 곡 N」이 장르 곡 수로
-- ⬜ 끝나면 `../dignify-design/app-changes.mdx` 상태에 Android 버전 적기
+2차 — 장르 필터 (서버 P2-c `8423757` 배포됨, 코드 끝):
+- ✅ 3. `GET /users/me/hypes/genres`로 칩(「전체」 + 좋아요한 장르, 많은 순)과 「좋아요한 곡 N」(고른 장르면 그 장르 수), `myHypes(cursor, genreId)`로 필터. 행 둘째 줄 「아티스트 · 장르」
+  - 장르를 바꿔도 고른 곡은 그대로 — 받은 곡을 `seen`에 쌓아 필터 밖 고른 곡도 트레이에 남는다. 칩을 빨리 바꾸면 이전 요청은 취소, 받는 사이 칩이 바뀐 다음 페이지는 버린다
+  - 장르 목록을 못 받으면 칩·「좋아요한 곡 N」만 숨긴다
+- ⬜ 실기기: 칩 전환(고른 곡·트레이 유지, 뒤 칩 탭 시 그 칩이 보이게 밀림) / 장르 안에서 뒤 페이지 / 영어 로케일에서 장르 이름이 영어로 오는지
+- ⬜ 출시하면 `../dignify-design/app-changes.mdx` 상태에 Android 버전 적기
 
 ---
 
