@@ -285,9 +285,22 @@
 
     <!-- 추천 기준 곡 -->
     <string name="seed_picker_title">Recommend from</string>
-    <string name="seed_picker_header">Pick up to %1$d tracks. The feed then follows only these.</string>
-    <string name="seed_picker_default">Pick none and the feed follows your %1$d most recent likes, same as before.</string>
     <string name="seed_picker_mode_off">Turn on \"Follow my likes\" for these to take effect.</string>
+    <string name="seed_picker_header">Pick up to %1$d tracks.\nWe\'ll find music based on these.</string>
+    <string name="seed_picker_info">Pick none and we\'ll find music based on your %1$d most recent likes.</string>
+    <string name="seed_genre_all">All</string>
+    <string name="seed_picker_count">Liked tracks %1$d</string>
+    <string name="seed_tray_room">Add up to %1$d tracks</string>
+    <string name="seed_tray_done">All %1$d picked</string>
+    <string name="seed_limit_title">Deselect one of your picks</string>
+    <string name="seed_limit_message">You can pick up to %1$d.</string>
+    <string name="seed_empty_title">No liked tracks yet</string>
+    <string name="seed_empty_message">Like tracks you dig in the feed</string>
+    <string name="seed_empty_action">Find tracks</string>
+    <plurals name="seed_tray_more">
+        <item quantity="one">%1$d more to go</item>
+        <item quantity="other">%1$d more to go</item>
+    </plurals>
 
     <!-- 담은 곡 편집 -->
     <string name="remove_track_title">Remove this track?</string>

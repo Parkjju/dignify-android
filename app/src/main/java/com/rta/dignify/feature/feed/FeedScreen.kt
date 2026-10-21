@@ -138,7 +138,7 @@ import com.rta.dignify.feature.onboarding.CoachGesture
 import com.rta.dignify.feature.onboarding.CoachGestureStep
 import com.rta.dignify.feature.onboarding.CoachSeen
 import com.rta.dignify.feature.onboarding.coachPeekFraction
-import com.rta.dignify.feature.onboarding.rememberReduceMotion
+import com.rta.dignify.core.designsystem.rememberReduceMotion
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.BoxScope
@@ -623,19 +623,18 @@ fun FeedScreen(
         }
 
         // 팝업은 최상단. 딤이 피드 제스처를 먹어야 뒤로 스와이프가 안 샌다.
-        if (showPushOptIn) {
-            PushOptInPopup(
-                onAccept = {
-                    Analytics.capture("push_optin_accepted", mapOf("source" to PUSH_SOURCE_CURATION))
-                    showPushOptIn = false
-                    notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                },
-                onDecline = {
-                    Analytics.capture("push_optin_declined", mapOf("source" to PUSH_SOURCE_CURATION))
-                    showPushOptIn = false
-                },
-            )
-        }
+        PushOptInPopup(
+            visible = showPushOptIn,
+            onAccept = {
+                Analytics.capture("push_optin_accepted", mapOf("source" to PUSH_SOURCE_CURATION))
+                showPushOptIn = false
+                notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            },
+            onDecline = {
+                Analytics.capture("push_optin_declined", mapOf("source" to PUSH_SOURCE_CURATION))
+                showPushOptIn = false
+            },
+        )
     }
 }
 

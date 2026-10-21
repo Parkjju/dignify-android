@@ -1,5 +1,16 @@
 package com.rta.dignify.core.designsystem
 
+import android.provider.Settings
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -222,6 +233,8 @@ fun ScreenScaffold(
     onBack: () -> Unit,
     /** 상단바 오른쪽 끝(편집·저장). 없으면 자리를 차지하지 않는다. */
     trailing: @Composable RowScope.() -> Unit = {},
+    /** false면 지면이 남은 높이를 그대로 받는다 — 안에 LazyColumn을 둘 때(무한 높이에선 터진다). */
+    scrollable: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     Column(
@@ -242,7 +255,52 @@ fun ScreenScaffold(
             Spacer(Modifier.weight(1f))
             trailing()
         }
-        Column(Modifier.verticalScroll(rememberScrollState())) { content() }
+        Column(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier.weight(1f)) {
+            content()
+        }
+    }
+}
+
+/** 명세 `prefers-reduced-motion`에 해당 — 개발자 옵션의 "애니메이션 끄기". */
+@Composable
+fun rememberReduceMotion(): Boolean {
+    val context = LocalContext.current
+    return remember {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
+}
+
+/**
+ * 팝업 층(디자인 Popup 「띄우기·닫기 모션」). 딤과 카드를 **따로** 움직여 OS 대화상자처럼 뜨게 한다 —
+ * 조건부로 그냥 그리면 깜빡이고, 통째로 페이드하면 카드가 뜨는 순간이 안 읽힌다.
+ *
+ * 딤 탭 = [onDismiss]. 카드는 바깥 여백까지 [card]가 정하므로, 카드 면을 눌렀을 때 딤으로 새지 않게
+ * 하는 것도 [card] 쪽 몫이다(히트테스트를 먹는 clickable).
+ */
+@Composable
+fun DSPopup(visible: Boolean, onDismiss: () -> Unit, card: @Composable () -> Unit) {
+    val reduceMotion = rememberReduceMotion()
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        AnimatedVisibility(visible, enter = fadeIn(tween(200)), exit = fadeOut(tween(150))) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    // indication을 끄는 건 딤 전체에 물결이 번지면 배경이 눌린 것처럼 보여서.
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismiss,
+                    ),
+            )
+        }
+        val enterSpec = tween<Float>(200, easing = LinearOutSlowInEasing)
+        val exitSpec = tween<Float>(150, easing = FastOutLinearInEasing)
+        AnimatedVisibility(
+            visible,
+            enter = if (reduceMotion) fadeIn(enterSpec) else fadeIn(enterSpec) + scaleIn(enterSpec, 0.9f),
+            exit = if (reduceMotion) fadeOut(exitSpec) else fadeOut(exitSpec) + scaleOut(exitSpec, 0.9f),
+        ) { card() }
     }
 }
 

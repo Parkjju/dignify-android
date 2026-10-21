@@ -48,15 +48,19 @@ data class SeedTraySlot(val trackId: Int, val artworkUrl: String)
  * 위치(버튼 위 / 탭바 위 카드)는 부르는 쪽이 정한다.
  *
  * @param numbered 고른 순서 번호. 온보딩만 — 마이는 체크 표시라 순서가 없다.
+ * @param onOpen 커버 탭 = 그 곡으로 가기(온보딩). null이면 커버 탭도 ✕처럼 뺀다(마이, seed_picker_opened 1.0 —
+ *   세로 목록이라 찾기 쉽고, 장르 필터 중이면 그 곡이 목록에 없을 수 있다).
+ * @param hint 아래 안내. null이면 온보딩 문구(「누르면 그 곡으로 가요」/「바꾸려면 빼 주세요」).
  */
 @Composable
 fun SeedTray(
     slots: List<SeedTraySlot>,
     limit: Int,
     numbered: Boolean,
-    onOpen: (Int) -> Unit,
+    onOpen: ((Int) -> Unit)?,
     onRemove: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    hint: String? = null,
 ) {
     val full = slots.size >= limit
     Row(
@@ -78,7 +82,7 @@ fun SeedTray(
                 color = DSColor.textPrimary,
             )
             Text(
-                stringResource(if (full) R.string.seed_tray_full else R.string.seed_tray_hint),
+                hint ?: stringResource(if (full) R.string.seed_tray_full else R.string.seed_tray_hint),
                 style = DSTypography.caption,
                 color = DSColor.textTertiary,
             )
@@ -89,7 +93,7 @@ fun SeedTray(
                 if (slot == null) EmptySlot() else FilledSlot(
                     slot = slot,
                     number = if (numbered) i + 1 else null,
-                    onOpen = { onOpen(slot.trackId) },
+                    onOpen = onOpen?.let { { it(slot.trackId) } },
                     onRemove = { onRemove(slot.trackId) },
                 )
             }
@@ -116,7 +120,7 @@ private fun EmptySlot() {
 }
 
 @Composable
-private fun FilledSlot(slot: SeedTraySlot, number: Int?, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun FilledSlot(slot: SeedTraySlot, number: Int?, onOpen: (() -> Unit)?, onRemove: () -> Unit) {
     Box(Modifier.size(52.dp)) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -127,7 +131,10 @@ private fun FilledSlot(slot: SeedTraySlot, number: Int?, onOpen: () -> Unit, onR
                 .size(52.dp)
                 .clip(SlotShape)
                 .background(DSColor.surface)
-                .clickable(onClickLabel = stringResource(R.string.seed_tray_hint), onClick = onOpen),
+                .clickable(
+                    onClickLabel = stringResource(if (onOpen != null) R.string.seed_tray_hint else R.string.deselect),
+                    onClick = onOpen ?: onRemove,
+                ),
         )
         if (number != null) {
             Box(

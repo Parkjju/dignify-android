@@ -432,21 +432,20 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
         showPushOptIn = true
     }
 
-    if (showPushOptIn) {
-        PushOptInPopup(
-            title = stringResource(R.string.push_optin_pick_title),
-            message = stringResource(R.string.push_optin_pick_message),
-            onAccept = {
-                Analytics.capture("push_optin_accepted", mapOf("source" to PUSH_SOURCE_PICK))
-                showPushOptIn = false
-                notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            },
-            onDecline = {
-                Analytics.capture("push_optin_declined", mapOf("source" to PUSH_SOURCE_PICK))
-                showPushOptIn = false
-            },
-        )
-    }
+    PushOptInPopup(
+        visible = showPushOptIn,
+        title = stringResource(R.string.push_optin_pick_title),
+        message = stringResource(R.string.push_optin_pick_message),
+        onAccept = {
+            Analytics.capture("push_optin_accepted", mapOf("source" to PUSH_SOURCE_PICK))
+            showPushOptIn = false
+            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        },
+        onDecline = {
+            Analytics.capture("push_optin_declined", mapOf("source" to PUSH_SOURCE_PICK))
+            showPushOptIn = false
+        },
+    )
 }
 
 /** 반응 하나뿐이라 토글은 로컬에서 개수까지 같이 맞춘다. */

@@ -233,9 +233,19 @@ class ApiClient(
         client.post("$baseUrl/users/me/onboarding/complete")
     }
 
-    /** 내가 하입한 트랙. 최신순, 페이지 10 고정. cursor는 마지막으로 받은 userHypeTrackId. */
-    suspend fun myHypes(cursor: Long? = null): Api.HypeListResponse =
-        client.get("$baseUrl/users/me/hypes") { cursor?.let { parameter("cursor", it) } }.body()
+    /**
+     * 내가 하입한 트랙. 최신순, 페이지 10 고정. cursor는 마지막으로 받은 userHypeTrackId.
+     * @param genreId 이 장르만(추천 기준 곡 장르 칩). null = 전체.
+     */
+    suspend fun myHypes(cursor: Long? = null, genreId: Int? = null): Api.HypeListResponse =
+        client.get("$baseUrl/users/me/hypes") {
+            cursor?.let { parameter("cursor", it) }
+            genreId?.let { parameter("genreId", it) }
+        }.body()
+
+    /** 하입한 곡의 장르별 수(많은 순) + 전체 수. 목록이 커서 페이지라 클라에서 못 센다. */
+    suspend fun myHypeGenres(): Api.HypeGenresResponse =
+        client.get("$baseUrl/users/me/hypes/genres").body()
 
     /** @param range "all"(기본) 또는 "week"(최근 7일). 그 외 값은 서버가 전체로 처리한다. */
     suspend fun myStats(range: String = "all"): Api.UserStats =

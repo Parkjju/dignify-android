@@ -4,9 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import com.rta.dignify.core.designsystem.DSPopup
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -49,24 +48,14 @@ import com.rta.dignify.core.designsystem.DSTypography
  */
 @Composable
 fun PushOptInPopup(
+    visible: Boolean,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
     title: String = stringResource(R.string.push_optin_set_title),
     message: String = stringResource(R.string.push_optin_set_message),
 ) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.55f))
-            // 딤 탭 = 거절. 시스템 알럿이 공짜로 주던 동작이라 직접 붙인다.
-            // indication을 끄는 건 딤 전체에 물결이 번지면 카드가 아니라 배경이 눌린 것처럼 보여서.
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDecline,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
+    // 딤 탭 = 거절. 시스템 알럿이 공짜로 주던 동작이라 직접 붙인다.
+    DSPopup(visible = visible, onDismiss = onDecline) {
         Column(
             // 카드가 화면을 넘지 않게 안전 영역 안으로 가둔다. 안 가두면 글꼴을 키운 기기에서
             // 긴 문구가 카드를 늘려 아래 버튼 둘이 화면 밖으로 나간다 — 팝업을 닫을 방법이

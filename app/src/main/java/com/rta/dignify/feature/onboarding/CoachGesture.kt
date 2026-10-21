@@ -1,7 +1,6 @@
 package com.rta.dignify.feature.onboarding
 
 import android.content.Context
-import android.provider.Settings
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
@@ -31,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -88,15 +86,6 @@ private val CAPTION_BELOW = 25.dp
 
 /** 스와이프 단계에서 곡 화면이 따라 올라가는 높이(명세 `peek`). */
 val COACH_PEEK = 32.dp
-
-/** 명세 `prefers-reduced-motion`에 해당 — 개발자 옵션의 "애니메이션 끄기". 켜져 있으면 손이 멈춘 채 보인다. */
-@Composable
-fun rememberReduceMotion(): Boolean {
-    val context = LocalContext.current
-    return remember {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    }
-}
 
 /**
  * 스와이프 단계 화면 힌트. 시각 [t](ms, 한 주기 안)에 곡 화면이 올라가 있어야 할 비율(0~1, 1 = [COACH_PEEK]).

@@ -98,7 +98,17 @@ object Api {
         val hypedAt: String,
         /** 추천 기준 곡으로 고정돼 있는지. 배포 순서 때문에 nullable. */
         val isSeed: Boolean? = null,
+        val genreId: Int? = null,
+        /** Accept-Language를 따른다(/me/stats와 같은 표기). */
+        val genreName: String? = null,
     )
+
+    /** `GET /users/me/hypes/genres`. total = genres의 합. */
+    @Serializable
+    data class HypeGenresResponse(val total: Int, val genres: List<HypeGenre> = emptyList())
+
+    @Serializable
+    data class HypeGenre(val genreId: Int, val genreName: String, val count: Int)
 
     /**
      * `GET /users/me/stats`. **숫자만 온다** — 유형·헤드라인·잠금 판정은 전부 클라이언트 계산이다

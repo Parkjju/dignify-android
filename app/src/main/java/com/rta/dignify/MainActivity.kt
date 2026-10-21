@@ -90,7 +90,7 @@ import com.rta.dignify.feature.mypage.MyPageScreen
 import com.rta.dignify.feature.mypage.SeedPickerScreen
 import com.rta.dignify.feature.onboarding.FeedBuilding
 import com.rta.dignify.feature.onboarding.OnboardingMock
-import com.rta.dignify.feature.onboarding.rememberReduceMotion
+import com.rta.dignify.core.designsystem.rememberReduceMotion
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -365,6 +365,8 @@ private fun MainTabs() {
                     onRoute = { myRoute = it },
                     // 내 픽에서 재생하면 픽 탭으로 넘겨 같은 재생 지면을 쓴다.
                     onPlayPick = { playingPick = it; tab = AppTab.PICKS },
+                    // 추천 기준 곡 빈 화면 「곡 찾으러 가기」. 마이로 돌아왔을 때 빈 화면이 또 반기지 않게 루트로.
+                    onGoFeed = { myRoute = MyRoute.ROOT; tab = AppTab.FEED },
                 )
             }
 
@@ -445,6 +447,7 @@ private fun MyTab(
     route: MyRoute,
     onRoute: (MyRoute) -> Unit,
     onPlayPick: (Api.Pick) -> Unit,
+    onGoFeed: () -> Unit,
 ) {
     // 요약 행이 이미 받아둔 첫 페이지를 목록 화면에 그대로 물려준다(재조회 0).
     var myPicks by remember { mutableStateOf<List<Api.Pick>>(emptyList()) }
@@ -504,7 +507,7 @@ private fun MyTab(
             )
 
             MyRoute.HYPES -> HypeHistoryScreen(onBack = { onRoute(MyRoute.DIGGING) })
-            MyRoute.SEEDS -> SeedPickerScreen(onBack = { onRoute(MyRoute.ROOT) })
+            MyRoute.SEEDS -> SeedPickerScreen(onBack = { onRoute(MyRoute.ROOT) }, onFindTracks = onGoFeed)
             MyRoute.ARTIST_REQUESTS -> ArtistRequestScreen(onBack = { onRoute(MyRoute.ROOT) })
             MyRoute.BLOCKED -> BlockedUsersScreen(onBack = { onRoute(MyRoute.ROOT) })
             // 마이페이지에서 직접 열면 전체 로그(highlight = null).

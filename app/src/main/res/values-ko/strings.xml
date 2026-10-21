@@ -277,9 +277,21 @@
 
     <!-- 추천 기준 곡 -->
     <string name="seed_picker_title">추천 기준 곡</string>
-    <string name="seed_picker_header">최대 %1$d곡까지 고를 수 있어요. 고른 곡만 기준으로 피드가 만들어져요.</string>
-    <string name="seed_picker_default">아무것도 고르지 않으면 지금까지처럼 최근에 좋아요한 %1$d곡을 기준으로 삼아요.</string>
     <string name="seed_picker_mode_off">고른 곡이 적용되려면 \'좋아요한 곡 따라가기\'를 켜야 해요.</string>
+    <string name="seed_picker_header">%1$d곡까지 고를 수 있어요.\n고른 곡을 기준으로 노래를 찾을게요.</string>
+    <string name="seed_picker_info">아무것도 고르지 않으면 최근 좋아요한 %1$d곡을 기준으로 노래를 찾을게요.</string>
+    <string name="seed_genre_all">전체</string>
+    <string name="seed_picker_count">좋아요한 곡 %1$d</string>
+    <string name="seed_tray_room">최대 %1$d곡까지 담을 수 있어요</string>
+    <string name="seed_tray_done">%1$d곡을 다 골랐어요</string>
+    <string name="seed_limit_title">선택한 곡 중 1개를 해제해 주세요</string>
+    <string name="seed_limit_message">%1$d개까지 선택할 수 있어요</string>
+    <string name="seed_empty_title">아직 좋아요한 곡이 없어요</string>
+    <string name="seed_empty_message">피드에서 마음에 드는 곡을 골라주세요</string>
+    <string name="seed_empty_action">곡 찾으러 가기</string>
+    <plurals name="seed_tray_more">
+        <item quantity="other">%1$d개 더 선택할 수 있어요</item>
+    </plurals>
 
     <!-- 담은 곡 편집 -->
     <string name="remove_track_title">이 곡을 담은 곡에서 뺄까요?</string>

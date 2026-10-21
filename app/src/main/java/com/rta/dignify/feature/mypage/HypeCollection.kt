@@ -3,7 +3,6 @@ package com.rta.dignify.feature.mypage
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -28,7 +27,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Info
@@ -81,12 +79,8 @@ import com.rta.dignify.feature.feed.FeedAudioController
 import com.rta.dignify.feature.feed.TrackDetailSheet
 import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.launch
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.relocation.BringIntoViewRequester
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -101,10 +95,6 @@ import java.time.format.FormatStyle
  * @param onReachEnd 마지막 셀이 보이면 호출(페이지네이션). maxGroups가 있으면 호출하지 않는다.
  * @param onReloadNeeded 하입 제거가 하드 실패해 목록 재동기화가 필요할 때.
  * @param onSeeAll 미리보기에서 See all 셀을 누르면(전체 화면 이동).
- * @param selection 선택 모드(추천 기준 곡 고르기). null이 아니면 **편집 모드보다 우선하고**
- *   탭이 재생 대신 선택 토글이 된다. 날짜 그룹·페이지네이션·셀 모양을 그대로 쓰려고 한 컴포넌트에 뒀다.
- * @param selectionLimit 고를 수 있는 최대 개수. 서버 `MoodRecommender.SEEDS`와 같아야 한다.
- * @param scrollTo 이 곡이 보이게 세로·가로로 스크롤한다(추천 기준 곡 트레이의 커버 탭). 다 하면 [onScrolled].
  * @param isEditing 편집 모드. 셀마다 제거 배지가 붙고 탭이 재생 대신 제거가 된다.
  *   롱프레스는 이 화면을 처음 보는 사람에게 안 보여서, 제거하는 길을 눈에 보이게 하나 더 둔다.
  */
@@ -118,11 +108,6 @@ fun HypeCollection(
     onReachEnd: (suspend () -> Unit)? = null,
     onReloadNeeded: (suspend () -> Unit)? = null,
     onSeeAll: (() -> Unit)? = null,
-    selection: Set<Int>? = null,
-    onSelectionChange: (Set<Int>) -> Unit = {},
-    selectionLimit: Int = 3,
-    scrollTo: Int? = null,
-    onScrolled: () -> Unit = {},
     isEditing: Boolean = false,
 ) {
     val context = LocalContext.current
@@ -178,24 +163,6 @@ fun HypeCollection(
             )
             val listState = rememberLazyListState()
             val trackCount = group.tracks.size
-            val rowRequester = remember { BringIntoViewRequester() }
-            var rowHeight by remember { mutableFloatStateOf(0f) }
-            val density = LocalDensity.current
-
-            LaunchedEffect(scrollTo) {
-                val index = group.tracks.indexOfFirst { it.trackId == scrollTo }
-                if (index < 0) return@LaunchedEffect
-                // 가로를 먼저 — LazyRow는 화면 밖 셀을 아예 안 그려서 세로만 맞추면 빈 자리로 간다.
-                listState.animateScrollToItem(index)
-                // 날짜 머리(위)와 떠 있는 트레이(아래)까지 넉넉히 잡아야 줄이 트레이 밑에 안 숨는다.
-                with(density) {
-                    rowRequester.bringIntoView(
-                        Rect(0f, -32.dp.toPx(), 1f, rowHeight + 120.dp.toPx())
-                    )
-                }
-                onScrolled()
-            }
-
             // iOS `fits` 판정의 이식: 트랙들이 뷰포트 안에 다 들어오면 See all도 당김 제스처도 없다.
             //
             // ⚠️ **스크롤 위치에 의존하면 안 된다.** "마지막 트랙이 뷰포트 안에 있는가"로 재면
@@ -267,37 +234,19 @@ fun HypeCollection(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .padding(bottom = 20.dp)
-                    .bringIntoViewRequester(rowRequester)
-                    .onSizeChanged { rowHeight = it.height.toFloat() }
                     .then(dragWatcher),
             ) {
                 items(group.tracks, key = { it.userHypeTrackId }) { track ->
                     HypeCell(
                         track = track,
                         isPlaying = audio.activeTrackId == track.trackId && !audio.isPaused,
-                        selected = selection?.contains(track.trackId),
-                        // 꽉 찼을 때 안 고른 셀. 눌러도 어차피 아무 일 없으니 그렇게 보이게 한다.
-                        disabled = selection != null && selection.size >= selectionLimit &&
-                            track.trackId !in selection,
                         isEditing = isEditing,
                         onTap = {
-                            when {
-                                // 상한을 넘으면 **아무 일도 일어나지 않는다.** 가장 오래된 것을
-                                // 밀어내면 방금 무엇이 빠졌는지 화면에서 안 보인다.
-                                selection != null -> onSelectionChange(
-                                    when {
-                                        track.trackId in selection -> selection - track.trackId
-                                        selection.size < selectionLimit -> selection + track.trackId
-                                        else -> selection
-                                    }
-                                )
-
-                                isEditing -> removeTarget = track
-                                else -> audio.togglePreview(track.trackId, track.previewUrl)
-                            }
+                            if (isEditing) removeTarget = track
+                            else audio.togglePreview(track.trackId, track.previewUrl)
                         },
                         onLongPress = {
-                            if (!isEditing && selection == null) actionTarget = track
+                            if (!isEditing) actionTarget = track
                         },
                         // 빠진 자리를 애니메이션 없이 지우면 옆 곡들이 순간이동해서
                         // 무엇이 빠졌는지가 안 읽힌다.
@@ -430,9 +379,6 @@ fun HypeCollection(
 private fun HypeCell(
     track: Api.HypeItem,
     isPlaying: Boolean,
-    /** 선택 모드일 때만 non-null. true = 고정됨. */
-    selected: Boolean?,
-    disabled: Boolean,
     isEditing: Boolean,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
@@ -445,11 +391,7 @@ private fun HypeCell(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box {
-            Artwork(
-                track.artworkUrl, 72.dp, 16.dp,
-                modifier = if (disabled) Modifier.alpha(0.4f) else Modifier,
-                gray = disabled,
-            )
+            Artwork(track.artworkUrl, 72.dp, 16.dp)
             if (isPlaying) {
                 Box(
                     Modifier
@@ -463,52 +405,23 @@ private fun HypeCell(
             }
             // 배지는 아트워크 좌상단 모서리에 반쯤 걸친다 — 안쪽이면 72dp 썸네일에서 앨범 아트를
             // 가리고, 완전히 바깥이면 잘린다. 탭은 셀 전체가 받으므로 배지는 표시일 뿐이다.
-            when {
-                disabled -> Unit
-                selected != null -> SelectionBadge(selected)
-                isEditing -> RemoveBadge()
-            }
+            if (isEditing) RemoveBadge()
         }
         Text(
             track.trackName,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = if (disabled) DSColor.textTertiary.copy(alpha = 0.6f) else DSColor.textPrimary,
+            color = DSColor.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             track.artistName,
             fontSize = 10.sp,
-            color = if (disabled) DSColor.textTertiary.copy(alpha = 0.6f) else DSColor.textTertiary,
+            color = DSColor.textTertiary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-    }
-}
-
-/**
- * 선택 배지. 고른 것은 브랜드색 원에 흰 체크, 안 고른 것은 **흰 원에 회색 테두리**다.
- * 빈 원이 없으면 여기서 무엇을 할 수 있는지가 안 보여서 유저가 그냥 재생인 줄 안다.
- * 테두리를 흰색으로 두면 아트워크 밖으로 나간 절반이 밝은 지면에 묻혀 원이 잘려 보인다.
- */
-@Composable
-private fun SelectionBadge(isOn: Boolean) {
-    Box(
-        Modifier
-            .offset((-6).dp, (-6).dp)
-            .size(20.dp)
-            .clip(CircleShape)
-            .background(if (isOn) DSColor.brand else Color.White)
-            .then(
-                if (isOn) Modifier
-                else Modifier.border(1.5.dp, DSColor.textTertiary, CircleShape)
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (isOn) {
-            Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(12.dp))
-        }
     }
 }
 
@@ -526,8 +439,9 @@ private fun RemoveBadge() {
     }
 }
 
+/** 추천 기준 곡 행(`SeedPickerScreen`)도 쓴다 — [gray]는 그쪽 비활성 행용. */
 @Composable
-private fun Artwork(
+internal fun Artwork(
     url: String,
     size: androidx.compose.ui.unit.Dp,
     radius: androidx.compose.ui.unit.Dp,
