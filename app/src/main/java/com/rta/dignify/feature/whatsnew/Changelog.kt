@@ -27,6 +27,20 @@ object Changelog {
         // **노트는 versionName을 정확히 따라가야 한다** — `shouldShow`가 노트 없는 버전을
         // 걸러내므로 한 글자만 어긋나도 새 소식 화면이 통째로 안 뜬다.
         // iOS 1.3.0 노트 3줄을 그대로 가져왔다(`WhatsNewView.swift`).
+        // iOS 1.3.2 노트 4줄 + iOS 1.3.1 노트 3줄. 1.3.1 몫(추천 기준 곡 개편·트레이·흐리게)은
+        // vc15가 이름 1.3.0 그대로 노트 없이 실어 냈다 — 여기서 처음 알린다.
+        Release(
+            version = "1.3.2",
+            notes = listOf(
+                R.string.whatsnew_132_first,
+                R.string.whatsnew_132_notify,
+                R.string.whatsnew_132_weekly,
+                R.string.whatsnew_132_settings,
+                R.string.whatsnew_131_seeds,
+                R.string.whatsnew_131_tray,
+                R.string.whatsnew_131_dim,
+            ),
+        ),
         Release(
             version = "1.3.0",
             notes = listOf(

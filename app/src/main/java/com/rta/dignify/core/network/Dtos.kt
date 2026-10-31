@@ -203,7 +203,13 @@ object Api {
         val isOnboardingComplete: Boolean,
         /** 하입 따라가기. 옛 서버는 안 내려주므로 nullable — 그때는 켜진 것으로 본다. */
         val diggingMode: Boolean? = null,
+        /** 광고성 알림 수신 동의. 이 필드가 없는 서버에선 기기에 남긴 마지막 처리 결과를 쓴다. */
+        val adPushConsent: Boolean? = null,
     )
+
+    /** `processedAt`은 ISO-8601 Instant. 결과 통지의 처리 일자다. */
+    @Serializable
+    data class AdPushConsent(val adPush: Boolean, val processedAt: String)
 
     /**
      * 피드/검색/픽 상세 공통 응답. nextCursor 없으면 더 받을 게 없다.

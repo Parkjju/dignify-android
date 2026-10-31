@@ -88,6 +88,7 @@ import com.rta.dignify.feature.feed.FeedScreen
 import com.rta.dignify.feature.mypage.HypeHistoryScreen
 import com.rta.dignify.feature.mypage.MyPageScreen
 import com.rta.dignify.feature.mypage.SeedPickerScreen
+import com.rta.dignify.feature.onboarding.CoachSeen
 import com.rta.dignify.feature.onboarding.FeedBuilding
 import com.rta.dignify.feature.onboarding.OnboardingMock
 import com.rta.dignify.core.designsystem.rememberReduceMotion
@@ -99,6 +100,8 @@ import com.rta.dignify.feature.onboarding.PredictedType
 import com.rta.dignify.feature.onboarding.SeedPoolPickerScreen
 import com.rta.dignify.feature.onboarding.fetchSeedPool
 import com.rta.dignify.feature.push.Push
+import com.rta.dignify.feature.push.NotificationSettingsScreen
+import com.rta.dignify.feature.push.PushNotifications
 import com.rta.dignify.feature.whatsnew.Changelog
 import com.rta.dignify.feature.whatsnew.WhatsNewSheet
 import androidx.compose.ui.platform.LocalContext
@@ -115,6 +118,7 @@ class MainActivity : ComponentActivity() {
         // onStart보다 먼저 붙어야 이번 실행도 센다.
         AppOpen.start()
         Session.init(applicationContext)
+        if (savedInstanceState == null) Session.countLaunch()
         // 차단·숨김 목록은 서버가 모르는 로컬 상태라 앱 시작 때 읽어둔다.
         LocalModeration.init(applicationContext)
         PredictedType.init(applicationContext)
@@ -154,7 +158,8 @@ class MainActivity : ComponentActivity() {
             AppOpen.openedBy("app_opened_now_playing")
             return
         }
-        if (!extras.containsKey("google.message_id")) return
+        // 광고성 알림은 앱이 직접 만들어서(`DignifyMessagingService`) FCM 표식 대신 우리 표식을 싣는다.
+        if (!extras.containsKey("google.message_id") && !extras.getBoolean(PushNotifications.EXTRA_FROM_PUSH)) return
         val type = extras.getString("type") ?: "unknown"
         // push_id는 2026-10-19 서버부터 실린다. 그 전 알림엔 없어 키째 뺀다(어드민 발송 이력과 잇는 값).
         val props = buildMap<String, Any> {
@@ -166,7 +171,8 @@ class MainActivity : ComponentActivity() {
         extras.getString("push_id")?.let { pushId ->
             Session.appScope.launch { runCatching { Session.api.reportPushOpened(pushId) } }
         }
-        Session.onPushOpened(type)
+        val trackIds = extras.getString("trackIds").orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }
+        Session.onPushOpened(type, trackIds)
     }
 }
 
@@ -251,7 +257,7 @@ private fun OnboardingFlow() {
 private const val BUILDING_MIN_MS = 2_000L
 
 /**
- * 시드 고르기를 한 번이라도 태웠는지. 신규 가입·업데이트 유저가 같은 키를 쓴다.
+ * 시드 고르기를 한 번이라도 태웠는지. 이제 신규 가입 온보딩만 쓴다(업데이트 유저용은 1.3.2에서 뺐다).
  *
  * **이름을 바꾸면 안 된다.** 값이 `didSoundRounds`인 건 2지선다 시절 이름이라서지 라운드를
  * 뜻해서가 아니다 — 바꾸는 순간 이미 온보딩을 끝낸 유저 전원이 이 화면을 다시 본다.
@@ -282,8 +288,6 @@ private fun MainTabs() {
     var myRoute by rememberSaveable { mutableStateOf(MyRoute.ROOT) }
     // 재생 중인 픽. 탭 밖에 둬야 다른 탭 갔다 와도 보던 픽이 유지된다.
     var playingPick by remember { mutableStateOf<Api.Pick?>(null) }
-    // 시드 고르기를 닫은 뒤에 이어서 띄울 What's New 버전.
-    var pendingWhatsNew by remember { mutableStateOf<String?>(null) }
 
     // 탭바가 실제로 가리는 높이 = 내용 높이 + 시스템 내비게이션 바.
     // 이걸 안 더하면 화면들이 제스처 바 높이만큼 탭바 아래로 파고든다
@@ -293,47 +297,29 @@ private fun MainTabs() {
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     // 업데이트로 들어온 유저에게만 새 소식을 띄운다. 신규 설치는 온보딩 대상이라 제외.
+    // 시드 고르기는 신규 가입 온보딩에서만 탄다(1.1.0 업데이트 유저용 안내는 1.3.2에서 뺐다).
     val context = LocalContext.current
-    var autoWhatsNew by remember { mutableStateOf<String?>(null) }
-    // 업데이트 유저에게 한 번 태우는 시드 고르기. 풀을 실제로 받은 뒤에 세팅한다 —
-    // **플래그로 열면 안 된다.** 풀이 채워지기 전 값이 화면에 잡혀 곡을 다 받고도
-    // 빈 화면이 뜬다(iOS가 실제로 밟은 함정).
-    var updateSeedPool by remember { mutableStateOf<List<Api.FeedItem>?>(null) }
-
-    LaunchedEffect(Unit) {
+    // **컴포지션 중에(remember) 판정한다.** 피드가 코치마크 기록을 처음 그릴 때 한 번만 읽어서,
+    // LaunchedEffect로 미루면 피드가 옛 값을 잡고 기존 유저에게 코치마크가 뜬다.
+    var autoWhatsNew by remember {
         val prefs = context.getSharedPreferences("dignify", android.content.Context.MODE_PRIVATE)
         val lastSeen = prefs.getString("lastSeenVersion", "").orEmpty()
         val current = BuildConfig.VERSION_NAME
         // 기존 로그인 유저가 업데이트로 들어온 경우 = 온보딩을 안 거쳤고 로그인 상태다.
-        val didJustOnboard = prefs.getBoolean(KEY_DID_JUST_ONBOARD, false)
-        val isReturning = !didJustOnboard && Session.state == AuthState.SIGNED_IN
+        // 다시 설치하고 기존 계정으로 로그인한 경우도 여기 든다.
+        val isReturning = !prefs.getBoolean(KEY_DID_JUST_ONBOARD, false) && Session.state == AuthState.SIGNED_IN
+        // 코치마크는 기기 기록만 봐서, 재설치한 기존 유저에게 다시 뜨고 동의 팝업을 뒤로 밀었다.
+        if (isReturning) CoachSeen.mark(context, CoachSeen.FEED)
         val wantsWhatsNew = Changelog.shouldShow(lastSeen, current, isReturningUser = isReturning)
-
-        // 업데이트로 들어온 기존 유저는 한 번은 시드 고르기를 탄다. **하입 수로 가르지 않는다** —
-        // 시드가 밀렸으면 마이페이지 → 추천 기준 곡에서 되돌리면 되고, 건너뛰면
-        // 하입이 많은 유저일수록 이번 릴리즈에서 무엇이 바뀌었는지 겪어볼 자리가 없어진다.
-        val pool = if (isReturning && !prefs.getBoolean(KEY_DID_ROUNDS, false)) {
-            // 풀이 없으면(서버 미시딩) 아예 안 띄우고 **플래그도 안 태운다** — 시딩된 뒤에
-            // 이 유저가 영영 이 화면을 못 보면 안 된다.
-            fetchSeedPool().takeIf { it.isNotEmpty() }
-        } else null
-
-        if (pool != null) {
-            // 시드 고르기가 What's New를 삼키면 안 된다. 닫힐 때 이어 붙인다 — 이번 릴리즈는
-            // 온보딩이 바뀐 게 핵심이라, 화면만 보고 넘어가면 무엇이 달라졌는지 모른 채 피드로 간다.
-            pendingWhatsNew = if (wantsWhatsNew) current else null
-            updateSeedPool = pool
-        } else if (wantsWhatsNew) {
-            autoWhatsNew = current
-        }
         prefs.edit().putString("lastSeenVersion", current).remove(KEY_DID_JUST_ONBOARD).apply()
+        mutableStateOf(if (wantsWhatsNew) current else null)
     }
 
     // 푸시가 지정한 목적지로 옮긴다. 탭과 마이 탭 스택을 아는 건 여기뿐이라 이 자리다.
     // `pick_reaction`이 픽 탭이 아니라 디깅 프로필로 가는 이유는 `Session.onPushOpened` 참고.
     LaunchedEffect(Session.pushTarget) {
         when (Session.pushTarget) {
-            PushTarget.CURATION -> tab = AppTab.FEED
+            PushTarget.FEED -> tab = AppTab.FEED
             PushTarget.MY_PICKS -> { myRoute = MyRoute.DIGGING; tab = AppTab.MY }
             null -> return@LaunchedEffect
         }
@@ -341,58 +327,40 @@ private fun MainTabs() {
     }
 
     Box(Modifier.fillMaxSize()) {
-        // 시드 고르기 커버가 떠 있는 동안엔 탭 지면을 **아예 안 그린다.** 배경만 깐 Column은 터치를
-        // 안 막아서 위에 얹으면 탭바가 그대로 눌리고, 컴포지션에 남은 피드는 계속 소리를 낸다.
-        if (updateSeedPool == null) {
-            when (tab) {
-                AppTab.FEED -> FeedScreen(bottomInset = barHeight)
-                // 픽 재생은 별도 화면을 만들지 않는다 — 서버가 픽 상세를 피드와 같은 형태로 주므로
-                // 피드 화면에 목록만 갈아끼워 태운다(iOS `FeedMode.pick`과 같은 판단).
-                AppTab.PICKS ->
-                    // 게스트는 마이 탭과 같은 로그인 유도. 픽은 반응·만들기가 다 계정이라
-                    // 목록만 보여 주면 누르는 것마다 로그인 시트가 뜬다.
-                    if (Session.state == AuthState.GUEST) {
-                        Box(Modifier.fillMaxSize().padding(bottom = barHeight)) { GuestSignInPrompt() }
-                    } else if (playingPick != null) {
-                        PickPlayback(pick = playingPick!!, bottomInset = barHeight) { playingPick = null }
-                    } else {
-                        PickListScreen(bottomInset = barHeight, onPlay = { playingPick = it })
-                    }
+        when (tab) {
+            AppTab.FEED -> FeedScreen(bottomInset = barHeight)
+            // 픽 재생은 별도 화면을 만들지 않는다 — 서버가 픽 상세를 피드와 같은 형태로 주므로
+            // 피드 화면에 목록만 갈아끼워 태운다(iOS `FeedMode.pick`과 같은 판단).
+            AppTab.PICKS ->
+                // 게스트는 마이 탭과 같은 로그인 유도. 픽은 반응·만들기가 다 계정이라
+                // 목록만 보여 주면 누르는 것마다 로그인 시트가 뜬다.
+                if (Session.state == AuthState.GUEST) {
+                    Box(Modifier.fillMaxSize().padding(bottom = barHeight)) { GuestSignInPrompt() }
+                } else if (playingPick != null) {
+                    PickPlayback(pick = playingPick!!, bottomInset = barHeight) { playingPick = null }
+                } else {
+                    PickListScreen(bottomInset = barHeight, onPlay = { playingPick = it })
+                }
 
-                AppTab.MY -> MyTab(
-                    bottomInset = barHeight,
-                    route = myRoute,
-                    onRoute = { myRoute = it },
-                    // 내 픽에서 재생하면 픽 탭으로 넘겨 같은 재생 지면을 쓴다.
-                    onPlayPick = { playingPick = it; tab = AppTab.PICKS },
-                    // 추천 기준 곡 빈 화면 「곡 찾으러 가기」. 마이로 돌아왔을 때 빈 화면이 또 반기지 않게 루트로.
-                    onGoFeed = { myRoute = MyRoute.ROOT; tab = AppTab.FEED },
-                )
-            }
-
-            TabBar(
-                current = tab,
-                onSelect = { tab = it },
-                height = barContentHeight,
-                // 피드 위에선 지면이 검으므로 반투명 검정, 마이페이지는 흰 지면이라 불투명.
-                onFeed = tab == AppTab.FEED,
-                modifier = Modifier.align(Alignment.BottomCenter),
+            AppTab.MY -> MyTab(
+                bottomInset = barHeight,
+                route = myRoute,
+                onRoute = { myRoute = it },
+                // 내 픽에서 재생하면 픽 탭으로 넘겨 같은 재생 지면을 쓴다.
+                onPlayPick = { playingPick = it; tab = AppTab.PICKS },
+                // 추천 기준 곡 빈 화면 「곡 찾으러 가기」. 마이로 돌아왔을 때 빈 화면이 또 반기지 않게 루트로.
+                onGoFeed = { myRoute = MyRoute.ROOT; tab = AppTab.FEED },
             )
         }
 
-        // 시트가 아니라 화면 전체다 — 쓸어 닫을 수 있으면 고르다 만 채로 끊긴다.
-        updateSeedPool?.let { pool ->
-            SeedPoolPickerScreen(pool = pool, isUpdate = true) { picked ->
-                context.getSharedPreferences("dignify", android.content.Context.MODE_PRIVATE)
-                    .edit().putBoolean(KEY_DID_ROUNDS, true).apply()
-                updateSeedPool = null
-                // 방금 고른 곡이 시드다. 피드는 이미 불러온 뒤라 다시 받지 않으면
-                // 유저는 다 고르고도 예전 순서를 본다.
-                if (picked.isNotEmpty()) Session.onSeedsChanged()
-                autoWhatsNew = pendingWhatsNew
-                pendingWhatsNew = null
-            }
-        }
+        TabBar(
+            current = tab,
+            onSelect = { tab = it },
+            height = barContentHeight,
+            // 피드 위에선 지면이 검으므로 반투명 검정, 마이페이지는 흰 지면이라 불투명.
+            onFeed = tab == AppTab.FEED,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
 
         // 곡 고르기 직후의 "피드 구성 중". 탭바까지 덮어야 해서 여기 둔다.
         // 최소 2초 — 응답이 빨라도 고른 곡이 피드를 만든다는 걸 읽을 시간은 준다. 첫 피드 응답이
@@ -412,6 +380,8 @@ private fun MainTabs() {
             FeedBuilding(covers, rememberReduceMotion())
         }
 
+        // 피드의 동의·좋아요 팝업이 이 시트 위로 겹치지 않게 알린다. 닫히면 그때 뜬다.
+        LaunchedEffect(autoWhatsNew) { Session.whatsNewOpen = autoWhatsNew != null }
         autoWhatsNew?.let { version ->
             WhatsNewSheet(highlight = version, onDismiss = { autoWhatsNew = null })
         }
@@ -490,6 +460,7 @@ private fun MyTab(
                 onOpenSeedPicker = { onRoute(MyRoute.SEEDS) },
                 onOpenArtistRequests = { onRoute(MyRoute.ARTIST_REQUESTS) },
                 onOpenBlockedUsers = { onRoute(MyRoute.BLOCKED) },
+                onOpenNotifications = { onRoute(MyRoute.NOTIFICATIONS) },
                 onOpenWhatsNew = { onRoute(MyRoute.WHATS_NEW) },
             )
 
@@ -510,6 +481,7 @@ private fun MyTab(
             MyRoute.SEEDS -> SeedPickerScreen(onBack = { onRoute(MyRoute.ROOT) }, onFindTracks = onGoFeed)
             MyRoute.ARTIST_REQUESTS -> ArtistRequestScreen(onBack = { onRoute(MyRoute.ROOT) })
             MyRoute.BLOCKED -> BlockedUsersScreen(onBack = { onRoute(MyRoute.ROOT) })
+            MyRoute.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { onRoute(MyRoute.ROOT) })
             // 마이페이지에서 직접 열면 전체 로그(highlight = null).
             MyRoute.WHATS_NEW -> WhatsNewSheet(onDismiss = { onRoute(MyRoute.ROOT) })
         }
@@ -520,7 +492,7 @@ private fun MyTab(
 /** `depth`는 전환 방향 판정용 — 값이 커지는 쪽이 "더 들어가는" 것이다. */
 enum class MyRoute(val depth: Int) {
     ROOT(0),
-    DIGGING(1), SEEDS(1), ARTIST_REQUESTS(1), BLOCKED(1), WHATS_NEW(1),
+    DIGGING(1), SEEDS(1), ARTIST_REQUESTS(1), BLOCKED(1), NOTIFICATIONS(1), WHATS_NEW(1),
     HYPES(2), MY_PICKS(2),
 }
 

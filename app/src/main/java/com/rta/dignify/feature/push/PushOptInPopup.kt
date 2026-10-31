@@ -41,7 +41,7 @@ import com.rta.dignify.core.designsystem.DSTypography
  * 방법이 없어진다(설정으로 보내는 수밖에 없다).
  *
  * **문구를 호출부가 넘기는 게 이 컴포넌트의 핵심이다.** 알림이 무엇을 알리는지가 요청 위치마다
- * 다른데 한 문구로 뭉치면 물어보는 이유 자체가 사라진다. 기본값은 특집 세트 맥락.
+ * 다른데 한 문구로 뭉치면 물어보는 이유 자체가 사라진다.
  *
  * 시스템 알럿처럼 보이게 만들면 안 된다 — 바로 뒤에 진짜 시스템 창이 오는 구조라, 회색 크롬을
  * 흉내 내면 가짜 시스템 다이얼로그가 된다. 브랜드 컬러·우리 타이포로 우리 것임을 드러낸다.
@@ -51,8 +51,8 @@ fun PushOptInPopup(
     visible: Boolean,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
-    title: String = stringResource(R.string.push_optin_set_title),
-    message: String = stringResource(R.string.push_optin_set_message),
+    title: String,
+    message: String,
 ) {
     // 딤 탭 = 거절. 시스템 알럿이 공짜로 주던 동작이라 직접 붙인다.
     DSPopup(visible = visible, onDismiss = onDecline) {

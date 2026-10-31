@@ -1,13 +1,10 @@
 package com.rta.dignify.feature.feed
 
-import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
@@ -149,7 +146,11 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
+import com.rta.dignify.feature.push.AdConsentNotice
 import com.rta.dignify.feature.push.PushOptInPopup
+import com.rta.dignify.feature.push.findActivity
+import com.rta.dignify.feature.push.processAdConsent
+import com.rta.dignify.feature.push.rememberEnableNotifications
 import kotlin.math.round
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -158,8 +159,20 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-/** 푸시 옵트인을 어느 맥락에서 물었는지. iOS와 같은 값이어야 소스별 수락률이 한 표에 모인다. */
-private const val PUSH_SOURCE_CURATION = "curation_done"
+/**
+ * 권한·동의 팝업. 한 번에 하나만 뜬다(실행당 하나 — `Session.promptedThisSession`).
+ * `source`는 계측 값이다. iOS와 같은 값이어야 맥락별 수락률이 한 표에 모인다.
+ */
+private sealed class Prompt(val source: String) {
+    /** 코치마크 직후(또는 업데이트 뒤 첫 실행) 광고성 정보 수신 동의. 세 알림 공통. */
+    data object FirstRun : Prompt("first_run")
+
+    /** 좋아요 → 다음 카드. 「혁오 신곡이 나오면 알려 드릴까요?」 동의가 없으면 같이 받는다. */
+    data class Hype(val artist: String) : Prompt("hype")
+
+    /** 앱을 열 때 붙은 신곡 구간을 다 본 뒤. 꺼져 있는 쪽(동의·기기 알림)을 켜게 한다. */
+    data object NewRelease : Prompt("new_release")
+}
 
 /**
  * 스와이프 피드. iOS `FeedView`의 이식이되 페이징은 손으로 안 짠다 — iOS가 offset 애니메이션을
@@ -222,6 +235,14 @@ fun FeedScreen(
         else scope.launch { pagerState.scrollToPage(vm.clearSearch()) }
     }
 
+    // 신곡 알림 팝업 계기. 화면에서 켠 좋아요만 남긴다 — 미디어 알림 좋아요(`audio.onHype`)는
+    // 앱을 안 보는 중이라 계기가 아니다. 좋아요 모션 위로 뜨면 곡을 저장하는 손 위로 팝업이 덮이므로
+    // 다음 카드로 넘어간 뒤에 묻는다(1.0.6에서 시스템 창을 바로 띄웠다가 걷어낸 이유).
+    var hypedArtist by remember { mutableStateOf<String?>(null) }
+    val noteHype: (Int) -> Unit = { trackId ->
+        vm.feeds.firstOrNull { it.trackId == trackId }?.let { hypedArtist = it.artistName }
+    }
+
     // 카드와 상세 시트가 같은 하입 동작을 써야 해서 한 곳에 둔다.
     // 게스트는 **누르는 즉시** 로그인 화면이 뜬다 — 스낵바로 알리고 끝내면 유저가
     // 한 번 더 눌러야 하고, 그 사이 스낵바가 사라지면 아무 일도 안 일어난 게 된다.
@@ -229,6 +250,7 @@ fun FeedScreen(
         val turningOn = vm.feeds.any { it.trackId == trackId && !it.isHyped }
         if (Session.requireAccount() && vm.toggleHype(trackId) && turningOn) {
             burst = trackId to burstSeq++
+            noteHype(trackId)
         }
     }
 
@@ -294,6 +316,13 @@ fun FeedScreen(
     // 로그인·성향 변경처럼 피드 내용이 통째로 달라지는 일이 생기면 새로 받는다.
     // 게스트로 본 피드는 하입 표시가 안 된 상태라 로그인 후엔 반드시 다시 받아야 한다.
     LaunchedEffect(Session.feedReloadTick) { vm.onReloadTick(Session.feedReloadTick) }
+    // 알림 탭(신곡·주간·큐레이션). 평소 피드의 진행 위치는 그대로 두고 앞 구간만 갈아 끼운다.
+    LaunchedEffect(Session.pushOpenTick) { vm.onPushOpenTick(Session.pushOpenTick) }
+    LaunchedEffect(vm.jumpToTop) {
+        if (!vm.jumpToTop) return@LaunchedEffect
+        vm.jumpToTop = false
+        pagerState.scrollToPage(0)
+    }
 
     // 스와이프가 멎은 뒤에만 오디오 윈도우를 옮긴다. 드래그 중에 옮기면 지나가는 곡이
     // 전부 한 번씩 재생된다.
@@ -325,29 +354,6 @@ fun FeedScreen(
                 }
                 return Offset.Zero
             }
-        }
-    }
-
-    // 세트를 완주한 순간 알림 권한을 묻는다. 허용이든 거부든 피드는 그대로라 흐름은 안 바뀌지만,
-    // 시스템 창의 결과는 남긴다 — 우리 팝업 수락률과 실제 허용률의 차이가 문구 튜닝 근거다.
-    val notifPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        Analytics.capture(
-            "push_permission_result",
-            mapOf("granted" to granted, "source" to PUSH_SOURCE_CURATION),
-        )
-    }
-
-    // 시스템 창을 바로 띄우지 않고 우리 팝업으로 먼저 맥락을 준다 — 자세한 이유는 PushOptInPopup 참고.
-    var showPushOptIn by remember { mutableStateOf(false) }
-
-    LaunchedEffect(vm.justFinishedSet) {
-        if (!vm.justFinishedSet) return@LaunchedEffect
-        vm.onSetCompletionHandled()
-        if (Push.canAskNotificationPermission(context)) {
-            Analytics.capture("push_optin_shown", mapOf("source" to PUSH_SOURCE_CURATION))
-            showPushOptIn = true
         }
     }
 
@@ -435,6 +441,54 @@ fun FeedScreen(
         if (coachPeeking) 1f else (1f - abs(pagerState.currentPageOffsetFraction) * 4f).coerceIn(0f, 1f)
     }
 
+    // 권한·동의 팝업. 코치마크·로그인 시트·업데이트 소식·피드 구성 화면 위로는 안 띄운다.
+    // 닫히는 동안에도 문구가 남아 있어야 해서 팝업과 보임을 따로 둔다.
+    var prompt by remember { mutableStateOf<Prompt?>(null) }
+    var promptVisible by remember { mutableStateOf(false) }
+    var promptNeedsConsent by remember { mutableStateOf(false) }
+    var consentNotice by remember { mutableStateOf<String?>(null) }
+    val enableNotifications = rememberEnableNotifications()
+    val canPrompt = Session.state == AuthState.SIGNED_IN && seenCoach && vm.pickNickname == null &&
+        vm.feeds.isNotEmpty() && !Session.whatsNewOpen && !Session.pendingSignIn && Session.buildingFeedFrom == null
+    val show: (Prompt) -> Unit = { p ->
+        Session.promptedThisSession = true
+        // 첫 실행 팝업은 늘 동의를 묻는다 — 서버에 동의가 이미 있어도(다른 기기·재설치) 다시 처리하고 통지한다(iOS와 같다).
+        promptNeedsConsent = p is Prompt.FirstRun || !Session.adPushConsent
+        if (promptNeedsConsent) Analytics.capture("ad_consent_shown", mapOf("source" to p.source))
+        if (p !is Prompt.FirstRun) Analytics.capture("push_optin_shown", mapOf("source" to p.source))
+        prompt = p
+        promptVisible = true
+    }
+
+    // 첫 실행: 코치마크가 끝난 직후 한 번. 코치마크를 이미 본 기존 유저는 업데이트 뒤 첫 실행에 뜬다
+    // (기록이 없으므로). 게스트에겐 안 띄운다 — 로그인 뒤 첫 실행에 뜬다(2026-10-29 확정).
+    LaunchedEffect(canPrompt) {
+        // 서버 동의 값으로 거르지 않는다(iOS `offerAdConsentIfNeeded`와 같다). 거르면 다른 기기에서 동의한 계정은
+        // 이 기기에서 권한을 물어볼 자리가 없다.
+        if (!canPrompt || vm.didOfferAdConsent || Session.promptedThisSession || Session.signedInFromGuest) return@LaunchedEffect
+        vm.markAdConsentOffered()
+        show(Prompt.FirstRun)
+    }
+
+    // 좋아요 직후가 아니라 **다음 카드로 넘어간 뒤**에 묻는다(hypedArtist는 위 hype 옆에 있다).
+    LaunchedEffect(pagerState.settledPage) {
+        val artist = hypedArtist ?: return@LaunchedEffect
+        hypedArtist = null
+        val activity = context.findActivity() ?: return@LaunchedEffect
+        if (!canPrompt || Session.promptedThisSession || Session.launchCount < 2) return@LaunchedEffect
+        if (!Push.permissionUndecided(activity) || !vm.claimHypeOffer(artist)) return@LaunchedEffect
+        show(Prompt.Hype(artist))
+    }
+
+    // 신곡 구간을 다 본 뒤 "다음 신곡도 알림으로". 이미 둘 다 켜져 있으면 받을 게 없다.
+    LaunchedEffect(vm.justFinishedNewReleases) {
+        if (!vm.justFinishedNewReleases) return@LaunchedEffect
+        vm.onNewReleasesFinishedHandled()
+        if (!canPrompt || Session.promptedThisSession) return@LaunchedEffect
+        if (Session.adPushConsent && Push.notificationsEnabled(context)) return@LaunchedEffect
+        show(Prompt.NewRelease)
+    }
+
     // Scaffold를 안 쓴다 — 앱 바가 없어서 content padding이 늘 0이고, 그걸 무시하면
     // lint(UnusedMaterial3ScaffoldPaddingParameter)가 빌드를 세운다.
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -484,7 +538,7 @@ fun FeedScreen(
                         if (hyped) {
                             burst = trackId to burstSeq++
                             // 이미 하입된 곡이어도 해 본 건 맞다.
-                            if (coachTap) coachStep = CoachGestureStep.HYPED
+                            if (coachTap) coachStep = CoachGestureStep.HYPED else noteHype(trackId)
                         }
                     },
                     bottomInset = bottomInset,
@@ -582,9 +636,9 @@ fun FeedScreen(
                         visible = !isSearching && vm.feeds.isNotEmpty(),
                     )
                 } else {
-                    CurationBadge(
+                    SegmentBadge(
                         index = pagerState.currentPage,
-                        count = vm.curationCount,
+                        segment = vm.segmentAt(pagerState.currentPage),
                         // 검색 결과를 보는 중엔 숨긴다. 목록이 통째로 검색 결과인데
                         // "이번 주 특집 1/7"이 뜨면 앞 7곡이 특집인 것처럼 읽힌다.
                         visible = !isSearching && vm.activeQuery.isEmpty(),
@@ -623,18 +677,42 @@ fun FeedScreen(
         }
 
         // 팝업은 최상단. 딤이 피드 제스처를 먹어야 뒤로 스와이프가 안 샌다.
-        PushOptInPopup(
-            visible = showPushOptIn,
-            onAccept = {
-                Analytics.capture("push_optin_accepted", mapOf("source" to PUSH_SOURCE_CURATION))
-                showPushOptIn = false
-                notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            },
-            onDecline = {
-                Analytics.capture("push_optin_declined", mapOf("source" to PUSH_SOURCE_CURATION))
-                showPushOptIn = false
-            },
-        )
+        prompt?.let { p ->
+            // 띄울 때 정한 값이다. 수락하면 동의가 먼저 처리돼, 닫히는 사이 문구가 바뀌면 안 된다.
+            val needsConsent = promptNeedsConsent
+            PushOptInPopup(
+                visible = promptVisible,
+                title = when (p) {
+                    Prompt.FirstRun -> stringResource(R.string.ad_consent_title)
+                    is Prompt.Hype -> stringResource(R.string.hype_optin_title, p.artist)
+                    Prompt.NewRelease -> stringResource(R.string.new_release_optin_title)
+                },
+                message = when {
+                    p is Prompt.FirstRun -> stringResource(R.string.ad_consent_message)
+                    needsConsent -> stringResource(R.string.ad_consent_message_short)
+                    p is Prompt.Hype -> stringResource(R.string.hype_optin_message)
+                    else -> stringResource(R.string.new_release_optin_message)
+                },
+                onAccept = {
+                    promptVisible = false
+                    if (p !is Prompt.FirstRun) Analytics.capture("push_optin_accepted", mapOf("source" to p.source))
+                    if (needsConsent) {
+                        Analytics.capture("ad_consent_accepted", mapOf("source" to p.source))
+                        scope.launch { consentNotice = processAdConsent(context, true) }
+                    }
+                    enableNotifications(p.source)
+                },
+                onDecline = {
+                    promptVisible = false
+                    if (p !is Prompt.FirstRun) Analytics.capture("push_optin_declined", mapOf("source" to p.source))
+                    if (needsConsent) Analytics.capture("ad_consent_declined", mapOf("source" to p.source))
+                    // 첫 실행 거부도 처리 결과를 통지한다(제50조 7항). 서버 기본값과 같지만 처리 시각이 남는다.
+                    // 좋아요·신곡 팝업의 「나중에」는 팝업만 닫는다 — 다음 기회가 남는다.
+                    if (p is Prompt.FirstRun) scope.launch { consentNotice = processAdConsent(context, false) }
+                },
+            )
+        }
+        AdConsentNotice(consentNotice) { consentNotice = null }
     }
 }
 
@@ -1195,9 +1273,16 @@ private fun ContextPill(label: String) {
  * 낸다 — 리스트 화면을 만들면 "뭘 누를까" 결정 비용이 생겨 스와이프 경험과 충돌한다.
  */
 @Composable
-private fun CurationBadge(index: Int, count: Int, visible: Boolean, modifier: Modifier = Modifier) {
-    if (!visible || count <= 0 || index >= count) return
-    ContextBadge(stringResource(R.string.curation_badge, index + 1, count), true, modifier)
+private fun SegmentBadge(index: Int, segment: Segment?, visible: Boolean, modifier: Modifier = Modifier) {
+    if (!visible || segment == null) return
+    val label = when (segment.kind) {
+        SOURCE_CURATION -> R.string.curation_badge
+        SOURCE_NEW_RELEASE -> R.string.new_release_badge
+        SOURCE_WEEKLY -> R.string.weekly_badge
+        // 연관 구간은 끝이 정해져 있지 않다(5번 넘기면 끝난다) — 몇 번째인지 셀 수 없다.
+        else -> return
+    }
+    ContextBadge(stringResource(label, index - segment.start + 1, segment.size), true, modifier)
 }
 
 /**

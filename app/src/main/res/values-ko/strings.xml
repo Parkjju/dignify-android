@@ -24,12 +24,33 @@
     <string name="no_hypes_yet">아직 좋아요한 유저가 없어요</string>
     <string name="open_youtube_music">YouTube Music에서 찾기</string>
 
-    <string name="push_optin_set_title">이번 주 특집, 여기까지예요</string>
-    <string name="push_optin_set_message">방금 보신 곡들은 저희가 직접 판 거예요. 매주 새로 파고 있는데, 다음 편 올라오면 알려드릴까요?</string>
     <string name="push_optin_pick_title">픽을 올렸어요</string>
     <string name="push_optin_pick_message">올린 픽에 🔥가 달리면 바로 알려드릴게요.</string>
     <string name="push_optin_accept">알림 받기</string>
     <string name="push_optin_decline">나중에</string>
+
+    <!-- 재방문 푸시 2종. iOS 1.3.2 xcstrings 값. new_release_optin_* · hype_optin_message는 iOS에 없는 자리라 임시 -->
+    <string name="ad_consent_title">새 음악 소식, 알림으로 받을까요?</string>
+    <string name="ad_consent_message">좋아요한 아티스트의 신곡, 주간 추천, 이번 주 특집을 알려 드려요. 「알림 받기」를 누르면 광고성 정보 수신에 동의하게 돼요.</string>
+    <string name="ad_consent_message_short">「알림 받기」를 누르면 광고성 정보 수신에 동의하게 돼요.</string>
+    <string name="ad_consent_notice_title">알림 설정을 저장했어요</string>
+    <string name="ad_consent_result_accept">귀하가 요청하신 Dignify의 광고성 정보 수신동의가 %1$s에 처리되었습니다.</string>
+    <string name="ad_consent_result_decline">귀하가 요청하신 Dignify의 광고성 정보 수신거부가 %1$s에 처리되었습니다.</string>
+    <string name="ad_push_opt_out">수신거부</string>
+    <string name="ad_push_opt_out_failed">수신거부를 처리하지 못했어요. 마이 › 알림에서 광고성 알림을 꺼 주세요.</string>
+    <string name="hype_optin_title">%1$s 신곡이 나오면 알려 드릴까요?</string>
+    <string name="hype_optin_message">좋아요한 아티스트가 신곡을 내면 다음 날 알려 드려요.</string>
+    <string name="new_release_optin_title">다음 신곡도 알림으로 받을까요?</string>
+    <string name="new_release_optin_message">기기에서 Dignify 알림을 켜야 받을 수 있어요.</string>
+    <string name="new_release_badge">좋아요한 아티스트의 신곡 %1$d/%2$d</string>
+    <string name="weekly_badge">이번 주 추천 %1$d/%2$d</string>
+    <string name="notification_settings">알림</string>
+    <string name="ad_consent_toggle">광고성 정보 알림 수신</string>
+    <string name="ad_consent_toggle_note">좋아요한 아티스트의 신곡, 주간 추천, 이번 주 특집 알림이에요. 모두 광고성 정보예요.</string>
+    <string name="device_notifications">기기 알림 권한</string>
+    <string name="device_notifications_on">켜짐</string>
+    <string name="device_notifications_off">꺼짐</string>
+    <string name="device_notifications_not_set">설정 전</string>
 
     <string name="push_channel_default">Dignify</string>
     <string name="push_artist_added_title">\'%1$s\' 등록 완료</string>
@@ -163,6 +184,13 @@
     <string name="whatsnew_title">새로운 기능</string>
     <string name="whatsnew_version">버전 %1$s</string>
     <string name="whatsnew_got_it">확인</string>
+    <string name="whatsnew_132_first">좋아요한 아티스트의 신곡이 나오면 피드 맨 앞에 먼저 보여 드려요.</string>
+    <string name="whatsnew_132_notify">알림을 켜 두면 좋아요한 아티스트의 신곡 소식을 바로 알려 드려요.</string>
+    <string name="whatsnew_132_weekly">매주 월요일, 좋아요한 곡을 바탕으로 고른 5곡을 보내 드려요.</string>
+    <string name="whatsnew_132_settings">알림은 마이 › 알림에서 언제든 켜고 끌 수 있어요.</string>
+    <string name="whatsnew_131_seeds">\'추천 기준 곡\' 화면이 바뀌었어요. 좋아요한 곡이 한 줄씩 보이고, 장르별로 골라 볼 수 있어요.</string>
+    <string name="whatsnew_131_tray">고른 곡은 화면 아래 칸에 모여요. 칸에 있는 곡을 누르면 선택이 해제돼요.</string>
+    <string name="whatsnew_131_dim">3곡을 모두 고르면 나머지 곡은 흐리게 표시돼요.</string>
     <string name="whatsnew_130_like">하입이 좋아요로 바뀌었어요. 하트를 누르거나 곡을 두 번 탭하면 저장돼요.</string>
     <string name="whatsnew_130_detail">곡 상세는 이제 아트워크 아래 ••• 버튼에서 볼 수 있어요.</string>
     <string name="whatsnew_130_heart">좋아요를 누르면 커버 위에 큰 하트가 떠요.</string>

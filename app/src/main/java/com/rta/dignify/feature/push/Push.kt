@@ -1,12 +1,17 @@
 package com.rta.dignify.feature.push
 
 import android.Manifest
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import com.google.firebase.messaging.FirebaseMessaging
@@ -64,6 +69,41 @@ object Push {
         return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
     }
+
+    /** 지금 알림이 실제로 뜨는가. 13 미만은 권한이 없어도 유저가 앱 알림을 끌 수 있어 이걸로 본다. */
+    fun notificationsEnabled(context: Context): Boolean =
+        NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+    /**
+     * 시스템 권한창을 아직 안 띄운 상태(iOS `.notDetermined`). 좋아요 팝업은 이때만 뜬다 —
+     * 시스템 창을 한 번 거절한 유저(`shouldShowRequestPermissionRationale`)는 iOS `.denied`처럼 뺀다.
+     *
+     * 안드로이드는 "물어본 적 없음"과 "영구 거부"를 가를 API가 없어 띄운 적이 있는지 직접 남긴다.
+     * 이 기록 전에 영구 거부한 기존 유저는 미결정으로 보인다 — 수락하면 설정 화면으로 간다
+     * ([rememberEnableNotifications]).
+     */
+    fun permissionUndecided(activity: Activity): Boolean {
+        if (!canAskNotificationPermission(activity)) return false
+        if (ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)) return false
+        return !prefs(activity).getBoolean(KEY_PERMISSION_ASKED, false)
+    }
+
+    internal fun markPermissionAsked(context: Context) {
+        prefs(context).edit().putBoolean(KEY_PERMISSION_ASKED, true).apply()
+    }
+
+    /** 이 앱의 알림 설정 화면. 시스템 권한창이 다시 안 뜨는 상태에서 켤 길은 여기뿐이다. */
+    fun openNotificationSettings(context: Context) {
+        context.startActivity(
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
+    private fun prefs(context: Context) = context.getSharedPreferences("dignify", Context.MODE_PRIVATE)
+
+    private const val KEY_PERMISSION_ASKED = "notifPermissionAsked"
 
     /** 로그인 상태가 확정된 뒤 호출. 토큰은 FCM에서 받아온다. */
     fun register() {

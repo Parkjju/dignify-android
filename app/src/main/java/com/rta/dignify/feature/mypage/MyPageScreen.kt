@@ -59,6 +59,9 @@ import com.rta.dignify.core.designsystem.DSTypography
 import com.rta.dignify.core.model.DiggingStats
 import com.rta.dignify.core.model.DiggingType
 import com.rta.dignify.feature.digging.displayName
+import com.rta.dignify.feature.onboarding.CoachSeen
+import com.rta.dignify.feature.push.PushNotifications
+import com.rta.dignify.feature.whatsnew.Changelog
 import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,6 +81,7 @@ fun MyPageScreen(
     onOpenSeedPicker: () -> Unit,
     onOpenArtistRequests: () -> Unit,
     onOpenBlockedUsers: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onOpenWhatsNew: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -87,6 +91,7 @@ fun MyPageScreen(
     var confirmedType by remember { mutableStateOf<DiggingType?>(null) }
     var showWithdraw by remember { mutableStateOf(false) }
     var diggingModeFailed by remember { mutableStateOf(false) }
+    var debugResetMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         // 배지는 실패해도 화면이 성립하므로 각각 따로 삼킨다.
@@ -141,6 +146,8 @@ fun MyPageScreen(
             onClick = onOpenSeedPicker,
         )
         SettingsRow(stringResource(R.string.artist_requests), onClick = onOpenArtistRequests)
+        // 광고성 수신 동의를 바꾸는 자리. 동의받은 곳과 같은 수준으로 쉽게 거둘 수 있어야 한다.
+        SettingsRow(stringResource(R.string.notification_settings), onClick = onOpenNotifications)
         // 차단은 로컬 저장이라 해제 경로가 여기밖에 없다.
         SettingsRow(stringResource(R.string.blocked_users), onClick = onOpenBlockedUsers)
 
@@ -164,11 +171,33 @@ fun MyPageScreen(
         SettingsRow(stringResource(R.string.mypage_logout)) { scope.launch { Session.logout() } }
         SettingsRow(stringResource(R.string.mypage_withdraw), destructive = true) { showWithdraw = true }
 
+        if (BuildConfig.DEBUG) {
+            GroupDivider()
+            for (newUser in listOf(false, true)) {
+                SettingsRow(if (newUser) "신규 유저 상태로 초기화 (DEBUG)" else "업데이트 유저 상태로 초기화 (DEBUG)") {
+                    scope.launch { debugResetMessage = debugReset(context, newUser) }
+                }
+            }
+            // 받은 것과 같은 경로(data 메시지 → 앱이 그린 알림). 앱이 꺼진 상태의 탭은 실제 발송으로 본다.
+            PushNotifications.debugPushes.forEach { data ->
+                SettingsRow("테스트 푸시: ${data["title"]} (DEBUG)") { PushNotifications.show(context, data) }
+            }
+        }
+
         Text(
             "v${BuildConfig.VERSION_NAME}",
             style = DSTypography.caption,
             color = DSColor.border,
             modifier = Modifier.padding(vertical = 24.dp),
+        )
+    }
+
+    debugResetMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { debugResetMessage = null },
+            title = { Text("초기화했어요") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { debugResetMessage = null }) { Text("확인") } },
         )
     }
 
@@ -372,6 +401,37 @@ private fun DiggingModeRow(failed: Boolean, onChange: (Boolean) -> Unit) {
                 color = DSColor.destructive,
             )
         }
+    }
+}
+
+/**
+ * **디버그 빌드에만 있다.** 로그인은 그대로 두고 기기 기록만 되돌린다. 계정을 지우지 않고 두 흐름을 본다.
+ * iOS `MyPageView.debugResetRow(newUser:)`와 같다.
+ * - 업데이트 유저: 직전 버전에서 막 올라온 기존 유저. What's New → 동의 팝업
+ * - 신규 유저: 온보딩을 막 마친 유저. 코치마크 → 동의 팝업
+ *
+ * Play 빌드 위에 디버그 빌드를 덮어 깔 수 없어서(서명이 다르다) 업데이트를 재현할 길은 이것뿐이다.
+ * 판정은 실행 직후에 돌아서 **앱을 완전히 껐다 켜야** 보인다.
+ */
+private suspend fun debugReset(context: Context, newUser: Boolean): String {
+    val current = BuildConfig.VERSION_NAME
+    context.getSharedPreferences("dignify", Context.MODE_PRIVATE).edit().apply {
+        putBoolean("didJustOnboard", newUser)
+        // 업데이트 유저는 지금 버전과 달라야 What's New가 뜨고, 신규 유저는 같아야 안 뜬다.
+        putString("lastSeenVersion", if (newUser) current else Changelog.releases.first { it.version != current }.version)
+        putBoolean(CoachSeen.FEED, !newUser)
+        // 1.3.2에서 새로 생긴 기록 — 업데이트 직후·가입 직후엔 전부 비어 있다.
+        listOf(
+            "didOfferAdConsent", "launchCount", "hypeOfferArtistIds", "hypeOfferReasked",
+            "seenNewReleaseIds", "adPushConsent",
+        ).forEach(::remove)
+    }.apply()
+    // 서버 동의도 기본값(거부)으로. 결과 통지는 안 띄운다.
+    Session.setAdPushConsent(false)
+    return if (newUser) {
+        "앱을 완전히 껐다 켜면 코치마크 → 광고성 알림 동의 팝업 순서로 뜹니다."
+    } else {
+        "앱을 완전히 껐다 켜면 What's New → 광고성 알림 동의 팝업 순서로 뜹니다."
     }
 }
 

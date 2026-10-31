@@ -426,9 +426,10 @@ fun PickListScreen(bottomInset: androidx.compose.ui.unit.Dp, onPlay: (Api.Pick) 
         if (showCompose || !justCreatedPick) return@LaunchedEffect
         justCreatedPick = false
         if (didOfferPush || Session.state != AuthState.SIGNED_IN) return@LaunchedEffect
-        if (!Push.canAskNotificationPermission(context)) return@LaunchedEffect
+        if (!Push.canAskNotificationPermission(context) || Session.promptedThisSession) return@LaunchedEffect
         Analytics.capture("push_optin_shown", mapOf("source" to PUSH_SOURCE_PICK))
         didOfferPush = true
+        Session.promptedThisSession = true
         showPushOptIn = true
     }
 

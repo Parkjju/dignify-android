@@ -224,4 +224,23 @@ class ApiClientAuthTest {
         // 토큰이 남아야 로그아웃도 안 되고, 계정 화면에 그대로 있는 것이 실패의 표시가 된다.
         assertEquals("refresh-1", store.tokens?.refreshToken)
     }
+
+    @Test
+    fun `알림의 수신거부는 로그인 토큰 없이 기기 토큰만 보낸다`() = runTest {
+        // 수신거부에 로그인을 요구하면 위반이다(정보통신망법 제50조, KISA 안내서 44쪽).
+        val store = MemoryTokenStore(AuthTokens("access", "refresh"))
+        var seenAuth: String? = "unset"
+        var seenPath = ""
+        val engine = MockEngine { request ->
+            seenAuth = request.headers[HttpHeaders.Authorization]
+            seenPath = request.url.encodedPath
+            respond("""{"adPush":false,"processedAt":"2026-10-30T01:00:00Z"}""", headers = json)
+        }
+
+        val result = ApiClient(store, engine = engine).optOutPush("p1", "fcm-token")
+
+        assertNull(seenAuth)
+        assertEquals("/push/p1/opt-out", seenPath)
+        assertEquals(false, result.adPush)
+    }
 }

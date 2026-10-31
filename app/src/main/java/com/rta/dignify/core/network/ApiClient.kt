@@ -70,6 +70,12 @@ private data class ReportBody(val pickId: Long, val reason: String, val detail: 
 @Serializable
 private data class ArtistNameBody(val artistName: String)
 
+@Serializable
+private data class AdPushConsentBody(val adPush: Boolean)
+
+@Serializable
+private data class OptOutBody(val deviceToken: String)
+
 /**
  * `environment`는 APNs의 sandbox/production 분기용이라 FCM엔 대응 개념이 없는데,
  * 서버가 @NotBlank로 받으므로 비울 수 없다. 안드로이드는 아무 값이나 발송에 영향이 없다.
@@ -189,6 +195,17 @@ class ApiClient(
             parameter("q", query)
             cursor?.let { parameter("cursor", it) }
         }.body()
+
+    /** 알림이 실어 온 곡(신곡·주간 추천)을 그 순서대로. 내려간 곡은 서버가 뺀다. */
+    suspend fun feedTracks(ids: List<Int>): Api.FeedResponse =
+        client.get("$baseUrl/feed/tracks") { parameter("ids", ids.joinToString(",")) }.body()
+
+    /** 좋아요한 아티스트의 최근 7일 신곡(안 들은 것). 알림·광고성 동의와 무관하다. */
+    suspend fun newReleases(): Api.FeedResponse = client.get("$baseUrl/feed/new-releases").body()
+
+    /** 이 곡들과 무드가 가까운 곡(신곡 연관 구간). 평소 피드의 진행 위치는 안 바뀐다. */
+    suspend fun related(seeds: List<Int>): Api.FeedResponse =
+        client.get("$baseUrl/feed/related") { parameter("seeds", seeds.joinToString(",")) }.body()
 
     // MARK: Tracks
 
@@ -354,6 +371,24 @@ class ApiClient(
     suspend fun reportPushOpened(pushId: String) {
         client.post("$baseUrl/push/$pushId/opened") { attributes.put(SkipAuth, Unit) }
     }
+
+    /** 광고성 알림 수신 동의·거부. 처리 시각이 결과 통지 문구의 날짜가 된다(정보통신망법 제50조 7항). */
+    suspend fun setAdPushConsent(consent: Boolean): Api.AdPushConsent =
+        client.put("$baseUrl/users/me/push-consent") {
+            contentType(ContentType.Application.Json)
+            setBody(AdPushConsentBody(consent))
+        }.body()
+
+    /**
+     * 알림의 「수신거부」. **로그인을 요구하면 위반이라** 토큰을 안 붙이고 기기 토큰으로 주인을 찾는다.
+     * 응답을 읽으므로 4xx면 파싱에서 던진다.
+     */
+    suspend fun optOutPush(pushId: String, deviceToken: String): Api.AdPushConsent =
+        client.post("$baseUrl/push/$pushId/opt-out") {
+            attributes.put(SkipAuth, Unit)
+            contentType(ContentType.Application.Json)
+            setBody(OptOutBody(deviceToken))
+        }.body()
 
     /**
      * FCM 토큰 등록. 같은 엔드포인트를 iOS가 APNs 토큰으로 쓰고 있고, `platform`이 발송 경로를 가른다.

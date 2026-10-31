@@ -15,8 +15,14 @@ import com.rta.dignify.feature.onboarding.OnboardingMock
 import com.rta.dignify.feature.push.Push
 import kotlinx.coroutines.MainScope
 
-/** 푸시가 지정한 목적지. 서버가 보내는 `type` 값 셋 중 갈 데가 있는 둘만 있다. */
-enum class PushTarget { CURATION, MY_PICKS }
+/** 푸시가 지정한 목적지. 피드 앞 구간을 바꾸는 알림(큐레이션·신곡·주간 추천)은 전부 FEED다. */
+enum class PushTarget { FEED, MY_PICKS }
+
+/**
+ * 피드 앞 구간을 바꾸라는 알림 탭 하나. `trackIds`가 비면 큐레이션(세트는 서버가 정한다)이다.
+ * 대기 칸이 하나뿐이라 **나중에 누른 알림이 앞 것을 덮는다**(신곡·주간이 같은 날 둘 다 올 수 있다).
+ */
+data class PushOpen(val type: String, val trackIds: List<Int>)
 
 enum class AuthState {
     UNKNOWN,
@@ -92,29 +98,36 @@ object Session {
         private set
 
     /**
-     * 큐레이션 푸시로 들어왔다는 1회성 표식. 피드가 읽고 즉시 내린다 —
-     * **이미 완주한 세트라도 이때는 다시 앞세운다.** 곡을 보여주겠다는 알림을 눌렀는데
-     * 일반 피드 첫 장이 나오면 유저는 자기가 뭘 눌렀는지 모른 채 앱만 켜게 된다.
+     * 알림 탭으로 받은 피드 앞 구간. 피드가 읽고 즉시 비운다 — **이미 완주한 큐레이션 세트라도 이때는
+     * 다시 앞세운다.** 곡을 보여주겠다는 알림을 눌렀는데 평소 피드 첫 장이 나오면 유저는 자기가 뭘
+     * 눌렀는지 모른 채 앱만 켜게 된다.
      *
-     * 컴포즈 상태가 아니어도 된다. 화면이 이 값을 그리지 않고, 재조회는 [feedReloadTick]이 건다.
+     * 컴포즈 상태가 아니어도 된다. 화면이 이 값을 그리지 않고, 적용은 [pushOpenTick]이 건다.
      */
-    private var pendingCurationOpen = false
+    private var pendingPushOpen: PushOpen? = null
+
+    /**
+     * 알림이 피드 앞 구간을 바꾸라고 할 때 오른다. [feedReloadTick]과 따로 두는 이유: 그쪽은 커서를
+     * 버리고 처음부터 받는다. 알림은 **평소 피드의 진행 위치를 바꾸면 안 된다**(주간 추천 2-5).
+     */
+    var pushOpenTick by mutableStateOf(0)
+        private set
 
     /**
      * 알림 탭으로 들어왔을 때 종류별로 갈라 보낸다. iOS `AppDelegate.userNotificationCenter`와
-     * 같은 자리이고 같은 판정이다.
+     * 같은 자리이고 같은 판정이다. 앱이 앞에 있을 때 **도착만 한** 알림은 여기를 안 지난다 —
+     * 듣던 곡과 스와이프 위치가 알림 때문에 바뀌면 안 된다.
      *
      * `notice`는 분기가 없는 게 맞다 — 갈 데를 지정하지 않은 알림이다.
      * `pick_reaction`이 픽 탭이 아니라 디깅 프로필로 가는 이유: 어느 픽인지가 페이로드에
      * 없어서, 남의 픽이 섞인 목록을 열면 반응이 달린 내 픽을 찾을 수가 없다.
      */
-    fun onPushOpened(type: String) {
+    fun onPushOpened(type: String, trackIds: List<Int> = emptyList()) {
         when (type) {
-            "curation" -> {
-                pendingCurationOpen = true
-                pushTarget = PushTarget.CURATION
-                // 피드는 이미 받아둔 뒤다. 안 올리면 세트를 앞세울 기회 자체가 없다.
-                feedReloadTick++
+            "curation", "new_release", "weekly_pick" -> {
+                pendingPushOpen = PushOpen(type, trackIds)
+                pushTarget = PushTarget.FEED
+                pushOpenTick++
             }
 
             "pick_reaction" -> pushTarget = PushTarget.MY_PICKS
@@ -125,11 +138,61 @@ object Session {
         pushTarget = null
     }
 
-    /** @return 큐레이션 푸시로 들어온 진입이었나. 읽는 순간 내려간다(1회성). */
-    fun consumeCurationOpen(): Boolean {
-        val pending = pendingCurationOpen
-        pendingCurationOpen = false
-        return pending
+    /** 알림이 정한 앞 구간. 읽는 순간 비워진다(1회성). */
+    fun consumePushOpen(): PushOpen? = pendingPushOpen.also { pendingPushOpen = null }
+
+    /**
+     * 이번 실행에서 권한·동의 팝업을 이미 띄웠나. 피드가 아니라 여기 두는 이유는 픽 게시 경로도
+     * 같은 값을 봐야 해서다(한 실행에 팝업 두 번 금지).
+     *
+     * **프로세스가 아니라 실행([countLaunch]) 단위로 끈다.** 최근 앱에서 지워도 프로세스가 캐시로 남으면
+     * 이 object가 그대로 살아 있어서, 메모리에만 두면 다음 실행의 좋아요 팝업이 막혔다.
+     */
+    var promptedThisSession = false
+
+    /**
+     * 이번 실행에서 게스트로 쓰다가 로그인했나(iOS `signedInFromGuest`). 첫 실행 동의 팝업은 이때 다음 실행으로 미룬다 —
+     * 로그인하자마자 또 팝업이 뜨면 방금 막힌 동작을 하려던 흐름이 두 번 끊긴다. [promptedThisSession]과 같이 실행마다 끈다.
+     */
+    var signedInFromGuest = false
+
+    /** 업데이트 소식 시트가 떠 있나. 그 위로 팝업이 겹치지 않게 피드가 본다. */
+    var whatsNewOpen by mutableStateOf(false)
+
+    /**
+     * 앱 실행 횟수. 좋아요 팝업은 두 번째 실행부터다 — 첫 실행엔 코치마크 뒤 동의 팝업이 이미 나간다.
+     * 액티비티가 새로 만들어질 때만 센다(회전·복원은 실행이 아니다).
+     */
+    val launchCount: Int get() = prefs.getInt(KEY_LAUNCH_COUNT, 0)
+
+    fun countLaunch() {
+        promptedThisSession = false
+        signedInFromGuest = false
+        prefs.edit().putInt(KEY_LAUNCH_COUNT, launchCount + 1).apply()
+    }
+
+    /**
+     * 광고성 알림 수신 동의(서버 값). **OS 알림 권한과 별개다** — 권한은 광고 수신 동의가 아니다
+     * (정보통신망법 제50조, KISA 안내서 Q&A 02-03). `/users/me`가 채우고, 그 필드가 없는 서버에선
+     * 이 기기에서 마지막으로 처리한 결과를 쓴다.
+     */
+    var adPushConsent by mutableStateOf(false)
+        private set
+
+    /**
+     * 동의·거부를 서버에 남긴다. 실패하면 null — 부르는 쪽이 결과 통지 대신 실패를 알린다.
+     * 계측은 부르는 쪽 몫이다(맥락마다 `source`가 다르다).
+     */
+    suspend fun setAdPushConsent(consent: Boolean): Api.AdPushConsent? =
+        runCatching { api.setAdPushConsent(consent) }
+            .onFailure { android.util.Log.w("Session", "ad consent failed", it) }
+            .getOrNull()
+            ?.also { onAdConsentProcessed(it.adPush) }
+
+    /** 앱 밖(알림의 「수신거부」)에서 처리된 결과도 여기로 맞춘다. */
+    fun onAdConsentProcessed(consent: Boolean) {
+        adPushConsent = consent
+        prefs.edit().putBoolean(KEY_AD_CONSENT, consent).apply()
     }
 
     private lateinit var prefs: SharedPreferences
@@ -161,10 +224,13 @@ object Session {
     }
 
     private const val KEY_GUEST_HYPES = "pendingGuestHypes"
+    private const val KEY_LAUNCH_COUNT = "launchCount"
+    private const val KEY_AD_CONSENT = "adPushConsent"
 
     fun init(context: Context) {
         if (::api.isInitialized) return
         prefs = context.applicationContext.getSharedPreferences("dignify", Context.MODE_PRIVATE)
+        adPushConsent = prefs.getBoolean(KEY_AD_CONSENT, false)
         api = ApiClient(
             store = PrefsTokenStore(context.applicationContext),
             // refresh까지 실패 = 재로그인 필요. 단 게스트는 잃을 세션이 없으므로 끌어내리지 않는다.
@@ -209,7 +275,9 @@ object Session {
 
     /** Credential Manager가 받아온 ID 토큰으로 로그인. 실패 시 throw — 화면이 표시한다. */
     suspend fun signInWithGoogle(idToken: String) {
+        val wasGuest = state == AuthState.GUEST
         api.signInWithGoogle(idToken)
+        if (wasGuest) signedInFromGuest = true
         refreshAuthState()
         // 게스트→로그인 전환. distinct_id는 익명 그대로 이어져 전환 퍼널이 한 사람으로 연결된다.
         // ponytail: 백엔드가 안정적 userId를 안 내려줘 identify는 생략 — iOS와 같은 판단.
@@ -221,6 +289,7 @@ object Session {
     suspend fun logout() {
         api.logout()
         nickname = ""
+        onAdConsentProcessed(false)   // 동의는 계정 것이다. 다음 로그인의 /users/me가 다시 채운다.
         diggingMode = true
         state = AuthState.SIGNED_OUT
         feedReloadTick++
@@ -294,6 +363,7 @@ object Session {
         nickname = profile.nickname
         // 옛 서버는 이 필드를 안 내려준다. 그때는 지금 동작(켜짐)을 유지한다.
         diggingMode = profile.diggingMode ?: true
+        profile.adPushConsent?.let { onAdConsentProcessed(it) }
         return profile
     }
 

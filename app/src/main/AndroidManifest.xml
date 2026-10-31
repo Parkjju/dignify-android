@@ -79,6 +79,11 @@
             </intent-filter>
         </service>
 
+        <!-- 광고성 알림의 「수신거부」 버튼. 앱을 열지 않고 처리한다. -->
+        <receiver
+            android:name=".feature.push.PushNotifications$OptOutReceiver"
+            android:exported="false" />
+
         <!-- 안 걸어두면 FCM이 "Miscellaneous" 채널을 제멋대로 만들어 거기에 넣는다. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

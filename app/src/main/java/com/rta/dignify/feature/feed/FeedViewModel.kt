@@ -12,6 +12,7 @@ import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.core.model.Feed
 import com.rta.dignify.core.model.toFeed
 import com.rta.dignify.core.auth.AuthState
+import com.rta.dignify.core.auth.PushOpen
 import com.rta.dignify.core.auth.Session
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.launch
@@ -34,16 +35,22 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     var loadFailed by mutableStateOf(false)
         private set
 
-    /** 피드 맨 앞에 붙은 이번 주 큐레이션 곡 수. 0이면 세트가 없거나 이미 완주한 세트. */
-    var curationCount by mutableStateOf(0)
+    /**
+     * 평소 피드 앞에 붙은 구간들(신곡·연관·주간 추천·큐레이션), 순서대로. 배지와 계측 `source`가
+     * 이걸 본다. 비어 있으면 처음부터 평소 피드다.
+     */
+    var segments by mutableStateOf<List<Segment>>(emptyList())
         private set
 
     /**
-     * 이번 주 세트를 막 완주한 순간 한 번 true. 알림 권한을 물어보기에 이때가 제일 나은 자리다 —
-     * 세트를 끝까지 본 사람이라야 "다음 세트 나오면 알려줄까?"가 말이 된다.
+     * 앱을 열 때 붙은 신곡 구간을 막 지난 순간 한 번 true. "다음 신곡도 알림으로 받기"를
+     * 제안할 자리다 — 신곡을 받아 본 사람이라야 그 제안이 말이 된다.
      */
-    var justFinishedSet by mutableStateOf(false)
+    var justFinishedNewReleases by mutableStateOf(false)
         private set
+
+    /** 알림이 앞 구간을 갈아 끼웠으니 첫 장으로 가라는 신호. 화면이 처리하고 내린다. */
+    var jumpToTop by mutableStateOf(false)
 
     /**
      * 마지막으로 머문 페이지. **탭을 옮겼다 돌아와도 보던 자리로 복귀하려고** 여기 둔다 —
@@ -61,6 +68,12 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private var curationSetKey = ""
     /** 마지막으로 노출 이벤트를 찍은 트랙. 같은 트랙 재정착을 걸러낸다. */
     private var lastViewedTrackId: Int? = null
+    private var lastViewedIndex = -1
+
+    /** 신곡 연관 구간을 이미 요청했나. 신곡 구간 하나에 한 번이다. */
+    private var relatedRequested = false
+    /** 연관 구간에서 듣지도 좋아하지도 않고 넘긴 횟수. 5가 되면 남은 연관 곡을 버린다. */
+    private var relatedSkips = 0
 
     /** 검색 진입 시 일반 피드 상태를 보관 → 검색 종료 시 재페치 없이 복원. */
     private var savedFeed: Snapshot? = null
@@ -87,7 +100,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             isLoading = true
             loadFailed = false
-            curationCount = 0       // 픽 모드엔 특집 배지가 없다(픽 배지가 그 자리를 쓴다).
+            segments = emptyList()  // 픽 모드엔 특집 배지가 없다(픽 배지가 그 자리를 쓴다).
             activeQuery = ""
             nextCursor = null       // 픽은 페이지네이션이 없다(한 번에 다 온다).
             lastPage = 0
@@ -124,7 +137,8 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                     prefs.edit().remove(KEY_CURSOR).apply()
                     res = api.feed(null)
                 }
-                feeds = curationPrefix() + res.items.map { it.toFeed() }
+                // 앞 구간은 평소 피드를 받은 **뒤에** 정한다 — 받는 사이 도착한 알림 탭도 여기서 잡힌다.
+                assemble(prefixParts(Session.consumePushOpen()), res.items.map { it.toFeed() })
                 nextCursor = res.nextCursor?.takeIf { res.hasMore == true }
                 // 소진되면 비워 다음 세션은 새 시드로.
                 prefs.edit().putString(KEY_CURSOR, nextCursor.orEmpty()).apply()
@@ -135,31 +149,99 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 앞 구간 하나를 만드는 재료. [assemble]이 위치를 매겨 [Segment]로 바꾼다. */
+    private class Part(val kind: String, val tracks: List<Feed>, val fromPush: Boolean = false)
+
     /**
-     * 이번 주 큐레이션 세트를 일반 피드 앞에 붙인다. 세트가 끝나면 그대로 일반 피드로
+     * 평소 피드 앞에 붙일 구간. 알림 탭이면 그 알림의 곡만(나중 탭이 앞 것을 덮는다), 아니면
+     * 좋아요한 아티스트의 안 본 신곡 → 이번 주 큐레이션 순서다. 구간이 끝나면 그대로 평소 피드로
      * 이어지므로 별도 화면도 종료 처리도 없다.
      *
-     * 큐레이션 푸시로 들어온 진입이면 **이미 완주한 세트라도 다시 앞세운다** — 눌렀는데
-     * 없으면 안 되기 때문이다. 그 판정은 `Session`이 들고 있고 여기서 한 번 읽고 내린다.
-     * ponytail: 실패하면 그냥 일반 피드 — 큐레이션이 없다고 피드가 비면 안 된다.
+     * 로그인 유저 전용이다. 게스트는 완주해도 그 사실을 계정에 못 붙이고, 신곡은 좋아요가 계정에 있다.
+     * ponytail: 실패하면 그 구간만 빠진다 — 앞 구간이 없다고 피드가 비면 안 된다.
      */
-    private suspend fun curationPrefix(): List<Feed> {
-        curationCount = 0
+    private suspend fun prefixParts(open: PushOpen?): List<Part> {
         curationSetKey = ""
-        // 세트는 로그인 유저 전용이다. 게스트는 완주해도 그 사실을 계정에 못 붙이므로
-        // "이번 주 세트"라는 약속 자체가 성립하지 않는다 — 아예 앞세우지 않는다.
-        val fromPush = Session.consumeCurationOpen()
+        relatedRequested = false
+        relatedSkips = 0
+        justFinishedNewReleases = false
         if (Session.state != AuthState.SIGNED_IN) return emptyList()
-        val set = try {
-            api.curation()
-        } catch (e: Exception) {
-            return emptyList()
+        if (open != null && open.trackIds.isNotEmpty()) {
+            // 곡이 내려갔으면 서버가 빼고 준다. 다 내려갔으면 조용히 평소 피드.
+            val tracks = runCatching { api.feedTracks(open.trackIds).items.map { it.toFeed() } }
+                .onFailure { Log.w(TAG, "push tracks load failed (${open.type})", it) }
+                .getOrDefault(emptyList())
+            val kind = if (open.type == "weekly_pick") SOURCE_WEEKLY else SOURCE_NEW_RELEASE
+            return listOf(Part(kind, tracks, fromPush = true))
         }
-        if (set.items.isEmpty()) return emptyList()
-        if (!fromPush && set.setKey == prefs.getString(KEY_SEEN_SET, "")) return emptyList()
-        curationCount = set.items.size
+        // 큐레이션 알림을 눌렀으면 큐레이션만. 신곡을 앞에 끼우면 누른 알림과 다른 곡이 먼저 나온다.
+        if (open?.type == "curation") return listOf(curationPart(fromPush = true))
+        return listOf(newReleasePart(), curationPart(fromPush = false))
+    }
+
+    /**
+     * 좋아요한 아티스트의 신곡(앱 안 표시라 알림·광고성 동의와 무관하다). 본 곡은 기기에 남겨
+     * 다시 앞세우지 않는다 — 5초 안에 넘긴 곡은 서버 청취 기록에 없어서 서버만으로는 못 거른다.
+     */
+    private suspend fun newReleasePart(): Part {
+        val seen = prefs.getStringSet(KEY_SEEN_NEW_RELEASES, emptySet()).orEmpty()
+        val tracks = runCatching { api.newReleases().items }.getOrDefault(emptyList())
+            .filter { it.trackId.toString() !in seen }
+            .map { it.toFeed() }
+        return Part(SOURCE_NEW_RELEASE, tracks)
+    }
+
+    /**
+     * 이번 주 큐레이션 세트. 큐레이션 알림으로 들어온 진입이면 **이미 완주한 세트라도 다시 앞세운다** —
+     * 눌렀는데 없으면 안 되기 때문이다.
+     */
+    private suspend fun curationPart(fromPush: Boolean): Part {
+        val set = runCatching { api.curation() }.getOrNull()
+        if (set == null || set.items.isEmpty()) return Part(SOURCE_CURATION, emptyList())
+        if (!fromPush && set.setKey == prefs.getString(KEY_SEEN_SET, "")) return Part(SOURCE_CURATION, emptyList())
         curationSetKey = set.setKey
-        return set.items.map { it.toFeed() }
+        return Part(SOURCE_CURATION, set.items.map { it.toFeed() })
+    }
+
+    /** 앞 구간 + 평소 피드. 앞에서 보여 줄 곡은 뒤 평소 피드에서 뺀다(같은 곡이 두 번 나오지 않게). */
+    private fun assemble(parts: List<Part>, rest: List<Feed>) {
+        var start = 0
+        segments = parts.filter { it.tracks.isNotEmpty() }.map { part ->
+            Segment(part.kind, start, part.tracks.size, part.fromPush).also { start += part.tracks.size }
+        }
+        val head = parts.flatMap { it.tracks }
+        val ids = head.mapTo(HashSet()) { it.trackId }
+        feeds = head + rest.filter { it.trackId !in ids }
+        lastViewedIndex = -1
+    }
+
+    /** 이미 처리한 `Session.pushOpenTick`. 이유는 [handledReloadTick]과 같다. */
+    private var handledPushOpenTick = 0
+
+    /**
+     * 알림 탭으로 앞 구간을 갈아 끼운다. 앞서 붙어 있던 구간(신곡·연관·주간·큐레이션)은 버리고,
+     * 평소 피드는 **보던 자리 다음부터** 그대로 잇는다 — 알림이 평소 피드의 진행 위치를 바꾸면 안 된다.
+     *
+     * 피드가 아직 없거나 받는 중이면 건드리지 않는다. 대기 칸에 남아 [loadInitial]이 읽는다.
+     */
+    fun onPushOpenTick(tick: Int) {
+        if (isPickMode) {
+            handledPushOpenTick = tick
+            return
+        }
+        if (tick == handledPushOpenTick) return
+        handledPushOpenTick = tick
+        if (feeds.isEmpty() || isLoading) return
+        val open = Session.consumePushOpen() ?: return
+        // 검색 결과를 보던 중이면 평소 피드로 되돌린 뒤 붙인다.
+        if (activeQuery.isNotEmpty()) clearSearch()
+        viewModelScope.launch {
+            val restFrom = maxOf(segments.maxOfOrNull { it.end } ?: 0, lastPage + 1)
+            val rest = feeds.drop(restFrom)
+            assemble(prefixParts(open), rest)
+            lastPage = 0
+            jumpToTop = true
+        }
     }
 
     /**
@@ -222,15 +304,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
      * 매 트랙에서 돌지만 SharedPreferences 쓰기는 값이 같으면 사실상 공짜다.
      */
     fun onTrackViewed(index: Int) {
-        // 검색 중엔 목록이 통째로 검색 결과다 — 여기서 curationCount를 넘겼다고 세트를 완주한
-        // 게 아니다. 빼면 검색만 하고도 이번 주 세트를 못 본 채 날린다.
-        if (activeQuery.isEmpty() &&
-            curationCount > 0 && index >= curationCount && curationSetKey.isNotEmpty()
-        ) {
-            // 이미 같은 값이면 완주 순간이 아니라 그 뒤로 계속 스와이프 중인 것이다.
-            if (prefs.getString(KEY_SEEN_SET, "") != curationSetKey) justFinishedSet = true
-            prefs.edit().putString(KEY_SEEN_SET, curationSetKey).apply()
-        }
+        // 검색 중엔 목록이 통째로 검색 결과다 — 여기서 구간을 넘겼다고 세트를 완주한 게 아니다.
+        // 빼면 검색만 하고도 이번 주 세트를 못 본 채 날린다.
+        if (activeQuery.isEmpty() && !isPickMode) onSegmentProgress(index)
         // 스킵률의 분모. current가 **실제로 바뀌었을 때만** 찍는다 — 목록이 갱신돼 같은 자리가
         // 다시 정착해도 노출이 늘면 분모가 부풀어 스킵률이 실제보다 나빠 보인다.
         val feed = feeds.getOrNull(index) ?: return
@@ -265,12 +341,99 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         if (isPickMode) return "pick"
         if (activeQuery.isNotEmpty()) return "search"
         val index = feeds.indexOfFirst { it.trackId == trackId }
-        return if (index in 0 until curationCount) "curation" else "feed"
+        return segments.firstOrNull { index in it }?.kind ?: "feed"
     }
 
-    /** 화면이 신호를 받아 처리했음. 다시 올라오면 또 물어보게 된다. */
-    fun onSetCompletionHandled() {
-        justFinishedSet = false
+    /** 이 자리가 들어 있는 앞 구간. 배지가 쓴다. */
+    fun segmentAt(index: Int): Segment? = segments.firstOrNull { index in it }
+
+    /**
+     * 구간을 지나며 할 일. 매 트랙에서 돌지만 SharedPreferences 쓰기는 값이 같으면 사실상 공짜다.
+     * - 큐레이션: 지나면 완주 — 다음 진입부터 이 세트를 안 앞세운다
+     * - 신곡: 본 곡을 기록 / 앱을 열 때 붙은 구간을 지나면 알림 제안 / 알림 구간 끝에서 연관 곡 요청
+     * - 연관: 연속 5번 넘기면 남은 연관 곡을 버리고 평소 피드로
+     */
+    private fun onSegmentProgress(index: Int) {
+        val previous = lastViewedIndex
+        lastViewedIndex = index
+        segments.firstOrNull { it.kind == SOURCE_CURATION }?.let { seg ->
+            if (index >= seg.end && curationSetKey.isNotEmpty()) prefs.edit().putString(KEY_SEEN_SET, curationSetKey).apply()
+        }
+        val newRelease = segments.firstOrNull { it.kind == SOURCE_NEW_RELEASE }
+        if (newRelease != null) {
+            if (index in newRelease) {
+                val seen = prefs.getStringSet(KEY_SEEN_NEW_RELEASES, emptySet()).orEmpty()
+                prefs.edit().putStringSet(KEY_SEEN_NEW_RELEASES, seen + feeds[index].trackId.toString()).apply()
+            }
+            if (!newRelease.fromPush && previous in newRelease && index == newRelease.end) justFinishedNewReleases = true
+            // ponytail: 마지막 신곡 카드에 **닿을 때** 요청한다. 지난 뒤에 받으면 이미 그려진 평소 피드 카드가
+            // 연관 곡으로 바뀐다. 그래서 마지막 카드에서 누른 좋아요는 시드에 못 들어간다(한 곡이면 차이 없음).
+            if (newRelease.fromPush && !relatedRequested && index == newRelease.end - 1) {
+                relatedRequested = true
+                loadRelated(newRelease)
+            }
+        }
+        val related = segments.firstOrNull { it.kind == SOURCE_RELATED } ?: return
+        if (previous in related && index > previous && ++relatedSkips >= RELATED_SKIP_LIMIT && index in related) {
+            // 보고 있는 카드는 두고 그 뒤 연관 곡만 버린다. 보던 카드가 바뀌면 안 된다.
+            feeds = feeds.take(index + 1) + feeds.drop(related.end)
+            segments = segments.map { if (it === related) it.copy(size = index + 1 - it.start) else it }
+        }
+    }
+
+    /** 시드 = 신곡 구간에서 좋아요한 곡, 없으면 신곡 중 무작위 1곡. 신곡 구간 바로 뒤에 끼운다. */
+    private fun loadRelated(newRelease: Segment) {
+        val tracks = feeds.subList(newRelease.start, newRelease.end).toList()
+        val seeds = tracks.filter { it.isHyped }.map { it.trackId }.ifEmpty { listOf(tracks.random().trackId) }
+        viewModelScope.launch {
+            val related = runCatching { api.related(seeds).items.map { it.toFeed() } }
+                .onFailure { Log.w(TAG, "related load failed", it) }
+                .getOrNull()
+            // 받는 사이 알림 탭·재조회로 목록이 바뀌었으면 버린다.
+            if (related.isNullOrEmpty() || segments.firstOrNull { it.kind == SOURCE_NEW_RELEASE } != newRelease) return@launch
+            val ids = feeds.mapTo(HashSet()) { it.trackId }
+            val fresh = related.filter { it.trackId !in ids }
+            if (fresh.isEmpty()) return@launch
+            feeds = feeds.take(newRelease.end) + fresh + feeds.drop(newRelease.end)
+            segments = segments + Segment(SOURCE_RELATED, newRelease.end, fresh.size)
+            relatedSkips = 0
+        }
+    }
+
+    /** 연관 구간에서 듣거나 좋아했으면 "넘김" 연속을 끊는다. */
+    private fun onEngaged(trackId: Int) {
+        if (source(trackId) == SOURCE_RELATED) relatedSkips = 0
+    }
+
+    /** 화면이 신호를 받아 처리했음. */
+    fun onNewReleasesFinishedHandled() {
+        justFinishedNewReleases = false
+    }
+
+    /** 첫 실행 광고성 동의 팝업을 띄운 적이 있나. 팝업마다 기록을 따로 둔다(공유하면 한쪽이 영영 안 뜬다). */
+    val didOfferAdConsent: Boolean get() = prefs.getBoolean(KEY_DID_OFFER_AD_CONSENT, false)
+
+    fun markAdConsentOffered() {
+        prefs.edit().putBoolean(KEY_DID_OFFER_AD_CONSENT, true).apply()
+    }
+
+    /**
+     * 이 아티스트 좋아요로 신곡 알림 팝업을 띄워도 되나. 띄우기로 하면 기록까지 한다.
+     * 첫 팝업은 아무 아티스트로나 1회, 「나중에」 뒤엔 **그 아티스트 곡을 다시 좋아할 때** 1회 더, 그 뒤론 안 묻는다.
+     * ponytail: 아티스트를 이름으로 센다 — 피드 응답에 아티스트 id가 없다.
+     */
+    fun claimHypeOffer(artist: String): Boolean {
+        val offered = prefs.getStringSet(KEY_HYPE_OFFER_ARTISTS, emptySet()).orEmpty()
+        val claim = when {
+            offered.isEmpty() -> true
+            artist in offered && !prefs.getBoolean(KEY_HYPE_OFFER_REASKED, false) -> {
+                prefs.edit().putBoolean(KEY_HYPE_OFFER_REASKED, true).apply()
+                true
+            }
+            else -> false
+        }
+        if (claim) prefs.edit().putStringSet(KEY_HYPE_OFFER_ARTISTS, offered + artist).apply()
+        return claim
     }
 
     /** 검색 확정. 일반 피드를 스냅샷에 보관하고 결과로 교체한다. */
@@ -328,6 +491,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         // 켤 때만 찍는다 — 해제는 하입의 반대 행동이라 같은 이벤트로 합치면 하입 수가 부풀려진다.
         if (target) {
             Analytics.capture("track_hyped", mapOf("track_id" to trackId, "source" to source(trackId)))
+            onEngaged(trackId)
         }
         viewModelScope.launch {
             try {
@@ -389,6 +553,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     fun recordListen(trackId: Int) {
         // 스킵률 = 1 - track_listened/track_viewed. 게스트도 세야 하므로 서버 가드보다 먼저 찍는다.
         Analytics.capture("track_listened", mapOf("track_id" to trackId, "source" to source(trackId)))
+        onEngaged(trackId)
         if (Session.state != AuthState.SIGNED_IN) return
         viewModelScope.launch { runCatching { api.listen(trackId) } }
     }
@@ -400,5 +565,23 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         const val KEY_CURSOR = "feedCursor"
         const val KEY_SEEN_SET = "seenCurationSet"
+        // ponytail: 본 신곡 id는 쌓이기만 한다. 신곡은 7일 지나면 서버가 안 주니 지워도 되지만, 수가 작다.
+        const val KEY_SEEN_NEW_RELEASES = "seenNewReleaseIds"
+        const val KEY_DID_OFFER_AD_CONSENT = "didOfferAdConsent"
+        const val KEY_HYPE_OFFER_ARTISTS = "hypeOfferArtistIds"
+        const val KEY_HYPE_OFFER_REASKED = "hypeOfferReasked"
+        const val RELATED_SKIP_LIMIT = 5
     }
+}
+
+// 계측 `source` 값 그대로다(iOS `source(for:)`와 같은 값).
+const val SOURCE_CURATION = "curation"
+const val SOURCE_NEW_RELEASE = "new_release"
+const val SOURCE_RELATED = "new_release_related"
+const val SOURCE_WEEKLY = "weekly"
+
+/** 평소 피드 앞의 한 구간. `kind`는 계측 `source` 값이다. `fromPush`는 알림 탭으로 붙은 구간. */
+data class Segment(val kind: String, val start: Int, val size: Int, val fromPush: Boolean = false) {
+    val end: Int get() = start + size
+    operator fun contains(index: Int) = index in start until end
 }

@@ -24,12 +24,33 @@
       푸시 옵트인 문구는 요청 위치마다 다르다. 알림이 무엇을 알리는지가 맥락마다 다른데
       한 문구로 뭉치면 물어보는 이유가 사라진다. 새 요청 지점이 생기면 여기에 쌍으로 추가한다.
     -->
-    <string name="push_optin_set_title">This week\'s set, all done</string>
-    <string name="push_optin_set_message">Those were dug up by us, by hand. We do it again every week — want a heads-up when the next one drops?</string>
     <string name="push_optin_pick_title">Your pick is up</string>
     <string name="push_optin_pick_message">We\'ll let you know when someone drops a 🔥 on it.</string>
     <string name="push_optin_accept">Notify me</string>
     <string name="push_optin_decline">Not now</string>
+
+    <!-- 재방문 푸시 2종. iOS 1.3.2 xcstrings 값. new_release_optin_* · hype_optin_message는 iOS에 없는 자리라 임시 -->
+    <string name="ad_consent_title">Get new music by notification?</string>
+    <string name="ad_consent_message">New tracks from artists you like, weekly picks, and our curated sets. Tapping Notify me means you agree to receive advertising information.</string>
+    <string name="ad_consent_message_short">Tapping Notify me means you agree to receive advertising information.</string>
+    <string name="ad_consent_notice_title">Notification settings saved</string>
+    <string name="ad_consent_result_accept">Dignify processed your opt-in to ad notifications on %1$s.</string>
+    <string name="ad_consent_result_decline">Dignify processed your opt-out from ad notifications on %1$s.</string>
+    <string name="ad_push_opt_out">Unsubscribe</string>
+    <string name="ad_push_opt_out_failed">Couldn\'t unsubscribe. Turn off ad notifications in My Page › Notifications.</string>
+    <string name="hype_optin_title">Want a heads-up when %1$s drops something new?</string>
+    <string name="hype_optin_message">We\'ll let you know the day after an artist you like releases a new track.</string>
+    <string name="new_release_optin_title">Get the next new releases as notifications?</string>
+    <string name="new_release_optin_message">Turn on notifications for Dignify on your device to get them.</string>
+    <string name="new_release_badge">New from artists you like %1$d/%2$d</string>
+    <string name="weekly_badge">Your picks this week %1$d/%2$d</string>
+    <string name="notification_settings">Notifications</string>
+    <string name="ad_consent_toggle">Ad notifications</string>
+    <string name="ad_consent_toggle_note">New tracks from artists you like, weekly picks, and our curated sets. These are advertising information.</string>
+    <string name="device_notifications">System notifications</string>
+    <string name="device_notifications_on">On</string>
+    <string name="device_notifications_off">Off</string>
+    <string name="device_notifications_not_set">Not set</string>
 
     <!--
       알림 서랍에 뜨는 문구. **서버가 아니라 기기가 고른다** — 서버는 키와 인자만 보내고
@@ -176,6 +197,13 @@
     <string name="whatsnew_title">What\'s New</string>
     <string name="whatsnew_version">Version %1$s</string>
     <string name="whatsnew_got_it">Got it</string>
+    <string name="whatsnew_132_first">New tracks from artists you like now show up first in your feed.</string>
+    <string name="whatsnew_132_notify">Turn on notifications and we\'ll let you know when they drop new tracks.</string>
+    <string name="whatsnew_132_weekly">Every Monday, get 5 picks based on the tracks you like.</string>
+    <string name="whatsnew_132_settings">Turn notifications on or off anytime in My Page › Notifications.</string>
+    <string name="whatsnew_131_seeds">"Recommend from" got a redo: all your likes in one list, and you can filter by genre.</string>
+    <string name="whatsnew_131_tray">Tracks you pick sit in a tray at the bottom. Tap one to remove it.</string>
+    <string name="whatsnew_131_dim">Once you\'ve picked 3 tracks, the rest dim out.</string>
     <string name="whatsnew_130_like">Hype is now Like. Tap the heart or double-tap a track to save it.</string>
     <string name="whatsnew_130_detail">Track details moved to the ••• button under the artwork.</string>
     <string name="whatsnew_130_heart">Like a track and a big heart pops up on the cover.</string>
