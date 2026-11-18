@@ -5,6 +5,30 @@
 > 🎨 **디자인 반영할 것은 `../dignify-design/app-changes.mdx`가 정본이다**(배포본: 디자인 Storybook 「가이드 › 앱 반영 목록」).
 > 시안 버전별로 화면 id · AS-IS · TO-BE · 앱 파일 위치(iOS 기준, Android 파일은 같은 이름의 Screen)가 적혀 있다. 아래 버전부터 차례로 반영하고, 끝나면 그 버전 상태에 Android 버전을 적는다.
 
+## 🎨 푸시알림 기획 1.0 — 광고성 동의 UI 교체 (2026-11-17 등록)
+
+정본은 `../dignify-design/app-changes.mdx` 「푸시알림 기획 1.0」 — 맨 위 **「광고성 알림 노출 규칙 — 정본」**(언제·어디서·어떤 세션에) + 항목 1~10(AS-IS·TO-BE·수치). 시안은 디자인 Storybook **Screens › 6. 광고성 알림**(동의 흐름 전부를 한 프로토타입으로). Figma 화면 플로우는 설계서와 부딪혀 참고만 한다.
+**iOS `TODO.md` 같은 이름 절과 1:1이다.** 아래 「재방문 푸시 2종」의 동의 팝업·결과 통지(`AdConsentNotice`)·알림 설정 항목은 이 절이 대체한다. 서버 몫은 `dignify-backend/TODO.md` P1-c.
+
+**노출 규칙 (정본 그대로)**
+- [ ] A 첫 실행(`FeedScreen` `Prompt.FirstRun`): 조건에 **좋아요 1곡 이상**(아티스트 = 가장 최근 좋아요), 「나중에」 = **닫기만** + **7일 뒤 다시**(`didOfferAdConsent` 1회 → 마지막 노출 시각). 미응답 판정은 서버 `adPushConsentAt`(P1-c)
+- [ ] B 좋아요 시점: `PushOptInPopup` → **바텀시트**(ConsentSheet). 재질문 `hypeOfferArtistIds`·`hypeOfferReasked` → **「일주일 동안 안 보기」 7일**
+- [ ] C 야간 동의 팝업 **신규**: 이번 주 특집 5/5를 넘긴 직후 다음 곡 위. 동의 + 권한 허용 + 야간 미응답. **서버 P1-c 뒤**
+- [ ] 세션: A·B·C 실행당 하나(`Session.promptedThisSession`), 우선순위 A → B → C, 동의받은 실행엔 C 안 묻기
+- [ ] 동의 팝업·시트는 **버튼으로만 닫힘**(딤·뒤로 가기 무반응), 닫아도 피드 곡 그대로
+- [ ] 「알림 받기」: 동의 저장 → 미결정이면 시스템 권한 창 → 결과 토스트. 거부 상태면 앱 알림 설정을 **자동으로 열지 않는다**(`rememberEnableNotifications`)
+
+**화면 (app-changes 항목 번호)**
+- [ ] 1 팝업 딤 35%(`DSColor.dim`) — `PushOptInPopup.kt`·확인 팝업 전부
+- [ ] 2 피드 배경 blur 38 + 검정 45%
+- [ ] 3 상단 줄 좌우 20 · **아트워크 좌우 20**(`FeedScreen.kt` `cardWidth = maxWidth - 48.dp` → `- 40.dp`) · 모드 알약 「좋아요 따라가는 중」
+- [ ] 4 P02 Popup 동의형 · 5 ConsentSheet · 7 P14 야간 팝업
+- [ ] 6 **Toast 신규** → `AdConsentNotice`(앱 안 창) 대체. 설명 「Dignify의 (야간) 광고성 정보를 YYYY-MM-DD에 동의했어요 / 거부했어요」(마침표 없음, 2026-11-17 확정). 알림 「수신거부」의 결과 문구 갈아 끼우기는 그대로
+- [ ] 8 앞 구간 배지 m · 앞 구간 배지 위치 safe+56 → **safe+90**(모드 알약 아랫선에서 48, 픽 배지 포함, 2026-11-17 Figma 실측) · 9 마이페이지 배치 · 10 알림 설정(`NotificationSettingsScreen`: 야간 토글, 결과·실패 토스트, 광고성 끄면 야간도 꺼짐, 기기 권한 「설정 전」이면 행 무반응)
+- [ ] `strings.xml` ko/en, 끝나면 app-changes 상태에 Android 버전
+
+**기획 확인 대기:** iOS 절과 같다(야간 시간 문구 · 시트 동의 문구 · 주간 곡 수 · 시트 버튼 색)
+
 ## 재방문 푸시 2종 — 신곡 알림 · 주간 추천 (2026-10-29 등록)
 
 정본은 Confluence 03. Dev 「재방문 푸시 기능 2종: 기능 명세」(13074433)와 하위 「개발 참고: 신곡 알림」(13008898)·「개발 참고: 주간 추천 푸시」(12681240).
@@ -148,6 +172,17 @@ iOS를 시뮬레이터로 테스트하다가 바꾼 것들이다. iOS 쪽 변경
 - **7 실제 발송:** 로컬 서버를 `PUSH_AD_MIN_BUILD_ANDROID=16`으로 띄운다. 알림이 시스템 기본 모양이 아니라 앱이 만든 알림(「수신거부」 버튼 있음)인지 본다
 
 ---
+
+### 6. Confluence 기획 댓글 반영 (댓글 2026-11-01, 코드 대조 2026-11-04)
+
+항목과 결정 대기는 iOS `TODO.md` 재방문 푸시 5와 1:1이다. 서버 몫은 `dignify-backend/TODO.md` P1-b 5. 안드로이드 코드 위치만 적는다.
+
+- [ ] 동의 팝업 문구·「동의」「거부」 버튼: `FeedScreen` `Prompt.FirstRun`·`Prompt.Hype`·`Prompt.NewRelease`, `ad_consent_*`·`hype_optin_*` 문자열. 바깥 탭·뒤로 가기가 거부로 기록되는지 확인
+- [ ] 0-5 상태별 규칙: `Push.permissionUndecided` 조건과 `rememberEnableNotifications`(`feature/push/AdConsent.kt`). `adPushConsentAt`으로 미응답과 거부 구분
+- [ ] 결과 통지 팝업 → 토스트: `AdConsentNotice`. 알림 「수신거부」 결과를 같은 알림으로 갈아 끼우는 건 유지. 지금 문구는 토스트에서 잘려서 창으로 둔 것이라(`AdConsentNotice` 주석) 문구를 같이 줄인다
+- [ ] 마이 › 알림 카테고리 토글·기기 알림 꺼짐 안내: `NotificationSettingsScreen`(서버 카테고리 배포 뒤). 카테고리별 OFF 계측은 iOS와 같은 이름으로
+- [ ] 로그아웃 시 기기 토큰 처리: `Session`(서버 계약 뒤)
+- [ ] 수신거부: 앱이 직접 만든 액션(`PushNotifications`·`OptOutReceiver`)을 iOS와 같은 결정에 맞춘다. 문구가 바뀌면 `ad_push_opt_out`, `(광고)` 위치가 바뀌면 `debugPushes`도. 이 버튼엔 PostHog 이벤트가 없어 `push_logs.opted_out`으로만 보인다
 
 ## 1.3.0 / `versionCode 15` — Play 심사 제출(2026-10-20), 실기기 확인 남음
 
