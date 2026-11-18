@@ -57,11 +57,13 @@ object PushNotifications {
     }
 
     /** 결과 통지(제50조 7항) 문구. 날짜는 서버가 처리한 시각을 기기 날짜로. */
-    fun resultText(context: Context, consent: Boolean, processedAt: String): String {
-        val date = runCatching { Instant.parse(processedAt).atZone(ZoneId.systemDefault()).toLocalDate().toString() }
+    fun resultText(context: Context, consent: Boolean, processedAt: String): String =
+        context.getString(if (consent) R.string.ad_consent_result_accept else R.string.ad_consent_result_decline, processedDate(processedAt))
+
+    /** 서버 처리 시각(ISO-8601 Instant)을 기기 날짜 YYYY-MM-DD로. */
+    fun processedDate(processedAt: String): String =
+        runCatching { Instant.parse(processedAt).atZone(ZoneId.systemDefault()).toLocalDate().toString() }
             .getOrDefault(processedAt.take(10))
-        return context.getString(if (consent) R.string.ad_consent_result_accept else R.string.ad_consent_result_decline, date)
-    }
 
     /**
      * 디버그 메뉴의 테스트 푸시(iOS `test-push` 폴더의 apns 파일 자리). 서버와 같은 data 맵을 [show]에 넘겨

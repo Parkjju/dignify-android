@@ -79,8 +79,8 @@ object Push {
      * 시스템 창을 한 번 거절한 유저(`shouldShowRequestPermissionRationale`)는 iOS `.denied`처럼 뺀다.
      *
      * 안드로이드는 "물어본 적 없음"과 "영구 거부"를 가를 API가 없어 띄운 적이 있는지 직접 남긴다.
-     * 이 기록 전에 영구 거부한 기존 유저는 미결정으로 보인다 — 수락하면 설정 화면으로 간다
-     * ([rememberEnableNotifications]).
+     * 이 기록 전에 영구 거부한 기존 유저는 미결정으로 보인다 — 수락하면 시스템 창이 조용히 무시되고
+     * 다음 동의부터 [SettingsGuide]가 안내한다.
      */
     fun permissionUndecided(activity: Activity): Boolean {
         if (!canAskNotificationPermission(activity)) return false
@@ -133,7 +133,12 @@ object Push {
     /** 게스트·미로그인 토큰은 서버가 붙일 유저가 없어 401이 된다. */
     private fun canRegister() = Session.isInitialized && Session.api.isAuthenticated
 
+    /** 마지막으로 등록한 FCM 토큰. 로그아웃 때 서버에 같이 보낸다(이 기기 토큰을 계정에서 뗀다). */
+    var token: String? = null
+        private set
+
     private fun upload(token: String) {
+        this.token = token
         Log.i(TAG, "디바이스 토큰 등록 시도: ${token.take(12)}…")
         scope.launch {
             runCatching { Session.api.registerDeviceToken(token, TimeZone.getDefault().id) }

@@ -46,6 +46,10 @@ private data class GoogleSignInBody(val idToken: String)
 @Serializable
 private data class RefreshBody(val refreshToken: String)
 
+/** deviceToken이 null이면 키째 빠진다(encodeDefaults 꺼짐). 서버는 모르는 키를 무시한다. */
+@Serializable
+private data class LogoutBody(val refreshToken: String, val deviceToken: String? = null)
+
 @Serializable
 private data class DiggingModeBody(val enabled: Boolean)
 
@@ -72,6 +76,9 @@ private data class ArtistNameBody(val artistName: String)
 
 @Serializable
 private data class AdPushConsentBody(val adPush: Boolean)
+
+@Serializable
+private data class NightPushConsentBody(val nightPush: Boolean)
 
 @Serializable
 private data class OptOutBody(val deviceToken: String)
@@ -166,13 +173,13 @@ class ApiClient(
     }
 
     /** 서버에 refresh 토큰 폐기를 요청하고 로컬을 비운다. 서버 실패해도 로컬은 정리한다. */
-    suspend fun logout() {
+    suspend fun logout(deviceToken: String?) {
         val refreshToken = store.tokens?.refreshToken
         if (refreshToken != null) {
             runCatching {
                 client.post("$baseUrl/auth/logout") {
                     contentType(ContentType.Application.Json)
-                    setBody(RefreshBody(refreshToken))
+                    setBody(LogoutBody(refreshToken, deviceToken))
                 }
             }
         }
@@ -377,6 +384,13 @@ class ApiClient(
         client.put("$baseUrl/users/me/push-consent") {
             contentType(ContentType.Application.Json)
             setBody(AdPushConsentBody(consent))
+        }.body()
+
+    /** 야간 광고성 동의. 광고성 동의 없이 켜면 409(`AD_PUSH_CONSENT_REQUIRED`) — 응답을 읽으니 던진다. */
+    suspend fun setNightPushConsent(consent: Boolean): Api.NightPushConsent =
+        client.put("$baseUrl/users/me/push-consent/night") {
+            contentType(ContentType.Application.Json)
+            setBody(NightPushConsentBody(consent))
         }.body()
 
     /**

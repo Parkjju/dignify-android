@@ -42,11 +42,8 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     var segments by mutableStateOf<List<Segment>>(emptyList())
         private set
 
-    /**
-     * 앱을 열 때 붙은 신곡 구간을 막 지난 순간 한 번 true. "다음 신곡도 알림으로 받기"를
-     * 제안할 자리다 — 신곡을 받아 본 사람이라야 그 제안이 말이 된다.
-     */
-    var justFinishedNewReleases by mutableStateOf(false)
+    /** 이번 주 특집 마지막 곡(5/5)을 막 넘긴 순간 한 번 true. 야간 동의 팝업 자리다(푸시알림 기획 1.0 C). */
+    var justFinishedCuration by mutableStateOf(false)
         private set
 
     /** 알림이 앞 구간을 갈아 끼웠으니 첫 장으로 가라는 신호. 화면이 처리하고 내린다. */
@@ -164,7 +161,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         curationSetKey = ""
         relatedRequested = false
         relatedSkips = 0
-        justFinishedNewReleases = false
+        justFinishedCuration = false
         if (Session.state != AuthState.SIGNED_IN) return emptyList()
         if (open != null && open.trackIds.isNotEmpty()) {
             // 곡이 내려갔으면 서버가 빼고 준다. 다 내려갔으면 조용히 평소 피드.
@@ -350,7 +347,8 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * 구간을 지나며 할 일. 매 트랙에서 돌지만 SharedPreferences 쓰기는 값이 같으면 사실상 공짜다.
      * - 큐레이션: 지나면 완주 — 다음 진입부터 이 세트를 안 앞세운다
-     * - 신곡: 본 곡을 기록 / 앱을 열 때 붙은 구간을 지나면 알림 제안 / 알림 구간 끝에서 연관 곡 요청
+     * - 큐레이션: 마지막 곡을 넘기면 야간 동의 제안 신호
+     * - 신곡: 본 곡을 기록 / 알림 구간 끝에서 연관 곡 요청
      * - 연관: 연속 5번 넘기면 남은 연관 곡을 버리고 평소 피드로
      */
     private fun onSegmentProgress(index: Int) {
@@ -358,6 +356,7 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         lastViewedIndex = index
         segments.firstOrNull { it.kind == SOURCE_CURATION }?.let { seg ->
             if (index >= seg.end && curationSetKey.isNotEmpty()) prefs.edit().putString(KEY_SEEN_SET, curationSetKey).apply()
+            if (previous in seg && index == seg.end) justFinishedCuration = true
         }
         val newRelease = segments.firstOrNull { it.kind == SOURCE_NEW_RELEASE }
         if (newRelease != null) {
@@ -365,7 +364,6 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                 val seen = prefs.getStringSet(KEY_SEEN_NEW_RELEASES, emptySet()).orEmpty()
                 prefs.edit().putStringSet(KEY_SEEN_NEW_RELEASES, seen + feeds[index].trackId.toString()).apply()
             }
-            if (!newRelease.fromPush && previous in newRelease && index == newRelease.end) justFinishedNewReleases = true
             // ponytail: 마지막 신곡 카드에 **닿을 때** 요청한다. 지난 뒤에 받으면 이미 그려진 평소 피드 카드가
             // 연관 곡으로 바뀐다. 그래서 마지막 카드에서 누른 좋아요는 시드에 못 들어간다(한 곡이면 차이 없음).
             if (newRelease.fromPush && !relatedRequested && index == newRelease.end - 1) {
@@ -406,34 +404,25 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** 화면이 신호를 받아 처리했음. */
-    fun onNewReleasesFinishedHandled() {
-        justFinishedNewReleases = false
-    }
-
-    /** 첫 실행 광고성 동의 팝업을 띄운 적이 있나. 팝업마다 기록을 따로 둔다(공유하면 한쪽이 영영 안 뜬다). */
-    val didOfferAdConsent: Boolean get() = prefs.getBoolean(KEY_DID_OFFER_AD_CONSENT, false)
-
-    fun markAdConsentOffered() {
-        prefs.edit().putBoolean(KEY_DID_OFFER_AD_CONSENT, true).apply()
+    fun onCurationFinishedHandled() {
+        justFinishedCuration = false
     }
 
     /**
-     * 이 아티스트 좋아요로 신곡 알림 팝업을 띄워도 되나. 띄우기로 하면 기록까지 한다.
-     * 첫 팝업은 아무 아티스트로나 1회, 「나중에」 뒤엔 **그 아티스트 곡을 다시 좋아할 때** 1회 더, 그 뒤론 안 묻는다.
-     * ponytail: 아티스트를 이름으로 센다 — 피드 응답에 아티스트 id가 없다.
+     * 첫 실행 광고성 동의 팝업을 띄워도 되나 — 마지막으로 띄운 지 7일이 지났나(기기 기록).
+     * 「나중에」는 닫기만 하고 7일 뒤 다시 묻는다. 응답 여부는 서버 값(`Session.adPushAnswered`)이 가른다.
      */
-    fun claimHypeOffer(artist: String): Boolean {
-        val offered = prefs.getStringSet(KEY_HYPE_OFFER_ARTISTS, emptySet()).orEmpty()
-        val claim = when {
-            offered.isEmpty() -> true
-            artist in offered && !prefs.getBoolean(KEY_HYPE_OFFER_REASKED, false) -> {
-                prefs.edit().putBoolean(KEY_HYPE_OFFER_REASKED, true).apply()
-                true
-            }
-            else -> false
-        }
-        if (claim) prefs.edit().putStringSet(KEY_HYPE_OFFER_ARTISTS, offered + artist).apply()
-        return claim
+    val canOfferAdConsent: Boolean get() = System.currentTimeMillis() - prefs.getLong(KEY_AD_CONSENT_OFFERED_AT, 0L) >= WEEK_MS
+
+    fun markAdConsentOffered() {
+        prefs.edit().putLong(KEY_AD_CONSENT_OFFERED_AT, System.currentTimeMillis()).apply()
+    }
+
+    /** 좋아요 시트의 「일주일 동안 안 보기」를 누른 지 7일이 지났나. */
+    val canOfferHypeSheet: Boolean get() = System.currentTimeMillis() - prefs.getLong(KEY_HYPE_OFFER_SNOOZED_AT, 0L) >= WEEK_MS
+
+    fun snoozeHypeSheet() {
+        prefs.edit().putLong(KEY_HYPE_OFFER_SNOOZED_AT, System.currentTimeMillis()).apply()
     }
 
     /** 검색 확정. 일반 피드를 스냅샷에 보관하고 결과로 교체한다. */
@@ -567,9 +556,9 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         const val KEY_SEEN_SET = "seenCurationSet"
         // ponytail: 본 신곡 id는 쌓이기만 한다. 신곡은 7일 지나면 서버가 안 주니 지워도 되지만, 수가 작다.
         const val KEY_SEEN_NEW_RELEASES = "seenNewReleaseIds"
-        const val KEY_DID_OFFER_AD_CONSENT = "didOfferAdConsent"
-        const val KEY_HYPE_OFFER_ARTISTS = "hypeOfferArtistIds"
-        const val KEY_HYPE_OFFER_REASKED = "hypeOfferReasked"
+        const val KEY_AD_CONSENT_OFFERED_AT = "adConsentOfferedAt"
+        const val KEY_HYPE_OFFER_SNOOZED_AT = "hypeOfferSnoozedAt"
+        const val WEEK_MS = 7 * 24 * 60 * 60 * 1000L
         const val RELATED_SKIP_LIMIT = 5
     }
 }

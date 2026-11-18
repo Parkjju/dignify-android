@@ -189,11 +189,28 @@ object Session {
             .getOrNull()
             ?.also { onAdConsentProcessed(it.adPush) }
 
-    /** 앱 밖(알림의 「수신거부」)에서 처리된 결과도 여기로 맞춘다. */
+    /** 앱 밖(알림의 「수신거부」)에서 처리된 결과도 여기로 맞춘다. 광고성을 끄면 서버가 야간도 끈다(켜져 있을 때만). */
     fun onAdConsentProcessed(consent: Boolean) {
         adPushConsent = consent
+        adPushAnswered = true
+        if (!consent && nightPushConsent == true) nightPushConsent = false
         prefs.edit().putBoolean(KEY_AD_CONSENT, consent).apply()
     }
+
+    /** 광고성 동의에 답한 적이 있나(서버 `adPushConsentAt`). 첫 실행 동의 팝업은 미응답에만 뜬다. */
+    var adPushAnswered by mutableStateOf(false)
+        private set
+
+    /** 야간 광고성 동의(서버 값). null = 미응답 — 야간 동의 팝업 조건. */
+    var nightPushConsent by mutableStateOf<Boolean?>(null)
+        private set
+
+    /** 실패하면 null. 광고성 동의가 없으면 서버가 409로 막는다 — 부르는 쪽이 먼저 거른다. */
+    suspend fun setNightPushConsent(consent: Boolean): Api.NightPushConsent? =
+        runCatching { api.setNightPushConsent(consent) }
+            .onFailure { android.util.Log.w("Session", "night consent failed", it) }
+            .getOrNull()
+            ?.also { nightPushConsent = it.nightPush }
 
     private lateinit var prefs: SharedPreferences
 
@@ -287,9 +304,11 @@ object Session {
     }
 
     suspend fun logout() {
-        api.logout()
+        api.logout(com.rta.dignify.feature.push.Push.token)
         nickname = ""
         onAdConsentProcessed(false)   // 동의는 계정 것이다. 다음 로그인의 /users/me가 다시 채운다.
+        adPushAnswered = false
+        nightPushConsent = null
         diggingMode = true
         state = AuthState.SIGNED_OUT
         feedReloadTick++
@@ -364,6 +383,8 @@ object Session {
         // 옛 서버는 이 필드를 안 내려준다. 그때는 지금 동작(켜짐)을 유지한다.
         diggingMode = profile.diggingMode ?: true
         profile.adPushConsent?.let { onAdConsentProcessed(it) }
+        adPushAnswered = profile.adPushConsentAt != null
+        nightPushConsent = profile.adPushNightConsent
         return profile
     }
 

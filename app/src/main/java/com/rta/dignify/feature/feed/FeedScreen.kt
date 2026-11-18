@@ -89,8 +89,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -119,6 +117,8 @@ import com.rta.dignify.core.designsystem.DSFitOrScroll
 import com.rta.dignify.core.designsystem.DSSearchBar
 import com.rta.dignify.core.designsystem.DSShimmer
 import com.rta.dignify.core.model.Feed
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import com.rta.dignify.core.network.Api
 import com.rta.dignify.core.network.itunesArtworkUrl
 import com.rta.dignify.feature.artist.ArtistRequestSheet
@@ -146,11 +146,13 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
-import com.rta.dignify.feature.push.AdConsentNotice
-import com.rta.dignify.feature.push.PushOptInPopup
+import com.rta.dignify.feature.push.ConsentPopup
+import com.rta.dignify.feature.push.ConsentSheet
+import com.rta.dignify.feature.push.acceptAdConsent
+import com.rta.dignify.feature.push.highlighted
+import com.rta.dignify.feature.push.showNightConsentToast
 import com.rta.dignify.feature.push.findActivity
-import com.rta.dignify.feature.push.processAdConsent
-import com.rta.dignify.feature.push.rememberEnableNotifications
+import com.rta.dignify.feature.push.rememberRequestNotificationPermission
 import kotlin.math.round
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -160,18 +162,18 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * 권한·동의 팝업. 한 번에 하나만 뜬다(실행당 하나 — `Session.promptedThisSession`).
- * `source`는 계측 값이다. iOS와 같은 값이어야 맥락별 수락률이 한 표에 모인다.
+ * 광고성 동의 팝업·시트(푸시알림 기획 1.0 「노출 규칙 — 정본」). 실행당 하나(`Session.promptedThisSession`),
+ * 우선순위 A → B → C. `source`는 계측 값이다 — iOS와 같은 값이어야 맥락별 수락률이 한 표에 모인다.
  */
 private sealed class Prompt(val source: String) {
-    /** 코치마크 직후(또는 업데이트 뒤 첫 실행) 광고성 정보 수신 동의. 세 알림 공통. */
-    data object FirstRun : Prompt("first_run")
+    /** A. 코치마크 직후(또는 업데이트 뒤 첫 실행). 아티스트 = 가장 최근 좋아요한 곡의 아티스트. */
+    data class FirstRun(val artist: String) : Prompt("first_run")
 
-    /** 좋아요 → 다음 카드. 「혁오 신곡이 나오면 알려 드릴까요?」 동의가 없으면 같이 받는다. */
-    data class Hype(val artist: String) : Prompt("hype")
+    /** B. 좋아요 → 다음 카드. 바텀시트, 아이콘 자리에 그 곡 자켓. */
+    data class Hype(val artist: String, val artworkUrl: String) : Prompt("hype")
 
-    /** 앱을 열 때 붙은 신곡 구간을 다 본 뒤. 꺼져 있는 쪽(동의·기기 알림)을 켜게 한다. */
-    data object NewRelease : Prompt("new_release")
+    /** C. 이번 주 특집 마지막 곡을 넘긴 직후. 야간 광고성 동의. */
+    data object Night : Prompt("night")
 }
 
 /**
@@ -238,9 +240,9 @@ fun FeedScreen(
     // 신곡 알림 팝업 계기. 화면에서 켠 좋아요만 남긴다 — 미디어 알림 좋아요(`audio.onHype`)는
     // 앱을 안 보는 중이라 계기가 아니다. 좋아요 모션 위로 뜨면 곡을 저장하는 손 위로 팝업이 덮이므로
     // 다음 카드로 넘어간 뒤에 묻는다(1.0.6에서 시스템 창을 바로 띄웠다가 걷어낸 이유).
-    var hypedArtist by remember { mutableStateOf<String?>(null) }
+    var hypedFeed by remember { mutableStateOf<Feed?>(null) }
     val noteHype: (Int) -> Unit = { trackId ->
-        vm.feeds.firstOrNull { it.trackId == trackId }?.let { hypedArtist = it.artistName }
+        vm.feeds.firstOrNull { it.trackId == trackId }?.let { hypedFeed = it }
     }
 
     // 카드와 상세 시트가 같은 하입 동작을 써야 해서 한 곳에 둔다.
@@ -441,52 +443,52 @@ fun FeedScreen(
         if (coachPeeking) 1f else (1f - abs(pagerState.currentPageOffsetFraction) * 4f).coerceIn(0f, 1f)
     }
 
-    // 권한·동의 팝업. 코치마크·로그인 시트·업데이트 소식·피드 구성 화면 위로는 안 띄운다.
+    // 동의 팝업·시트. 코치마크·로그인 시트·업데이트 소식·피드 구성 화면·트랙 상세 위로는 안 띄운다.
     // 닫히는 동안에도 문구가 남아 있어야 해서 팝업과 보임을 따로 둔다.
     var prompt by remember { mutableStateOf<Prompt?>(null) }
     var promptVisible by remember { mutableStateOf(false) }
-    var promptNeedsConsent by remember { mutableStateOf(false) }
-    var consentNotice by remember { mutableStateOf<String?>(null) }
-    val enableNotifications = rememberEnableNotifications()
+    val requestPermission = rememberRequestNotificationPermission()
     val canPrompt = Session.state == AuthState.SIGNED_IN && seenCoach && vm.pickNickname == null &&
-        vm.feeds.isNotEmpty() && !Session.whatsNewOpen && !Session.pendingSignIn && Session.buildingFeedFrom == null
+        vm.feeds.isNotEmpty() && !Session.whatsNewOpen && !Session.pendingSignIn && Session.buildingFeedFrom == null &&
+        detailTrackId == null
     val show: (Prompt) -> Unit = { p ->
         Session.promptedThisSession = true
-        // 첫 실행 팝업은 늘 동의를 묻는다 — 서버에 동의가 이미 있어도(다른 기기·재설치) 다시 처리하고 통지한다(iOS와 같다).
-        promptNeedsConsent = p is Prompt.FirstRun || !Session.adPushConsent
-        if (promptNeedsConsent) Analytics.capture("ad_consent_shown", mapOf("source" to p.source))
-        if (p !is Prompt.FirstRun) Analytics.capture("push_optin_shown", mapOf("source" to p.source))
+        Analytics.capture("ad_consent_shown", mapOf("source" to p.source))
         prompt = p
         promptVisible = true
     }
 
-    // 첫 실행: 코치마크가 끝난 직후 한 번. 코치마크를 이미 본 기존 유저는 업데이트 뒤 첫 실행에 뜬다
-    // (기록이 없으므로). 게스트에겐 안 띄운다 — 로그인 뒤 첫 실행에 뜬다(2026-10-29 확정).
+    // A. 첫 실행: 코치마크가 끝난 직후(기존 유저는 업데이트 소식을 닫은 직후). 광고성 동의 미응답(서버) +
+    // 좋아요 1곡 이상 + 7일 안에 띄운 적 없음. 게스트는 로그인 뒤 다음 실행에서.
     LaunchedEffect(canPrompt) {
-        // 서버 동의 값으로 거르지 않는다(iOS `offerAdConsentIfNeeded`와 같다). 거르면 다른 기기에서 동의한 계정은
-        // 이 기기에서 권한을 물어볼 자리가 없다.
-        if (!canPrompt || vm.didOfferAdConsent || Session.promptedThisSession || Session.signedInFromGuest) return@LaunchedEffect
+        if (!canPrompt || Session.adPushAnswered || !vm.canOfferAdConsent) return@LaunchedEffect
+        if (Session.promptedThisSession || Session.signedInFromGuest) return@LaunchedEffect
+        val latest = runCatching { Session.api.myHypes().items.firstOrNull() }.getOrNull() ?: return@LaunchedEffect
+        // 받는 사이 다른 팝업이 떴을 수 있다.
+        if (Session.promptedThisSession) return@LaunchedEffect
         vm.markAdConsentOffered()
-        show(Prompt.FirstRun)
+        show(Prompt.FirstRun(latest.artistName))
     }
 
-    // 좋아요 직후가 아니라 **다음 카드로 넘어간 뒤**에 묻는다(hypedArtist는 위 hype 옆에 있다).
+    // B. 좋아요 직후가 아니라 **다음 카드로 넘어간 뒤**(hypedFeed는 위 hype 옆에 있다). 기기 권한 「설정 전」 +
+    // 실행 2회 이상 + 7일 안에 「일주일 동안 안 보기」 안 누름.
     LaunchedEffect(pagerState.settledPage) {
-        val artist = hypedArtist ?: return@LaunchedEffect
-        hypedArtist = null
+        val feed = hypedFeed ?: return@LaunchedEffect
+        hypedFeed = null
         val activity = context.findActivity() ?: return@LaunchedEffect
         if (!canPrompt || Session.promptedThisSession || Session.launchCount < 2) return@LaunchedEffect
-        if (!Push.permissionUndecided(activity) || !vm.claimHypeOffer(artist)) return@LaunchedEffect
-        show(Prompt.Hype(artist))
+        if (!Push.permissionUndecided(activity) || !vm.canOfferHypeSheet) return@LaunchedEffect
+        Analytics.capture("push_optin_shown", mapOf("source" to "hype"))
+        show(Prompt.Hype(feed.artistName, feed.artworkUrl(100)))
     }
 
-    // 신곡 구간을 다 본 뒤 "다음 신곡도 알림으로". 이미 둘 다 켜져 있으면 받을 게 없다.
-    LaunchedEffect(vm.justFinishedNewReleases) {
-        if (!vm.justFinishedNewReleases) return@LaunchedEffect
-        vm.onNewReleasesFinishedHandled()
+    // C. 특집 5/5를 넘긴 직후. 광고성 동의 + 기기 알림 허용 + 야간 미응답. 이번 실행에 A·B가 떴으면 다음 실행부터.
+    LaunchedEffect(vm.justFinishedCuration) {
+        if (!vm.justFinishedCuration) return@LaunchedEffect
+        vm.onCurationFinishedHandled()
         if (!canPrompt || Session.promptedThisSession) return@LaunchedEffect
-        if (Session.adPushConsent && Push.notificationsEnabled(context)) return@LaunchedEffect
-        show(Prompt.NewRelease)
+        if (!Session.adPushConsent || !Push.notificationsEnabled(context) || Session.nightPushConsent != null) return@LaunchedEffect
+        show(Prompt.Night)
     }
 
     // Scaffold를 안 쓴다 — 앱 바가 없어서 content padding이 늘 0이고, 그걸 무시하면
@@ -676,43 +678,62 @@ fun FeedScreen(
             }
         }
 
-        // 팝업은 최상단. 딤이 피드 제스처를 먹어야 뒤로 스와이프가 안 샌다.
+        // 팝업은 최상단. 딤이 피드 제스처를 먹어야 뒤로 스와이프가 안 샌다. 버튼은 팝업만 닫고 피드 곡은 그대로.
         prompt?.let { p ->
-            // 띄울 때 정한 값이다. 수락하면 동의가 먼저 처리돼, 닫히는 사이 문구가 바뀌면 안 된다.
-            val needsConsent = promptNeedsConsent
-            PushOptInPopup(
-                visible = promptVisible,
-                title = when (p) {
-                    Prompt.FirstRun -> stringResource(R.string.ad_consent_title)
-                    is Prompt.Hype -> stringResource(R.string.hype_optin_title, p.artist)
-                    Prompt.NewRelease -> stringResource(R.string.new_release_optin_title)
-                },
-                message = when {
-                    p is Prompt.FirstRun -> stringResource(R.string.ad_consent_message)
-                    needsConsent -> stringResource(R.string.ad_consent_message_short)
-                    p is Prompt.Hype -> stringResource(R.string.hype_optin_message)
-                    else -> stringResource(R.string.new_release_optin_message)
-                },
-                onAccept = {
-                    promptVisible = false
-                    if (p !is Prompt.FirstRun) Analytics.capture("push_optin_accepted", mapOf("source" to p.source))
-                    if (needsConsent) {
-                        Analytics.capture("ad_consent_accepted", mapOf("source" to p.source))
-                        scope.launch { consentNotice = processAdConsent(context, true) }
+            val accept: () -> Unit = {
+                promptVisible = false
+                Analytics.capture("ad_consent_accepted", mapOf("source" to p.source))
+                if (p is Prompt.Hype) Analytics.capture("push_optin_accepted", mapOf("source" to p.source))
+                // 앱 스코프 — 시스템 창을 기다리는 사이 탭을 옮겨도 저장·토스트가 끝나야 한다.
+                Session.appScope.launch {
+                    if (p is Prompt.Night) showNightConsentToast(context, Session.setNightPushConsent(true))
+                    else acceptAdConsent(context, p.source, requestPermission)
+                }
+            }
+            val decline: () -> Unit = {
+                promptVisible = false
+                Analytics.capture("ad_consent_declined", mapOf("source" to p.source))
+                when (p) {
+                    // 「나중에」는 닫기만 — 저장·통지 없음, 7일 뒤 다시.
+                    is Prompt.FirstRun -> Unit
+                    is Prompt.Hype -> {
+                        Analytics.capture("push_optin_declined", mapOf("source" to p.source))
+                        vm.snoozeHypeSheet()
                     }
-                    enableNotifications(p.source)
-                },
-                onDecline = {
-                    promptVisible = false
-                    if (p !is Prompt.FirstRun) Analytics.capture("push_optin_declined", mapOf("source" to p.source))
-                    if (needsConsent) Analytics.capture("ad_consent_declined", mapOf("source" to p.source))
-                    // 첫 실행 거부도 처리 결과를 통지한다(제50조 7항). 서버 기본값과 같지만 처리 시각이 남는다.
-                    // 좋아요·신곡 팝업의 「나중에」는 팝업만 닫는다 — 다음 기회가 남는다.
-                    if (p is Prompt.FirstRun) scope.launch { consentNotice = processAdConsent(context, false) }
-                },
-            )
+                    // 야간 「아니요」도 응답이다 — 저장하고 통지, 다시 안 묻는다.
+                    Prompt.Night -> Session.appScope.launch { showNightConsentToast(context, Session.setNightPushConsent(false)) }
+                }
+            }
+            when (p) {
+                is Prompt.Hype -> ConsentSheet(
+                    visible = promptVisible,
+                    artist = p.artist,
+                    artworkUrl = p.artworkUrl,
+                    onAccept = accept,
+                    onSnooze = decline,
+                )
+                is Prompt.FirstRun -> ConsentPopup(
+                    visible = promptVisible,
+                    title = highlighted(
+                        stringResource(R.string.ad_consent_popup_title, p.artist),
+                        p.artist,
+                        SpanStyle(color = DSColor.brand),
+                    ),
+                    message = stringResource(R.string.ad_consent_legal),
+                    declineLabel = stringResource(R.string.push_optin_decline),
+                    onAccept = accept,
+                    onDecline = decline,
+                )
+                Prompt.Night -> ConsentPopup(
+                    visible = promptVisible,
+                    title = AnnotatedString(stringResource(R.string.night_consent_title)),
+                    message = stringResource(R.string.night_consent_legal),
+                    declineLabel = stringResource(R.string.night_consent_decline),
+                    onAccept = accept,
+                    onDecline = decline,
+                )
+            }
         }
-        AdConsentNotice(consentNotice) { consentNotice = null }
     }
 }
 
@@ -981,16 +1002,16 @@ private fun BackgroundArtwork(feed: Feed) {
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(feed.artworkUrl(100))
-            .size(32)
+            // ponytail: blur 38(28에서 올림)을 더 작게 받아 늘리는 걸로 낸다. 24px ≈ 32px의 1.35배 흐림.
+            .size(24)
             .build(),
         contentDescription = null,
         contentScale = ContentScale.Crop,
         filterQuality = FilterQuality.Low,
-        colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.4f) }),
         modifier = Modifier.fillMaxSize(),
     )
-    // iOS의 brightness(-0.3)에 해당. 검은 막을 덮는 쪽이 색을 안 뭉갠다.
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+    // 푸시알림 기획 1.0: blur 38 + 검정 45% 한 겹. 밝기·채도 조정 없음.
+    Box(Modifier.fillMaxSize().background(DSColor.scrim))
 }
 
 @Composable
@@ -1015,7 +1036,7 @@ private fun TrackCard(
     val clock: (() -> Float)? = if (burstClock.isRunning) ({ burstClock.value }) else null
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val cardWidth = maxWidth - 48.dp
+        val cardWidth = maxWidth - 40.dp
         Column(
             Modifier
                 .fillMaxSize()
@@ -1290,7 +1311,7 @@ private fun SegmentBadge(index: Int, segment: Segment?, visible: Boolean, modifi
  * (iOS `contextBadge`) — 두 상태가 동시에 성립하지 않으므로 자리를 나눌 이유가 없다.
  *
  * **자기 위치를 스스로 정하지 않는다.** 부르는 쪽(`SearchControls`의 badge 슬롯)이 버튼 줄
- * 아래 safe+56에 붙여 준다.
+ * 아래 safe+90(모드 알약 아랫선에서 48)에 붙여 준다.
  *
  * 탭을 안 먹는다. 배지는 나가는 문이 아니라 표시라, 눌리면 뒤 카드의 재생 토글을 가로챈다.
  */
@@ -1325,12 +1346,12 @@ private fun SearchControls(
     onClearQuery: () -> Unit,
     /** null이면 성향 버튼·칩을 아예 안 그린다(픽 재생 지면). */
     onToggleMode: (() -> Unit)? = null,
-    /** 버튼 줄 아래 가운데(safe+56)에 붙는 컨텍스트 배지. 없으면 자리를 안 먹는다. */
+    /** 버튼 줄 아래 가운데(safe+90)에 붙는 컨텍스트 배지. 없으면 자리를 안 먹는다. */
     badge: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    // 한 줄(safe+8, 좌우 16): 왼쪽 성향 버튼 + 바로 옆 모드 알약(검색 결과면 쿼리 알약), 오른쪽 끝 검색.
-    // 배지는 그 아래 가운데 safe+56에 고정 — 줄 높이에 안 딸려 다녀야 곡을 넘겨도 안 흔들린다.
+    // 한 줄(safe+8, 좌우 20): 왼쪽 성향 버튼 + 바로 옆 모드 알약(검색 결과면 쿼리 알약), 오른쪽 끝 검색.
+    // 배지는 그 아래 가운데 safe+90에 고정 — 줄 높이에 안 딸려 다녀야 곡을 넘겨도 안 흔들린다.
     Box(
         modifier
             .fillMaxWidth()
@@ -1343,11 +1364,11 @@ private fun SearchControls(
                 placeholder = stringResource(R.string.search_placeholder),
                 // 키보드 내리기는 DSSearchBar가 한다(세 검색창이 같은 규칙을 쓴다).
                 onSubmit = onSubmit,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxWidth(),
             )
         } else {
             Row(
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp).fillMaxWidth(),
+                Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -1444,7 +1465,7 @@ private fun SearchControls(
         }
 
         Box(
-            Modifier.align(Alignment.TopCenter).padding(top = 56.dp),
+            Modifier.align(Alignment.TopCenter).padding(top = 90.dp),
             content = { badge() },
         )
     }
@@ -1456,8 +1477,8 @@ private fun LoadingSkeleton() {
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black), Alignment.Center) {
         DSShimmer(
             Modifier
-                .width(maxWidth - 48.dp)
-                .height(maxWidth - 48.dp)
+                .width(maxWidth - 40.dp)
+                .height(maxWidth - 40.dp)
                 .clip(RoundedCornerShape(24.dp))
         )
     }

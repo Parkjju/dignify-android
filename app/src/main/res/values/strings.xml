@@ -29,24 +29,37 @@
     <string name="push_optin_accept">Notify me</string>
     <string name="push_optin_decline">Not now</string>
 
-    <!-- 재방문 푸시 2종. iOS 1.3.2 xcstrings 값. new_release_optin_* · hype_optin_message는 iOS에 없는 자리라 임시 -->
-    <string name="ad_consent_title">Get new music by notification?</string>
-    <string name="ad_consent_message">New tracks from artists you like, weekly picks, and our curated sets. Tapping Notify me means you agree to receive advertising information.</string>
-    <string name="ad_consent_message_short">Tapping Notify me means you agree to receive advertising information.</string>
-    <string name="ad_consent_notice_title">Notification settings saved</string>
+    <!-- 푸시알림 기획 1.0(app-changes). ko는 시안 문구, en은 직접 다듬음(2026-11-18) -->
+    <string name="ad_consent_popup_title">Want new tracks from %1$s\nthe moment they drop?</string>
+    <string name="ad_consent_legal">By tapping \'Notify me\', you agree to receive promotional notifications from Dignify.</string>
+    <string name="night_consent_title">Get artist news at night, too?</string>
+    <string name="night_consent_legal">By tapping \'Notify me\', you agree to receive promotional notifications at night (9:00 PM – 8:00 AM).</string>
+    <string name="night_consent_decline">No</string>
+    <string name="consent_sheet_title_artist">New from %1$s</string>
+    <string name="consent_sheet_title_rest">Get notified when they drop</string>
+    <string name="consent_sheet_message">Turn on %1$s to get them.</string>
+    <string name="consent_sheet_message_bold">Settings › Notifications</string>
+    <string name="consent_sheet_preview_title">(Ad) New tracks from an artist you might like 🎧</string>
+    <string name="consent_sheet_preview_body">We picked songs that go with them, too💗</string>
+    <string name="consent_sheet_snooze">Don\'t show for a week</string>
+    <string name="consent_toast_title">Notification settings saved</string>
+    <string name="consent_toast_accept">You agreed to promotional notifications from Dignify on %1$s</string>
+    <string name="consent_toast_decline">You declined promotional notifications from Dignify on %1$s</string>
+    <string name="night_toast_accept">You agreed to nighttime promotional notifications from Dignify on %1$s</string>
+    <string name="night_toast_decline">You declined nighttime promotional notifications from Dignify on %1$s</string>
+    <string name="night_needs_consent_title">Turn on ad notifications first</string>
+    <string name="night_needs_consent_message">Night notifications need ad notifications to be on.</string>
     <string name="ad_consent_result_accept">Dignify processed your opt-in to ad notifications on %1$s.</string>
     <string name="ad_consent_result_decline">Dignify processed your opt-out from ad notifications on %1$s.</string>
     <string name="ad_push_opt_out">Unsubscribe</string>
     <string name="ad_push_opt_out_failed">Couldn\'t unsubscribe. Turn off ad notifications in My Page › Notifications.</string>
-    <string name="hype_optin_title">Want a heads-up when %1$s drops something new?</string>
-    <string name="hype_optin_message">We\'ll let you know the day after an artist you like releases a new track.</string>
-    <string name="new_release_optin_title">Get the next new releases as notifications?</string>
-    <string name="new_release_optin_message">Turn on notifications for Dignify on your device to get them.</string>
     <string name="new_release_badge">New from artists you like %1$d/%2$d</string>
     <string name="weekly_badge">Your picks this week %1$d/%2$d</string>
     <string name="notification_settings">Notifications</string>
     <string name="ad_consent_toggle">Ad notifications</string>
-    <string name="ad_consent_toggle_note">New tracks from artists you like, weekly picks, and our curated sets. These are advertising information.</string>
+    <string name="ad_consent_toggle_note">New tracks from artists you like, weekly picks, and this week\'s set</string>
+    <string name="night_consent_toggle">Nighttime ad notifications</string>
+    <string name="night_consent_toggle_note">New tracks from artists and this week\'s set, even at night\n(9:00 PM – 8:00 AM)</string>
     <string name="device_notifications">System notifications</string>
     <string name="device_notifications_on">On</string>
     <string name="device_notifications_off">Off</string>
@@ -199,7 +212,7 @@
     <string name="whatsnew_got_it">Got it</string>
     <string name="whatsnew_132_first">New tracks from artists you like now show up first in your feed.</string>
     <string name="whatsnew_132_notify">Turn on notifications and we\'ll let you know when they drop new tracks.</string>
-    <string name="whatsnew_132_weekly">Every Monday, get 5 picks based on the tracks you like.</string>
+    <string name="whatsnew_132_weekly">Every Monday, get up to 5 picks based on the tracks you like.</string>
     <string name="whatsnew_132_settings">Turn notifications on or off anytime in My Page › Notifications.</string>
     <string name="whatsnew_131_seeds">"Recommend from" got a redo: all your likes in one list, and you can filter by genre.</string>
     <string name="whatsnew_131_tray">Tracks you pick sit in a tray at the bottom. Tap one to remove it.</string>
@@ -306,7 +319,7 @@
     <string name="feed_mode_following">Following your likes</string>
     <string name="feed_mode_random">Random</string>
     <string name="follow_my_hypes">Follow my likes</string>
-    <string name="follow_my_hypes_note">On, the feed plays tracks that sound like the ones you liked. Off, it plays anything.</string>
+    <string name="follow_my_hypes_note">Plays tracks similar to the ones you like.</string>
     <string name="save">Save</string>
     <string name="edit">Edit</string>
     <string name="done">Done</string>
@@ -359,4 +372,9 @@
     <string name="coach_gesture_swipe_title">Ready for the next song?</string>
     <string name="coach_gesture_swipe_body">Swipe up on the screen</string>
 
+    <!-- 거부 상태에서 동의 → 설정 안내(푸시알림 기획 0-5). 문구는 iOS 세션 전달 -->
+    <string name="settings_guide_title">Notifications are off on this device</string>
+    <string name="settings_guide_message">Turn on notifications for Dignify in Settings to get them.</string>
+    <string name="settings_guide_close">Close</string>
+    <string name="settings_guide_open">Open Settings</string>
 </resources>

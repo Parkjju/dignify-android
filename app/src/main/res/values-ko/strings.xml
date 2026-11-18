@@ -29,24 +29,37 @@
     <string name="push_optin_accept">알림 받기</string>
     <string name="push_optin_decline">나중에</string>
 
-    <!-- 재방문 푸시 2종. iOS 1.3.2 xcstrings 값. new_release_optin_* · hype_optin_message는 iOS에 없는 자리라 임시 -->
-    <string name="ad_consent_title">새 음악 소식, 알림으로 받을까요?</string>
-    <string name="ad_consent_message">좋아요한 아티스트의 신곡, 주간 추천, 이번 주 특집을 알려 드려요. 「알림 받기」를 누르면 광고성 정보 수신에 동의하게 돼요.</string>
-    <string name="ad_consent_message_short">「알림 받기」를 누르면 광고성 정보 수신에 동의하게 돼요.</string>
-    <string name="ad_consent_notice_title">알림 설정을 저장했어요</string>
+    <!-- 푸시알림 기획 1.0(app-changes). iOS 반영 전이라 ko는 시안 문구, en은 뜻에 맞춘 임시 -->
+    <string name="ad_consent_popup_title">좋아하는 %1$s의 신곡,\n바로 알려드릴까요?</string>
+    <string name="ad_consent_legal">\'알림 받기\'를 누르면 광고성 정보 수신에 동의해요.</string>
+    <string name="night_consent_title">밤에도 아티스트 소식을 알려드릴까요?</string>
+    <string name="night_consent_legal">\'알림 받기\'를 누르면 야간(오후 9:00 ~ 오전 8:00)\n광고성 정보 수신에 동의해요.</string>
+    <string name="night_consent_decline">아니요</string>
+    <string name="consent_sheet_title_artist">%1$s 신곡</string>
+    <string name="consent_sheet_title_rest">소식을 받아보세요!</string>
+    <string name="consent_sheet_message">소식을 받으려면 %1$s을 켜주세요.</string>
+    <string name="consent_sheet_message_bold">기기 설정 &gt; 알림</string>
+    <string name="consent_sheet_preview_title">(광고) 좋아하실 아티스트 신곡 들어볼까요? 🎧</string>
+    <string name="consent_sheet_preview_body">신곡과 어울리는 노래들도 함께 준비했어요💗</string>
+    <string name="consent_sheet_snooze">일주일 동안 안 보기</string>
+    <string name="consent_toast_title">알림 설정을 저장했어요</string>
+    <string name="consent_toast_accept">Dignify의 광고성 정보를 %1$s에 동의했어요</string>
+    <string name="consent_toast_decline">Dignify의 광고성 정보를 %1$s에 거부했어요</string>
+    <string name="night_toast_accept">Dignify의 야간 광고성 정보를 %1$s에 동의했어요</string>
+    <string name="night_toast_decline">Dignify의 야간 광고성 정보를 %1$s에 거부했어요</string>
+    <string name="night_needs_consent_title">광고성 정보 알림을 먼저 동의해야해요.</string>
+    <string name="night_needs_consent_message">광고성 정보 알림 수신을 동의해야 야간 알림을 설정할 수 있어요.</string>
     <string name="ad_consent_result_accept">귀하가 요청하신 Dignify의 광고성 정보 수신동의가 %1$s에 처리되었습니다.</string>
     <string name="ad_consent_result_decline">귀하가 요청하신 Dignify의 광고성 정보 수신거부가 %1$s에 처리되었습니다.</string>
     <string name="ad_push_opt_out">수신거부</string>
     <string name="ad_push_opt_out_failed">수신거부를 처리하지 못했어요. 마이 › 알림에서 광고성 알림을 꺼 주세요.</string>
-    <string name="hype_optin_title">%1$s 신곡이 나오면 알려 드릴까요?</string>
-    <string name="hype_optin_message">좋아요한 아티스트가 신곡을 내면 다음 날 알려 드려요.</string>
-    <string name="new_release_optin_title">다음 신곡도 알림으로 받을까요?</string>
-    <string name="new_release_optin_message">기기에서 Dignify 알림을 켜야 받을 수 있어요.</string>
     <string name="new_release_badge">좋아요한 아티스트의 신곡 %1$d/%2$d</string>
     <string name="weekly_badge">이번 주 추천 %1$d/%2$d</string>
     <string name="notification_settings">알림</string>
     <string name="ad_consent_toggle">광고성 정보 알림 수신</string>
-    <string name="ad_consent_toggle_note">좋아요한 아티스트의 신곡, 주간 추천, 이번 주 특집 알림이에요. 모두 광고성 정보예요.</string>
+    <string name="ad_consent_toggle_note">좋아요한 아티스트의 신곡, 주간 추천, 이번 주 특집 알림</string>
+    <string name="night_consent_toggle">야간 광고성 정보 알림 수신</string>
+    <string name="night_consent_toggle_note">아티스트 신곡, 특집 알림을 보내드려요\n(오후 9:00 ~ 오전 8:00)</string>
     <string name="device_notifications">기기 알림 권한</string>
     <string name="device_notifications_on">켜짐</string>
     <string name="device_notifications_off">꺼짐</string>
@@ -186,7 +199,7 @@
     <string name="whatsnew_got_it">확인</string>
     <string name="whatsnew_132_first">좋아요한 아티스트의 신곡이 나오면 피드 맨 앞에 먼저 보여 드려요.</string>
     <string name="whatsnew_132_notify">알림을 켜 두면 좋아요한 아티스트의 신곡 소식을 바로 알려 드려요.</string>
-    <string name="whatsnew_132_weekly">매주 월요일, 좋아요한 곡을 바탕으로 고른 5곡을 보내 드려요.</string>
+    <string name="whatsnew_132_weekly">매주 월요일, 좋아요한 곡을 바탕으로 고른 최대 5곡을 보내 드려요.</string>
     <string name="whatsnew_132_settings">알림은 마이 › 알림에서 언제든 켜고 끌 수 있어요.</string>
     <string name="whatsnew_131_seeds">\'추천 기준 곡\' 화면이 바뀌었어요. 좋아요한 곡이 한 줄씩 보이고, 장르별로 골라 볼 수 있어요.</string>
     <string name="whatsnew_131_tray">고른 곡은 화면 아래 칸에 모여요. 칸에 있는 곡을 누르면 선택이 해제돼요.</string>
@@ -295,10 +308,10 @@
 
     <!-- 1.1.0 — 피드가 하입을 따라간다 -->
     <string name="feels_like">비슷한 곡: %1$s</string>
-    <string name="feed_mode_following">좋아요한 곡 따라가는 중</string>
+    <string name="feed_mode_following">좋아요 따라가는 중</string>
     <string name="feed_mode_random">무작위</string>
     <string name="follow_my_hypes">좋아요한 곡 따라가기</string>
-    <string name="follow_my_hypes_note">켜면 좋아요한 곡과 소리가 비슷한 곡이 나오고, 끄면 조건 없이 아무 곡이나 나와요.</string>
+    <string name="follow_my_hypes_note">좋아요한 곡과 비슷한 곡이 나와요.</string>
     <string name="save">저장</string>
     <string name="edit">편집</string>
     <string name="done">완료</string>
@@ -350,4 +363,9 @@
     <string name="coach_gesture_swipe_title">다음 노래로 넘어가 볼까요?</string>
     <string name="coach_gesture_swipe_body">화면을 위로 쓸어 올려보세요</string>
 
+    <!-- 거부 상태에서 동의 → 설정 안내(푸시알림 기획 0-5). 문구는 iOS 세션 전달 -->
+    <string name="settings_guide_title">기기 알림이 꺼져 있어요</string>
+    <string name="settings_guide_message">설정에서 Dignify 알림을 켜야 받을 수 있어요.</string>
+    <string name="settings_guide_close">닫기</string>
+    <string name="settings_guide_open">설정 열기</string>
 </resources>

@@ -101,6 +101,8 @@ import com.rta.dignify.feature.onboarding.SeedPoolPickerScreen
 import com.rta.dignify.feature.onboarding.fetchSeedPool
 import com.rta.dignify.feature.push.Push
 import com.rta.dignify.feature.push.NotificationSettingsScreen
+import com.rta.dignify.core.designsystem.DSToastHost
+import com.rta.dignify.feature.push.SettingsGuidePopup
 import com.rta.dignify.feature.push.PushNotifications
 import com.rta.dignify.feature.whatsnew.Changelog
 import com.rta.dignify.feature.whatsnew.WhatsNewSheet
@@ -361,6 +363,12 @@ private fun MainTabs() {
             onFeed = tab == AppTab.FEED,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+
+        // 거부 상태에서 동의했을 때 설정 안내. 탭바까지 덮고, 토스트는 그 위에 뜬다.
+        SettingsGuidePopup()
+
+        // 처리 결과 토스트. 탭바 위 8 — 화면을 옮겨도(마이 › 알림에서 뒤로) 남아야 해서 탭 밖에 둔다.
+        DSToastHost(Modifier.align(Alignment.BottomCenter).padding(bottom = barHeight + 8.dp))
 
         // 곡 고르기 직후의 "피드 구성 중". 탭바까지 덮어야 해서 여기 둔다.
         // 최소 2초 — 응답이 빨라도 고른 곡이 피드를 만든다는 걸 읽을 시간은 준다. 첫 피드 응답이

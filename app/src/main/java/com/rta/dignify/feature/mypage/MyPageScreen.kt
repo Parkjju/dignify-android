@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -92,6 +93,11 @@ fun MyPageScreen(
     var showWithdraw by remember { mutableStateOf(false) }
     var diggingModeFailed by remember { mutableStateOf(false) }
     var debugResetMessage by remember { mutableStateOf<String?>(null) }
+    // 초기화 행: 디버그 빌드는 처음부터, 릴리즈는 버전 글자를 5번 눌러야(iOS TestFlight와 같은 손짓).
+    // ponytail: iOS `.sandbox`처럼 테스트 빌드를 가를 길이 없어(Play 내부 테스트 = 프로덕션 AAB) 스토어 빌드에도 탭은 있다.
+    // 열어도 바뀌는 건 이 기기 기록과 자기 계정 동의(거부)뿐. 더 막아야 하면 서버 테스터 플래그를 `/users/me`에.
+    var showsTestTools by remember { mutableStateOf(BuildConfig.DEBUG) }
+    var versionTaps by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
         // 배지는 실패해도 화면이 성립하므로 각각 따로 삼킨다.
@@ -114,7 +120,8 @@ fun MyPageScreen(
             color = DSColor.textPrimary,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                // 푸시알림 기획 1.0 #9: 상태바 아래 안쪽 20(iOS는 위 64 + 20).
+                .padding(start = 20.dp, end = 20.dp, top = 20.dp),
         )
 
         NicknameHeader(
@@ -171,13 +178,15 @@ fun MyPageScreen(
         SettingsRow(stringResource(R.string.mypage_logout)) { scope.launch { Session.logout() } }
         SettingsRow(stringResource(R.string.mypage_withdraw), destructive = true) { showWithdraw = true }
 
-        if (BuildConfig.DEBUG) {
+        if (showsTestTools) {
             GroupDivider()
             for (newUser in listOf(false, true)) {
                 SettingsRow(if (newUser) "신규 유저 상태로 초기화 (DEBUG)" else "업데이트 유저 상태로 초기화 (DEBUG)") {
                     scope.launch { debugResetMessage = debugReset(context, newUser) }
                 }
             }
+        }
+        if (BuildConfig.DEBUG) {
             // 받은 것과 같은 경로(data 메시지 → 앱이 그린 알림). 앱이 꺼진 상태의 탭은 실제 발송으로 본다.
             PushNotifications.debugPushes.forEach { data ->
                 SettingsRow("테스트 푸시: ${data["title"]} (DEBUG)") { PushNotifications.show(context, data) }
@@ -188,7 +197,11 @@ fun MyPageScreen(
             "v${BuildConfig.VERSION_NAME}",
             style = DSTypography.caption,
             color = DSColor.border,
-            modifier = Modifier.padding(vertical = 24.dp),
+            modifier = Modifier
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                    if (++versionTaps >= 5) showsTestTools = true
+                }
+                .padding(vertical = 24.dp),
         )
     }
 
@@ -237,7 +250,7 @@ private fun NicknameHeader(nickname: String, onCommit: (String, (String) -> Unit
     var error by remember { mutableStateOf<String?>(null) }
 
     Column(
-        Modifier.padding(top = 32.dp, bottom = 24.dp),
+        Modifier.padding(vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (editing) {
@@ -311,7 +324,6 @@ private fun DiggingProfileEntry(type: DiggingType?, onClick: () -> Unit) {
     Row(
         Modifier
             .padding(horizontal = 20.dp)
-            .padding(bottom = 12.dp)
             .fillMaxWidth()
             .background(DSColor.surface, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
@@ -405,7 +417,7 @@ private fun DiggingModeRow(failed: Boolean, onChange: (Boolean) -> Unit) {
 }
 
 /**
- * **디버그 빌드에만 있다.** 로그인은 그대로 두고 기기 기록만 되돌린다. 계정을 지우지 않고 두 흐름을 본다.
+ * 디버그 빌드엔 항상, 릴리즈는 버전 5탭으로 열린다. 로그인은 그대로 두고 기기 기록만 되돌린다. 계정을 지우지 않고 두 흐름을 본다.
  * iOS `MyPageView.debugResetRow(newUser:)`와 같다.
  * - 업데이트 유저: 직전 버전에서 막 올라온 기존 유저. What's New → 동의 팝업
  * - 신규 유저: 온보딩을 막 마친 유저. 코치마크 → 동의 팝업
@@ -422,16 +434,17 @@ private suspend fun debugReset(context: Context, newUser: Boolean): String {
         putBoolean(CoachSeen.FEED, !newUser)
         // 1.3.2에서 새로 생긴 기록 — 업데이트 직후·가입 직후엔 전부 비어 있다.
         listOf(
-            "didOfferAdConsent", "launchCount", "hypeOfferArtistIds", "hypeOfferReasked",
+            "adConsentOfferedAt", "launchCount", "hypeOfferSnoozedAt",
             "seenNewReleaseIds", "adPushConsent",
         ).forEach(::remove)
     }.apply()
-    // 서버 동의도 기본값(거부)으로. 결과 통지는 안 띄운다.
+    // 서버 동의도 거부로. 결과 토스트는 안 띄운다. 거부도 응답이라 동의 팝업(A)은 안 뜬다 —
+    // 서버 `adPushConsentAt`을 비우는 건 어드민 「광고성 동의 초기화」(운영자) 몫. iOS와 같다.
     Session.setAdPushConsent(false)
     return if (newUser) {
-        "앱을 완전히 껐다 켜면 코치마크 → 광고성 알림 동의 팝업 순서로 뜹니다."
+        "앱을 완전히 껐다 켜면 코치마크가 뜹니다. 동의 팝업은 서버 동의 기록을 초기화해야 뜹니다(운영자에게 요청)."
     } else {
-        "앱을 완전히 껐다 켜면 What's New → 광고성 알림 동의 팝업 순서로 뜹니다."
+        "앱을 완전히 껐다 켜면 What's New가 뜹니다. 동의 팝업은 서버 동의 기록을 초기화해야 뜹니다(운영자에게 요청)."
     }
 }
 
@@ -447,7 +460,7 @@ private fun SettingsRow(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp)
-            .height(48.dp),
+            .height(50.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -470,7 +483,7 @@ private fun SettingsRow(
 @Composable
 private fun GroupDivider() {
     HorizontalDivider(
-        Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         color = DSColor.borderLight,
     )
 }

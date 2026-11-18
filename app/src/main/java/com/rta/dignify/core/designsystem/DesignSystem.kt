@@ -1,6 +1,13 @@
 package com.rta.dignify.core.designsystem
 
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.slideInVertically
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.delay
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -90,6 +97,14 @@ object DSColor {
     val divider = Color(0xFFF3F4F6)
     val destructive = Color(0xFFEF4444)
 
+    /** 팝업·시트 뒤 딤(푸시알림 기획 1.0: 55% → 35%). */
+    val dim = Color.Black.copy(alpha = 0.35f)
+    /** 아트워크 위 어둡게 까는 막(피드 배경). */
+    val scrim = Color.Black.copy(alpha = 0.45f)
+    /** 토스트 지면 — 피드·라이트 지면 공통. */
+    val toastSurface = Color(0xD9151719)
+    val textOnDarkSecondary = Color.White.copy(alpha = 0.75f)
+
     // Picks (다크 지면). 앱은 라이트 고정이지만 Picks만 예외 — 흰 배경 위 surface 카드는
     // 대비가 거의 없어 아트워크가 떠 있기만 했다.
     val pickBackground = Color(0xFF141420)
@@ -106,6 +121,8 @@ object DSTypography {
     val headline = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
     val body = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Normal)
     val bodyMedium = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    val bodySmall = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
+    val callout = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium)
     val caption = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal)
     val micro = TextStyle(fontSize = 10.5f.sp, fontWeight = FontWeight.Normal)
 
@@ -274,23 +291,25 @@ fun rememberReduceMotion(): Boolean {
  * 팝업 층(디자인 Popup 「띄우기·닫기 모션」). 딤과 카드를 **따로** 움직여 OS 대화상자처럼 뜨게 한다 —
  * 조건부로 그냥 그리면 깜빡이고, 통째로 페이드하면 카드가 뜨는 순간이 안 읽힌다.
  *
- * 딤 탭 = [onDismiss]. 카드는 바깥 여백까지 [card]가 정하므로, 카드 면을 눌렀을 때 딤으로 새지 않게
+ * 딤 탭·뒤로 가기 = [onDismiss]. null이면 **버튼으로만 닫힌다**(동의 팝업 — 동의는 명시적 선택만). 그때도 딤은
+ * 터치를 먹어 뒤 피드로 새지 않는다. 카드는 바깥 여백까지 [card]가 정하므로, 카드 면을 눌렀을 때 딤으로 새지 않게
  * 하는 것도 [card] 쪽 몫이다(히트테스트를 먹는 clickable).
  */
 @Composable
-fun DSPopup(visible: Boolean, onDismiss: () -> Unit, card: @Composable () -> Unit) {
+fun DSPopup(visible: Boolean, onDismiss: (() -> Unit)?, card: @Composable () -> Unit) {
+    BackHandler(enabled = visible) { onDismiss?.invoke() }
     val reduceMotion = rememberReduceMotion()
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AnimatedVisibility(visible, enter = fadeIn(tween(200)), exit = fadeOut(tween(150))) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.55f))
+                    .background(DSColor.dim)
                     // indication을 끄는 건 딤 전체에 물결이 번지면 배경이 눌린 것처럼 보여서.
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = onDismiss,
+                        onClick = { onDismiss?.invoke() },
                     ),
             )
         }
@@ -441,5 +460,62 @@ fun DSShimmer(modifier: Modifier = Modifier) {
                     )
                 )
         )
+    }
+}
+
+/**
+ * 처리 결과 토스트(디자인 Components › Toast). 3초 뒤 사라지고 누르는 동작이 없다. 화면이 아니라 앱에 하나 —
+ * 마이 › 알림에서 토글을 끄고 바로 뒤로 가도 결과가 남아야 해서 [DSToastHost]가 탭바 위에 그린다.
+ */
+object DSToast {
+    data class Message(val title: String, val body: String?, val seq: Int)
+
+    var current by mutableStateOf<Message?>(null)
+        private set
+    private var seq = 0
+
+    fun show(title: String, body: String? = null) {
+        current = Message(title, body, ++seq)
+    }
+
+    internal fun dismiss(message: Message) {
+        if (current == message) current = null
+    }
+}
+
+/** 탭바 위 8, 좌우 18. 등장 0.2s 페이드 + 6 올라옴, 3초 뒤 0.3s 페이드 아웃. */
+@Composable
+fun DSToastHost(modifier: Modifier = Modifier) {
+    val reduceMotion = rememberReduceMotion()
+    val rise = with(LocalDensity.current) { 6.dp.roundToPx() }
+    val message = DSToast.current
+    // 사라지는 동안에도 문구가 남아 있어야 한다.
+    var shown by remember { mutableStateOf(message) }
+    if (message != null) shown = message
+    LaunchedEffect(message) {
+        if (message == null) return@LaunchedEffect
+        delay(3_000)
+        DSToast.dismiss(message)
+    }
+    AnimatedVisibility(
+        visible = message != null,
+        enter = if (reduceMotion) fadeIn(tween(200)) else fadeIn(tween(200)) + slideInVertically(tween(200)) { rise },
+        exit = fadeOut(tween(300)),
+        modifier = modifier,
+    ) {
+        val m = shown ?: return@AnimatedVisibility
+        // ponytail: 배경 블러 20은 뺐다 — Modifier.blur는 자기 내용을 흐리지 뒤를 흐리지 않는다. 85% 지면이라 차이가 작다.
+        Column(
+            Modifier
+                .padding(horizontal = 18.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(DSRadius.medium))
+                .background(DSColor.toastSurface)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(m.title, style = DSTypography.callout, color = Color.White)
+            m.body?.let { Text(it, style = DSTypography.caption, color = DSColor.textOnDarkSecondary) }
+        }
     }
 }

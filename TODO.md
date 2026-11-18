@@ -10,24 +10,35 @@
 정본은 `../dignify-design/app-changes.mdx` 「푸시알림 기획 1.0」 — 맨 위 **「광고성 알림 노출 규칙 — 정본」**(언제·어디서·어떤 세션에) + 항목 1~10(AS-IS·TO-BE·수치). 시안은 디자인 Storybook **Screens › 6. 광고성 알림**(동의 흐름 전부를 한 프로토타입으로). Figma 화면 플로우는 설계서와 부딪혀 참고만 한다.
 **iOS `TODO.md` 같은 이름 절과 1:1이다.** 아래 「재방문 푸시 2종」의 동의 팝업·결과 통지(`AdConsentNotice`)·알림 설정 항목은 이 절이 대체한다. 서버 몫은 `dignify-backend/TODO.md` P1-c.
 
+**코드 끝 (2026-11-17, 컴파일·유닛 테스트·lint 통과). 남은 것: 실기기 확인 → 버전 올려 업로드 → app-changes 상태에 Android 버전.**
+
 **노출 규칙 (정본 그대로)**
-- [ ] A 첫 실행(`FeedScreen` `Prompt.FirstRun`): 조건에 **좋아요 1곡 이상**(아티스트 = 가장 최근 좋아요), 「나중에」 = **닫기만** + **7일 뒤 다시**(`didOfferAdConsent` 1회 → 마지막 노출 시각). 미응답 판정은 서버 `adPushConsentAt`(P1-c)
-- [ ] B 좋아요 시점: `PushOptInPopup` → **바텀시트**(ConsentSheet). 재질문 `hypeOfferArtistIds`·`hypeOfferReasked` → **「일주일 동안 안 보기」 7일**
-- [ ] C 야간 동의 팝업 **신규**: 이번 주 특집 5/5를 넘긴 직후 다음 곡 위. 동의 + 권한 허용 + 야간 미응답. **서버 P1-c 뒤**
-- [ ] 세션: A·B·C 실행당 하나(`Session.promptedThisSession`), 우선순위 A → B → C, 동의받은 실행엔 C 안 묻기
-- [ ] 동의 팝업·시트는 **버튼으로만 닫힘**(딤·뒤로 가기 무반응), 닫아도 피드 곡 그대로
-- [ ] 「알림 받기」: 동의 저장 → 미결정이면 시스템 권한 창 → 결과 토스트. 거부 상태면 앱 알림 설정을 **자동으로 열지 않는다**(`rememberEnableNotifications`)
+- [x] A 첫 실행(`FeedScreen` `Prompt.FirstRun`): 서버 `adPushConsentAt` 미응답 + `myHypes` 첫 곡(가장 최근 좋아요)이 있어야 + 7일(`adConsentOfferedAt`). 「나중에」 = 닫기만
+- [x] B 좋아요 시점: `ConsentSheet`(`PushOptInPopup.kt`). 재질문은 「일주일 동안 안 보기」 7일(`hypeOfferSnoozedAt`) — `hypeOfferArtistIds`·`hypeOfferReasked`는 버렸다. 트랙 상세가 떠 있으면 안 띄움(`canPrompt`)
+- [x] C 야간: `FeedViewModel.justFinishedCuration`(특집 마지막 곡을 넘긴 순간) → `Prompt.Night`. `PUT /users/me/push-consent/night`(`Session.setNightPushConsent`)
+- [x] 세션: A·B·C 실행당 하나(`Session.promptedThisSession`). A·B가 뜬 실행엔 C가 막힌다
+- [x] 버튼으로만 닫힘: `DSPopup(onDismiss = null)`(딤 탭·뒤로 가기 무반응), 시트도 같음. `DSPopup`에 뒤로 가기 = 닫기를 붙였다(다른 팝업 공통)
+- [x] 「알림 받기」: 동의 저장과 시스템 창을 같이 돌리고 둘 다 끝나면 토스트(`acceptAdConsent`). 거부 상태면 아무것도 안 연다(`rememberRequestNotificationPermission`, 옛 `rememberEnableNotifications` 대체)
+- [x] 정본에 없는 안드로이드 전용 「다음 신곡도 알림으로 받을까요?」(`Prompt.NewRelease`, `new_release_optin_*`)는 지웠다(동의를 묻는 곳은 A·B·C + 설정뿐)
 
 **화면 (app-changes 항목 번호)**
-- [ ] 1 팝업 딤 35%(`DSColor.dim`) — `PushOptInPopup.kt`·확인 팝업 전부
-- [ ] 2 피드 배경 blur 38 + 검정 45%
-- [ ] 3 상단 줄 좌우 20 · **아트워크 좌우 20**(`FeedScreen.kt` `cardWidth = maxWidth - 48.dp` → `- 40.dp`) · 모드 알약 「좋아요 따라가는 중」
-- [ ] 4 P02 Popup 동의형 · 5 ConsentSheet · 7 P14 야간 팝업
-- [ ] 6 **Toast 신규** → `AdConsentNotice`(앱 안 창) 대체. 설명 「Dignify의 (야간) 광고성 정보를 YYYY-MM-DD에 동의했어요 / 거부했어요」(마침표 없음, 2026-11-17 확정). 알림 「수신거부」의 결과 문구 갈아 끼우기는 그대로
-- [ ] 8 앞 구간 배지 m · 앞 구간 배지 위치 safe+56 → **safe+90**(모드 알약 아랫선에서 48, 픽 배지 포함, 2026-11-17 Figma 실측) · 9 마이페이지 배치 · 10 알림 설정(`NotificationSettingsScreen`: 야간 토글, 결과·실패 토스트, 광고성 끄면 야간도 꺼짐, 기기 권한 「설정 전」이면 행 무반응)
-- [ ] `strings.xml` ko/en, 끝나면 app-changes 상태에 Android 버전
+- [x] 1 딤 35%(`DSColor.dim`, `DSPopup` 공통)
+- [x] 2 피드 배경 검정 45%(`DSColor.scrim`), 채도 조정 삭제. blur는 업스케일 원본을 32 → 24px로(minSdk 26이라 `Modifier.blur` 못 씀)
+- [x] 3 상단 줄 좌우 20 · 아트워크 `maxWidth - 40.dp`(로딩 스켈레톤도) · 「좋아요 따라가는 중」
+- [x] 4 `ConsentPopup` · 5 `ConsentSheet`(미리보기 그림 Figma 실측, 아이콘 = 좋아요한 곡 자켓) · 7 야간 팝업(`ConsentPopup` 재사용)
+- [x] 6 `DSToast`/`DSToastHost`(탭바 위 8, 3초) → `AdConsentNotice` 삭제. 배경 블러 20은 뺐다(Compose에 뒤 흐림이 없다). 알림 「수신거부」 문구는 그대로
+- [x] 8 배지 safe+90 (m 최대 10은 서버) · 9 마이: 제목 위 20, 닉네임 위아래 20, 카드 바로 아래 구분선(위아래 12), 행 50, 토글 설명 · 10 알림 설정: 야간 토글, 토스트(결과·실패·「먼저 동의」), 기기 권한 「설정 전」이면 행 무반응
+- [x] `strings.xml` ko(시안)/en(뜻 맞춤 임시) — iOS가 반영되면 xcstrings 값으로 덮을 것
+- [x] **테스트 빌드 초기화 행 (iOS 2026-11-18)**: 디버그 빌드는 항상, 릴리즈는 마이 버전 글자 **5번 탭**(`showsTestTools`). 안드로이드엔 `.sandbox` 같은 구분이 없어(Play 내부 테스트 = 프로덕션 AAB) 스토어 빌드에도 탭은 있다 — 열어도 자기 기기 기록·자기 계정 거부만 바뀐다. 더 막아야 하면 서버 테스터 플래그를 `/users/me`에
+  - `debugForgetAnswers()`(기기만 미응답) 삭제. 초기화는 「기기 기록 지우기 + 서버 거부」, 동의 팝업 A를 다시 보려면 어드민 「광고성 동의 초기화」(`POST /internal/admin/push/users/{userId}/reset-ad-consent`) — 안내 문구도 iOS와 같다
+  - 테스트 푸시 행은 디버그 빌드만(iOS 시드 고르기 행처럼)
+  - 테스트 순서: 컨플루언스 「광고성 알림 동의 테스트 시나리오 (iOS 1.3.2 TestFlight)」(19595265) — 안드로이드도 같은 순서
+- [x] **거부 상태 동의 → 설정 안내 팝업 (기획 0-5, iOS 세션 요청 2026-11-17)**: `acceptAdConsent`가 동의 저장 뒤 시스템 창을 못 띄웠고 알림이 꺼져 있으면 `SettingsGuide`(가로 2버튼 「닫기」·「설정 열기」, 딤 무반응, 결과 토스트는 같이). 진입점 first_run·hype·settings 공통. 계측 `push_settings_guide_shown`·`push_settings_guide_opened{source}`
+- [x] **로그아웃에 기기 토큰** (발송 조건 ⑤): `POST /auth/logout` 바디 `{refreshToken, deviceToken}`(`Push.token`, 없으면 키 생략). 서버는 아직 안 읽음
+- [ ] 실기기: A(신규·업데이트) / B(2회째 실행, 좋아요 → 다음 곡) / C(특집 5/5 넘김, 동의+권한 허용 상태) / 마이 › 알림 토글 4종 토스트 / 뒤로 가기·딤 무반응
+- [ ] 끝나면 app-changes 상태에 Android 버전
 
-**기획 확인 대기:** iOS 절과 같다(야간 시간 문구 · 시트 동의 문구 · 주간 곡 수 · 시트 버튼 색)
+**기획 확인 끝 (2026-11-18):** 야간 시간 「오후 9:00 ~ 오전 8:00」(팝업·토글 설명) · 시트 동의 문구 시안 그대로 · 주간 추천 최대 5곡(What's New·스토어 노트) · 시트 버튼 brand(시안). 시안 없는 문구(배지·「수신거부」·설정 안내)는 초안 확정, en은 직접 다듬음
 
 ## 재방문 푸시 2종 — 신곡 알림 · 주간 추천 (2026-10-29 등록)
 
