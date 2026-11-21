@@ -42,14 +42,32 @@
 
 QA 시트(구글 시트 「추가 오류 케이스」 #1~#10)를 iOS가 먼저 고쳤다. **#4·#7·#10은 정본 「광고성 알림 노출 규칙」을 바꾼 것**이다(사용자 결정 2026-11-19). iOS 기준 파일은 괄호 안. 계측 이름은 새로 만들지 않았다.
 
-- [ ] **#1 업데이트 소식 시트가 떠 있는 동안 재생 안 함**, 닫으면 지금 곡부터 재생 + `track_viewed`(iOS `FeedView.isOnScreen`에 `showingWhatsNew` 추가, `onChange(showingWhatsNew)`). 안드로이드는 `Session.whatsNewOpen`을 피드 재생 조건에 넣으면 된다
-- [ ] **#4 B는 좋아요가 서버에 반영되면 바로 띄운다** — 다음 곡으로 넘길 때까지 미루지 않는다(iOS `offerHypePushIfNeeded`, `pendingHypeOffer` 삭제). 픽 재생·잠금화면(미디어 알림) 좋아요·코치마크·트랙 상세 떠 있음 제외는 그대로
-- [ ] **#7 B 조건: 「기기 권한 설정 전」 → 「광고성 동의 꺼짐」**(`adPushConsent` false). 마이에서 광고성을 끈 유저도 좋아요하면 다시 뜬다. 권한이 꺼져 있으면 「알림 받기」 뒤 기존 `SettingsGuide`가 뜬다. 실행당 하나·「일주일 동안 안 보기」 7일은 그대로
-- [ ] **#5 B 제목 첫 줄이 한 줄에 안 들어가면** 「(아티스트) 신곡」 대신 **「좋아요한 아티스트의 신곡」**. 둘째 줄 「소식을 받아보세요!」는 그대로, 대체 문구도 한 줄에 안 들어가면 0.7까지 줄인다(iOS `ConsentSheet` `ViewThatFits`). 새 문자열 ko 「좋아요한 아티스트의 신곡\n소식을 받아보세요!」 / en 「New from artists you like\nGet notified when they drop」. 제목 좌우는 X 버튼을 비켜 52
-- [ ] **#6 B 우측 상단 X(닫기)** — 44 터치 영역, 위·오른쪽 8, 아이콘 17 semibold `textSecondary`. X는 **닫기만**: 7일 기록도, 이번 실행 기록(`promptedThisSession`)도 남기지 않는다 → 다음 좋아요에 또 뜬다. 계측 없음
-- [ ] **#3 마이 화면 스크롤 시 상태바 뒤가 비침** → 상태바 영역을 흰 지면(`DSColor.background`)으로 막는다(iOS `MyPageView` 위 safe area). 안드로이드도 edge-to-edge라 같은 증상인지 먼저 확인
-- [ ] **#9 마이 › 알림: 권한 「설정 전」 + 광고성 토글 켬** → 시스템 권한 창**만** 먼저. 허용해야 동의 저장 + 결과 토스트, 거부면 저장·토스트 없이 꺼진 채(iOS `NotificationSettingsView.changeAdPush`, `AppSession.promptPushAuthorization`). `ad_consent_accepted{settings}`도 허용한 경우에만 찍는다
-- [ ] **#10 마이 › 알림: 「설정 전」 행 탭 = 시스템 권한 창**(정본 항목 10 「무반응」을 되돌림). 위 5-2의 원래 동작과 같다 — 2026-11-17에 무반응으로 바꿨으면 되돌린다
+- [x] **#1 업데이트 소식 시트가 떠 있는 동안 재생 안 함**, 닫으면 지금 곡부터 재생 + `track_viewed`(iOS `FeedView.isOnScreen`에 `showingWhatsNew` 추가, `onChange(showingWhatsNew)`). 안드로이드는 `Session.whatsNewOpen`을 피드 재생 조건에 넣으면 된다
+- [x] **#4 B는 좋아요가 서버에 반영되면 바로 띄운다** — 다음 곡으로 넘길 때까지 미루지 않는다(iOS `offerHypePushIfNeeded`, `pendingHypeOffer` 삭제). 픽 재생·잠금화면(미디어 알림) 좋아요·코치마크·트랙 상세 떠 있음 제외는 그대로
+- [x] **#7 B 조건: 「기기 권한 설정 전」 → 「광고성 동의 꺼짐」**(`adPushConsent` false). 마이에서 광고성을 끈 유저도 좋아요하면 다시 뜬다. 권한이 꺼져 있으면 「알림 받기」 뒤 기존 `SettingsGuide`가 뜬다. 실행당 하나·「일주일 동안 안 보기」 7일은 그대로
+- [x] **#5 B 제목 첫 줄이 한 줄에 안 들어가면** 「(아티스트) 신곡」 대신 **「좋아요한 아티스트의 신곡」**. 둘째 줄 「소식을 받아보세요!」는 그대로, 대체 문구도 한 줄에 안 들어가면 0.7까지 줄인다(iOS `ConsentSheet` `ViewThatFits`). 새 문자열 ko 「좋아요한 아티스트의 신곡\n소식을 받아보세요!」 / en 「New from artists you like\nGet notified when they drop」. 제목 좌우는 X 버튼을 비켜 52
+- [x] **#6 B 우측 상단 X(닫기)** — 44 터치 영역, 위·오른쪽 8, 아이콘 17 semibold `textSecondary`. X는 **닫기만**: 7일 기록도, 이번 실행 기록(`promptedThisSession`)도 남기지 않는다 → 다음 좋아요에 또 뜬다. 계측 없음
+- [x] **#3 마이 화면 스크롤 시 상태바 뒤가 비침** → 상태바 영역을 흰 지면(`DSColor.background`)으로 막는다(iOS `MyPageView` 위 safe area). 안드로이드도 edge-to-edge라 같은 증상인지 먼저 확인
+- [x] **#9 마이 › 알림: 권한 「설정 전」 + 광고성 토글 켬** → 시스템 권한 창**만** 먼저. 허용해야 동의 저장 + 결과 토스트, 거부면 저장·토스트 없이 꺼진 채(iOS `NotificationSettingsView.changeAdPush`, `AppSession.promptPushAuthorization`). `ad_consent_accepted{settings}`도 허용한 경우에만 찍는다
+- [x] **#10 마이 › 알림: 「설정 전」 행 탭 = 시스템 권한 창**(정본 항목 10 「무반응」을 되돌림). 위 5-2의 원래 동작과 같다 — 2026-11-17에 무반응으로 바꿨으면 되돌린다
+- 안드로이드 반영 2026-11-19(컴파일·유닛 테스트·lint 통과, 실기기 2026-11-21 통과):
+  - #1 피드 `settledPage` 효과에 `Session.whatsNewOpen` 키 — 열려 있으면 `audio.stop()`, 닫히면 지금 곡 재생 + `onTrackViewed`(중복은 `lastViewedTrackId`가 거른다)
+  - #4·#7 `LaunchedEffect(hypedFeed)` + `!Session.adPushConsent`. **iOS와 다른 곳:** 서버 반영 뒤가 아니라 낙관적 하입 시점에 뜬다
+  - #5 한 줄 넘침은 `onTextLayout.hasVisualOverflow`로 가르고, 줄이기는 0.05씩 0.7까지(BOM 2024.12라 `autoSize` 없음). `consent_sheet_title_generic` ko/en
+  - #6 `ConsentSheet(onClose)` → `promptedThisSession = false`
+  - #3 재현 안 됨 — `MyPageScreen`은 `statusBarsPadding()`이 `verticalScroll` 바깥이라 스크롤 내용이 상태바 밑에서 잘린다. 할 일 없음
+  - #9·#10 `NotificationSettingsScreen`: 「설정 전」이면 `requestPermission` 먼저, 켠 뒤 `notificationsEnabled`가 false면 저장·토스트·계측 없이 끝
+- [x] **좋아요 시트(`ConsentSheet`) UI 수정 — 실기기에서 하단 탭바에 가려짐 (2026-11-22 스크린샷)**
+  - 증상: 시트 아래쪽 「일주일 동안 안 보기」가 하단 탭바(피드·픽·마이) 밑에 깔려 글자가 아이콘과 겹친다. 탭바 영역만 회색으로 보이고, 시트는 탭바 위에서 끝난 것처럼 잘려 보인다
+  - 원인: `ConsentSheet`가 `FeedScreen` 안의 `Box(fillMaxSize)` 오버레이라 피드 콘텐츠 층에 그려진다. 하단 탭바는 그보다 위 층(`MainActivity` Scaffold)이라 시트와 딤을 덮는다. 시트 안 `navigationBarsPadding()`은 제스처 바만 비키고 탭바는 못 비킨다
+  - 지침(정본: 시트는 **탭바까지 덮는다** — iOS도 그래서 오버레이가 아니라 `.sheet`로 띄운다):
+    - 창(window) 단위로 띄운다. 이 레포에서 이미 쓰는 `ModalBottomSheet`(`WhatsNewSheet`·`PickComposeSheet`)로 바꾸는 게 가장 짧다 — 탭바·상태바 위에 딤과 시트가 깔린다
+    - 버튼으로만 닫히게 유지: `dragHandle = null`, `sheetGesturesEnabled = false`, `properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false)`, `onDismissRequest = {}`, `rememberModalBottomSheetState(skipPartiallyExpanded = true)`. 딤은 `scrimColor = DSColor.dim`(35%), 모서리 `DSRadius.large`, `containerColor = DSColor.background`
+    - `ModalBottomSheet`가 아래 inset(제스처 바)을 직접 비키므로 시트 안 `navigationBarsPadding()`은 지운다(두 번 밀림)
+    - 지금 직접 만든 `AnimatedVisibility` 딤·슬라이드와 `BackHandler {}`는 `ModalBottomSheet`가 대신하니 지운다. 닫기(`promptVisible = false`)는 시트 상태 `hide()` 뒤 컴포지션에서 빼는 순서로
+  - 같이 고칠 간격: 설명 문구 → 알림 미리보기 그림 사이가 **24**여야 하는데(iOS `.padding(.top, 24)`) 지금 `spacedBy(12)` + `Spacer(12)` + `spacedBy(12)` = 36. `Spacer`를 지우고 미리보기를 12 간격 Column 밖으로 빼서 `padding(top = 24.dp)`
+  - 확인: 시트가 탭바를 완전히 덮고 「일주일 동안 안 보기」 아래로 제스처 바 여백이 남는다 / 딤 35%가 상태바부터 화면 끝까지 고르게 / 딤 탭·뒤로 가기·아래로 끌기 무반응 / X·「알림 받기」·「일주일 동안 안 보기」 셋 다 닫힘 / 3버튼 내비게이션 기기에서도 버튼이 안 가림
+  - 반영 2026-11-21(컴파일·유닛 테스트·lint·실기기 통과): `ModalBottomSheet` + `confirmValueChange`로 Hidden 막음(닫을 때만 `canHide`), `visible` false면 `hide()` 뒤 컴포지션에서 뺀다. 미리보기 위 24. **다른 곳:** material3 1.3.1엔 `sheetGesturesEnabled`가 없어 아래로 끌면 살짝 내려갔다 제자리로 돌아온다(닫히진 않음) — BOM 올리면 `false`로
 - #2 A 아티스트는 정본 유지(서버의 가장 최근 좋아요) — 할 일 없음
 - #8(설정 앱에 Dignify 알림 메뉴 없음)은 iOS 전용 — 권한을 한 번도 요청하지 않은 iOS 앱은 설정 앱에 알림 메뉴가 없다. 안드로이드는 앱 알림 설정 화면이 항상 있다
 - [ ] 끝나면 app-changes 「광고성 알림 노출 규칙 — 정본」 B 조건·시점과 항목 10을 고친다(iOS·안드로이드 둘 다 반영된 뒤)

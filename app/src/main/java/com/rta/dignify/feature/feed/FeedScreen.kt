@@ -151,7 +151,6 @@ import com.rta.dignify.feature.push.ConsentSheet
 import com.rta.dignify.feature.push.acceptAdConsent
 import com.rta.dignify.feature.push.highlighted
 import com.rta.dignify.feature.push.showNightConsentToast
-import com.rta.dignify.feature.push.findActivity
 import com.rta.dignify.feature.push.rememberRequestNotificationPermission
 import kotlin.math.round
 import kotlinx.coroutines.delay
@@ -237,9 +236,8 @@ fun FeedScreen(
         else scope.launch { pagerState.scrollToPage(vm.clearSearch()) }
     }
 
-    // 신곡 알림 팝업 계기. 화면에서 켠 좋아요만 남긴다 — 미디어 알림 좋아요(`audio.onHype`)는
-    // 앱을 안 보는 중이라 계기가 아니다. 좋아요 모션 위로 뜨면 곡을 저장하는 손 위로 팝업이 덮이므로
-    // 다음 카드로 넘어간 뒤에 묻는다(1.0.6에서 시스템 창을 바로 띄웠다가 걷어낸 이유).
+    // 신곡 알림 시트 계기. 화면에서 켠 좋아요만 남긴다 — 미디어 알림 좋아요(`audio.onHype`)는
+    // 앱을 안 보는 중이라 계기가 아니다. 좋아요하면 바로 띄운다(QA #4, 다음 곡까지 미루지 않는다).
     var hypedFeed by remember { mutableStateOf<Feed?>(null) }
     val noteHype: (Int) -> Unit = { trackId ->
         vm.feeds.firstOrNull { it.trackId == trackId }?.let { hypedFeed = it }
@@ -328,9 +326,14 @@ fun FeedScreen(
 
     // 스와이프가 멎은 뒤에만 오디오 윈도우를 옮긴다. 드래그 중에 옮기면 지나가는 곡이
     // 전부 한 번씩 재생된다.
-    LaunchedEffect(pagerState.settledPage, vm.feeds) {
+    // 업데이트 소식 시트가 떠 있는 동안은 재생·노출 계측을 안 한다. 닫히면 지금 곡부터(QA #1).
+    LaunchedEffect(pagerState.settledPage, vm.feeds, Session.whatsNewOpen) {
         val page = pagerState.settledPage
         if (vm.feeds.isEmpty()) return@LaunchedEffect
+        if (Session.whatsNewOpen) {
+            audio.stop()
+            return@LaunchedEffect
+        }
         vm.lastPage = page      // 탭을 옮겼다 돌아왔을 때 복귀할 자리.
         audio.updateWindow(vm.feeds, page)
         vm.onTrackViewed(page)
@@ -470,14 +473,15 @@ fun FeedScreen(
         show(Prompt.FirstRun(latest.artistName))
     }
 
-    // B. 좋아요 직후가 아니라 **다음 카드로 넘어간 뒤**(hypedFeed는 위 hype 옆에 있다). 기기 권한 「설정 전」 +
+    // B. 좋아요 직후 바로(QA #4, hypedFeed는 위 hype 옆에 있다). **광고성 동의 꺼짐**(QA #7 — 정본의 「기기 권한
+    // 설정 전」에서 바꿨다. 마이에서 끈 유저도 다시 묻는다. 권한이 거부면 「알림 받기」 뒤 SettingsGuide) +
     // 실행 2회 이상 + 7일 안에 「일주일 동안 안 보기」 안 누름.
-    LaunchedEffect(pagerState.settledPage) {
+    // ponytail: iOS는 서버 반영 뒤 띄우고 여긴 낙관적 하입 시점이다 — 하입 실패는 드물고, 시트는 닫으면 그만이다.
+    LaunchedEffect(hypedFeed) {
         val feed = hypedFeed ?: return@LaunchedEffect
         hypedFeed = null
-        val activity = context.findActivity() ?: return@LaunchedEffect
         if (!canPrompt || Session.promptedThisSession || Session.launchCount < 2) return@LaunchedEffect
-        if (!Push.permissionUndecided(activity) || !vm.canOfferHypeSheet) return@LaunchedEffect
+        if (Session.adPushConsent || !vm.canOfferHypeSheet) return@LaunchedEffect
         Analytics.capture("push_optin_shown", mapOf("source" to "hype"))
         show(Prompt.Hype(feed.artistName, feed.artworkUrl(100)))
     }
@@ -711,6 +715,11 @@ fun FeedScreen(
                     artworkUrl = p.artworkUrl,
                     onAccept = accept,
                     onSnooze = decline,
+                    // X는 닫기만 — 7일 기록도 이번 실행 기록도 안 남겨 다음 좋아요에 또 뜬다(QA #6).
+                    onClose = {
+                        promptVisible = false
+                        Session.promptedThisSession = false
+                    },
                 )
                 is Prompt.FirstRun -> ConsentPopup(
                     visible = promptVisible,

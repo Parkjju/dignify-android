@@ -37,6 +37,7 @@
     <string name="night_consent_decline">No</string>
     <string name="consent_sheet_title_artist">New from %1$s</string>
     <string name="consent_sheet_title_rest">Get notified when they drop</string>
+    <string name="consent_sheet_title_generic">New from artists you like</string>
     <string name="consent_sheet_message">Turn on %1$s to get them.</string>
     <string name="consent_sheet_message_bold">Settings › Notifications</string>
     <string name="consent_sheet_preview_title">(Ad) New tracks from an artist you might like 🎧</string>

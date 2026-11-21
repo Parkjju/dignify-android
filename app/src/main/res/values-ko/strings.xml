@@ -37,6 +37,7 @@
     <string name="night_consent_decline">아니요</string>
     <string name="consent_sheet_title_artist">%1$s 신곡</string>
     <string name="consent_sheet_title_rest">소식을 받아보세요!</string>
+    <string name="consent_sheet_title_generic">좋아요한 아티스트의 신곡</string>
     <string name="consent_sheet_message">소식을 받으려면 %1$s을 켜주세요.</string>
     <string name="consent_sheet_message_bold">기기 설정 &gt; 알림</string>
     <string name="consent_sheet_preview_title">(광고) 좋아하실 아티스트 신곡 들어볼까요? 🎧</string>

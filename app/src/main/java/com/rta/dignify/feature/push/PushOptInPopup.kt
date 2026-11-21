@@ -1,20 +1,11 @@
 package com.rta.dignify.feature.push
 
 import androidx.compose.foundation.background
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,7 +18,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
@@ -47,6 +37,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.Alignment
 import com.rta.dignify.core.designsystem.DSPopup
 import androidx.compose.ui.Modifier
@@ -214,6 +217,7 @@ fun highlighted(full: String, part: String, style: SpanStyle): AnnotatedString =
  * 좋아요 시점 신곡 알림 시트(디자인 ConsentSheet, P05). 버튼으로만 닫힌다 — 딤·뒤로 가기 무반응.
  * 미리보기 그림은 Figma `image_nps` 실측 그대로 그리고, 아이콘 자리만 그 아티스트 자켓이다.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConsentSheet(
     visible: Boolean,
@@ -221,28 +225,38 @@ fun ConsentSheet(
     artworkUrl: String?,
     onAccept: () -> Unit,
     onSnooze: () -> Unit,
+    onClose: () -> Unit,
 ) {
-    BackHandler(enabled = visible) {}
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        AnimatedVisibility(visible, enter = fadeIn(tween(200)), exit = fadeOut(tween(150))) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(DSColor.dim)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
-            )
+    // 창 단위 시트라 하단 탭바·상태바까지 딤이 덮는다(피드 안 오버레이였을 땐 탭바 밑에 깔렸다).
+    // 버튼으로만 닫힌다: 뒤로 가기는 properties, 딤 탭·아래로 끌기는 confirmValueChange가 Hidden을 막는다.
+    // ponytail: material3 1.3엔 `sheetGesturesEnabled`가 없어 끌면 조금 내려갔다 제자리로 돌아온다 — BOM 올리면 끈다.
+    val canHide = remember { mutableStateOf(false) }
+    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true) { it != SheetValue.Hidden || canHide.value }
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(visible) {
+        if (visible) {
+            canHide.value = false
+            shown = true
+        } else if (shown) {
+            canHide.value = true
+            state.hide()
+            shown = false
         }
-        AnimatedVisibility(
-            visible,
-            enter = slideInVertically(tween(250)) { it },
-            exit = slideOutVertically(tween(200)) { it },
-        ) {
+    }
+    if (!shown) return
+    ModalBottomSheet(
+        onDismissRequest = {},
+        sheetState = state,
+        shape = RoundedCornerShape(topStart = DSRadius.large, topEnd = DSRadius.large),
+        containerColor = DSColor.background,
+        scrimColor = DSColor.dim,
+        dragHandle = null,
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false),
+    ) {
+          Box {
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .background(DSColor.background, RoundedCornerShape(topStart = DSRadius.large, topEnd = DSRadius.large))
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {})
-                    .navigationBarsPadding()
                     .padding(top = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -252,17 +266,27 @@ fun ConsentSheet(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(color = DSColor.brand)) { append(stringResource(R.string.consent_sheet_title_artist, artist)) }
-                            append("\n")
-                            append(stringResource(R.string.consent_sheet_title_rest))
-                        },
-                        style = DSTypography.title1,
-                        color = DSColor.textPrimary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = DSTypography.title1.fontSize * 1.2f,
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.8.dp)) {
+                        // 첫 줄(brand)이 한 줄에 안 들어가면 「좋아요한 아티스트의 신곡」, 그것도 넘치면 0.7까지 줄인다(QA #5).
+                        // 좌우 36 + 시트 16 = 52로 X 버튼(44 + 8)을 비켜 가운데 정렬을 지킨다.
+                        var generic by remember(artist) { mutableStateOf(false) }
+                        var scale by remember(artist) { mutableFloatStateOf(1f) }
+                        Text(
+                            if (generic) stringResource(R.string.consent_sheet_title_generic)
+                            else stringResource(R.string.consent_sheet_title_artist, artist),
+                            style = DSTypography.title1,
+                            fontSize = DSTypography.title1.fontSize * scale,
+                            color = DSColor.brand,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 36.dp),
+                            onTextLayout = {
+                                if (!it.hasVisualOverflow) return@Text
+                                if (!generic) generic = true else if (scale > 0.7f) scale = (scale - 0.05f).coerceAtLeast(0.7f)
+                            },
+                        )
+                        Text(stringResource(R.string.consent_sheet_title_rest), style = DSTypography.title1, color = DSColor.textPrimary, textAlign = TextAlign.Center)
+                    }
                     Text(
                         highlighted(
                             stringResource(R.string.consent_sheet_message, bold),
@@ -274,9 +298,9 @@ fun ConsentSheet(
                         textAlign = TextAlign.Center,
                         lineHeight = DSTypography.bodySmall.fontSize * 1.5f,
                     )
-                    Spacer(Modifier.height(12.dp))
-                    NotificationPreview(artworkUrl)
                 }
+                // 설명 → 미리보기 24(iOS `.padding(.top, 24)`).
+                Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp)) { NotificationPreview(artworkUrl) }
                 Column(
                     Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -312,7 +336,19 @@ fun ConsentSheet(
                     }
                 }
             }
-        }
+            // 우측 상단 X — 닫기만(QA #6).
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 8.dp)
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Close, stringResource(R.string.settings_guide_close), tint = DSColor.textSecondary, modifier = Modifier.size(17.dp))
+            }
+          }
     }
 }
 

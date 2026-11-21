@@ -191,9 +191,18 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                 checked = Session.adPushConsent,
                 enabled = !busy,
             ) { on ->
-                Analytics.capture(if (on) "ad_consent_accepted" else "ad_consent_declined", mapOf("source" to "settings"))
                 busy = true
                 scope.launch {
+                    // 권한 「설정 전」에 켜면 시스템 창만 먼저 — 허용해야 동의 저장·토스트, 거부면 꺼진 채(QA #9).
+                    if (on && activity != null && Push.permissionUndecided(activity)) {
+                        requestPermission("settings")
+                        refreshDevice()
+                        if (!Push.notificationsEnabled(context)) {
+                            busy = false
+                            return@launch
+                        }
+                    }
+                    Analytics.capture(if (on) "ad_consent_accepted" else "ad_consent_declined", mapOf("source" to "settings"))
                     if (on) acceptAdConsent(context, "settings", requestPermission).also { refreshDevice() }
                     else showAdConsentToast(context, Session.setAdPushConsent(false))
                     busy = false
@@ -221,12 +230,17 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                 }
             }
             HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = DSColor.borderLight)
-            // 켜짐·꺼짐 = 이 앱 알림 설정. 설정 전이면 무반응 — 시스템 창은 동의 팝업의 「알림 받기」에서만 띄운다.
-            val undecided = device == R.string.device_notifications_not_set
+            // 켜짐·꺼짐 = 이 앱 알림 설정. 설정 전이면 시스템 창(QA #10).
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = device != null && !undecided) { Push.openNotificationSettings(context) }
+                    .clickable(enabled = device != null) {
+                        if (device == R.string.device_notifications_not_set) {
+                            scope.launch { requestPermission("settings"); refreshDevice() }
+                        } else {
+                            Push.openNotificationSettings(context)
+                        }
+                    }
                     .padding(horizontal = 20.dp)
                     .height(50.dp),
                 verticalAlignment = Alignment.CenterVertically,
