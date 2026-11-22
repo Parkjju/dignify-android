@@ -150,25 +150,12 @@ object Session {
      */
     var promptedThisSession = false
 
-    /**
-     * 이번 실행에서 게스트로 쓰다가 로그인했나(iOS `signedInFromGuest`). 첫 실행 동의 팝업은 이때 다음 실행으로 미룬다 —
-     * 로그인하자마자 또 팝업이 뜨면 방금 막힌 동작을 하려던 흐름이 두 번 끊긴다. [promptedThisSession]과 같이 실행마다 끈다.
-     */
-    var signedInFromGuest = false
-
     /** 업데이트 소식 시트가 떠 있나. 그 위로 팝업이 겹치지 않게 피드가 본다. */
     var whatsNewOpen by mutableStateOf(false)
 
-    /**
-     * 앱 실행 횟수. 좋아요 팝업은 두 번째 실행부터다 — 첫 실행엔 코치마크 뒤 동의 팝업이 이미 나간다.
-     * 액티비티가 새로 만들어질 때만 센다(회전·복원은 실행이 아니다).
-     */
-    val launchCount: Int get() = prefs.getInt(KEY_LAUNCH_COUNT, 0)
-
+    /** 새 실행. 액티비티가 새로 만들어질 때만 부른다(회전·복원은 실행이 아니다). */
     fun countLaunch() {
         promptedThisSession = false
-        signedInFromGuest = false
-        prefs.edit().putInt(KEY_LAUNCH_COUNT, launchCount + 1).apply()
     }
 
     /**
@@ -192,14 +179,9 @@ object Session {
     /** 앱 밖(알림의 「수신거부」)에서 처리된 결과도 여기로 맞춘다. 광고성을 끄면 서버가 야간도 끈다(켜져 있을 때만). */
     fun onAdConsentProcessed(consent: Boolean) {
         adPushConsent = consent
-        adPushAnswered = true
         if (!consent && nightPushConsent == true) nightPushConsent = false
         prefs.edit().putBoolean(KEY_AD_CONSENT, consent).apply()
     }
-
-    /** 광고성 동의에 답한 적이 있나(서버 `adPushConsentAt`). 첫 실행 동의 팝업은 미응답에만 뜬다. */
-    var adPushAnswered by mutableStateOf(false)
-        private set
 
     /** 야간 광고성 동의(서버 값). null = 미응답 — 야간 동의 팝업 조건. */
     var nightPushConsent by mutableStateOf<Boolean?>(null)
@@ -241,7 +223,6 @@ object Session {
     }
 
     private const val KEY_GUEST_HYPES = "pendingGuestHypes"
-    private const val KEY_LAUNCH_COUNT = "launchCount"
     private const val KEY_AD_CONSENT = "adPushConsent"
 
     fun init(context: Context) {
@@ -292,9 +273,7 @@ object Session {
 
     /** Credential Manager가 받아온 ID 토큰으로 로그인. 실패 시 throw — 화면이 표시한다. */
     suspend fun signInWithGoogle(idToken: String) {
-        val wasGuest = state == AuthState.GUEST
         api.signInWithGoogle(idToken)
-        if (wasGuest) signedInFromGuest = true
         refreshAuthState()
         // 게스트→로그인 전환. distinct_id는 익명 그대로 이어져 전환 퍼널이 한 사람으로 연결된다.
         // ponytail: 백엔드가 안정적 userId를 안 내려줘 identify는 생략 — iOS와 같은 판단.
@@ -307,7 +286,6 @@ object Session {
         api.logout(com.rta.dignify.feature.push.Push.token)
         nickname = ""
         onAdConsentProcessed(false)   // 동의는 계정 것이다. 다음 로그인의 /users/me가 다시 채운다.
-        adPushAnswered = false
         nightPushConsent = null
         diggingMode = true
         state = AuthState.SIGNED_OUT
@@ -383,7 +361,6 @@ object Session {
         // 옛 서버는 이 필드를 안 내려준다. 그때는 지금 동작(켜짐)을 유지한다.
         diggingMode = profile.diggingMode ?: true
         profile.adPushConsent?.let { onAdConsentProcessed(it) }
-        adPushAnswered = profile.adPushConsentAt != null
         nightPushConsent = profile.adPushNightConsent
         return profile
     }

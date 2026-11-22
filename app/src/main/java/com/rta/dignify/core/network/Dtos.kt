@@ -205,8 +205,6 @@ object Api {
         val diggingMode: Boolean? = null,
         /** 광고성 알림 수신 동의. 이 필드가 없는 서버에선 기기에 남긴 마지막 처리 결과를 쓴다. */
         val adPushConsent: Boolean? = null,
-        /** 광고성 동의·거부 처리 시각. null = 미응답 — 첫 실행 동의 팝업 조건. */
-        val adPushConsentAt: String? = null,
         /** 야간 광고성 동의. null = 미응답 — 야간 동의 팝업 조건. */
         val adPushNightConsent: Boolean? = null,
     )

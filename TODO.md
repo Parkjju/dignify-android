@@ -72,6 +72,29 @@ QA 시트(구글 시트 「추가 오류 케이스」 #1~#10)를 iOS가 먼저 �
 - #8(설정 앱에 Dignify 알림 메뉴 없음)은 iOS 전용 — 권한을 한 번도 요청하지 않은 iOS 앱은 설정 앱에 알림 메뉴가 없다. 안드로이드는 앱 알림 설정 화면이 항상 있다
 - [ ] 끝나면 app-changes 「광고성 알림 노출 규칙 — 정본」 B 조건·시점과 항목 10을 고친다(iOS·안드로이드 둘 다 반영된 뒤)
 
+### QA 2차(2026-11-22, iOS 빌드 31 재확인) — iOS 코드 들어감(빌드·실기기 전), 안드로이드 따라갈 것
+
+정본을 또 바꾼다(사용자 결정 2026-11-22). 위 #2·#7·#10 줄은 이 절이 덮는다. 계측 이름은 새로 만들지 않았다.
+
+- [x] **#2·#12 A 첫 실행 동의 팝업 삭제 — 광고성 동의는 B 좋아요 시트로만 받는다.** 피드 로드·업데이트 소식 닫힘·코치마크 끝에서 부르던 A 호출과 팝업, 7일 기록(iOS `adConsentOfferedAt`), 「미응답」 판정(iOS `AppSession.adPushAnswered`)을 지운다. A 제목 문자열도 삭제. `ad_consent_*{source: first_run}`은 더 안 찍힌다
+  - **C 야간 팝업·「설정 열기」 안내(`SettingsGuide`)는 그대로 둔다**
+- [x] **#13(제안) 수용 → #11·#7 같이 해결: B는 실행 횟수·「한 실행에 하나」와 무관하게 뜬다**
+  - 「두 번째 실행부터」 조건 삭제(iOS는 `launchCount` 카운터째 지움 — 안드로이드도 B만 쓰면 지운다)
+  - 「이번 실행에 팝업 띄움」(`promptedThisSession`)을 B 조건에서 뺀다. 대신 **지금 다른 팝업·시트가 떠 있으면** 건너뛴다(야간 팝업·`SettingsGuide`·B 자신·업데이트 소식·코치마크·트랙 상세·공유)
+  - B를 띄우면 `promptedThisSession = true`는 그대로 세운다 → 그 실행의 C·픽 화면 팝업은 막힌다
+  - 결과: 같은 실행에서 B로 동의 → 마이에서 끔 → 다시 좋아요하면 또 뜬다(#7). 「일주일 동안 안 보기」 7일, X = 닫기만은 그대로
+- [x] **#14 마이 › 알림: 권한 「꺼짐」(거부됨)에서 광고성 토글 켬 → `SettingsGuide`만 띄운다. 저장·결과 토스트·`ad_consent_accepted{settings}` 없음, 토글은 꺼진 채**(정본 0-5 「저장 + 안내」에서 바꿈). `push_settings_guide_shown{settings}`는 찍는다. iOS `NotificationSettingsView.changeAdPush`
+  - B 시트 「알림 받기」는 「꺼짐」이어도 지금처럼 저장 + 안내 + 토스트(마이 토글만 바꿈)
+- [x] **#10·#15 마이 › 알림: 권한 「설정 전」 행 탭 = 토스트만, 시스템 권한 창 안 띄움**(11-19 「시스템 권한 창」을 다시 바꿈). 목적: 한 번뿐인 시스템 권한 창을 여기서 쓰지 않고 B·광고성 토글 때로 미룬다
+  - iOS 문구 ko 「iPhone 설정에서 알림을 허용해 주세요」 / en 「Allow notifications in iPhone Settings」. **안드로이드는 「iPhone」이 안 맞으니 문구를 따로 정할 것**(예: 「기기 설정에서 알림을 허용해 주세요」 — 기획 확인)
+  - 안드로이드 12 이하는 「설정 전」이 없다(권한 기본 허용) — 13+만 해당
+- 안드로이드 반영 2026-11-22(컴파일·유닛 테스트·lint 통과, 실기기 전):
+  - #2·#12 `Prompt.FirstRun`·A 효과·`canOfferAdConsent`/`markAdConsentOffered`·`Session.adPushAnswered`·`signedInFromGuest`·DTO `adPushConsentAt`·`ad_consent_popup_title` 삭제
+  - #13 `Session.launchCount` 삭제(`countLaunch`는 `promptedThisSession`만 끈다). B는 `promptVisible`·`SettingsGuide.source`·`shareTarget`이 있으면 건너뜀(코치마크·업데이트 소식·트랙 상세 등은 `canPrompt`)
+  - #14 `NotificationSettingsScreen` 토글: 「꺼짐」이면 `SettingsGuide.showIfDenied("settings")`만
+  - #15 「설정 전」 행 탭 = `device_notifications_allow_in_settings` 토스트. 문구는 초안 ko 「기기 설정에서 알림을 허용해 주세요」 / en 「Allow notifications in your device settings」 — **기획 확인 필요**
+- [ ] 끝나면 app-changes 정본에 옮긴다: A 삭제 · B 「한 실행에 하나」 예외 · 「꺼짐」 토글 = 안내만 · 「설정 전」 행 탭 = 토스트
+
 **기획 확인 끝 (2026-11-18):** 야간 시간 「오후 9:00 ~ 오전 8:00」(팝업·토글 설명) · 시트 동의 문구 시안 그대로 · 주간 추천 최대 5곡(What's New·스토어 노트) · 시트 버튼 brand(시안). 시안 없는 문구(배지·「수신거부」·설정 안내)는 초안 확정, en은 직접 다듬음
 
 ## 재방문 푸시 2종 — 신곡 알림 · 주간 추천 (2026-10-29 등록)

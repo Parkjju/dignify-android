@@ -408,16 +408,6 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         justFinishedCuration = false
     }
 
-    /**
-     * 첫 실행 광고성 동의 팝업을 띄워도 되나 — 마지막으로 띄운 지 7일이 지났나(기기 기록).
-     * 「나중에」는 닫기만 하고 7일 뒤 다시 묻는다. 응답 여부는 서버 값(`Session.adPushAnswered`)이 가른다.
-     */
-    val canOfferAdConsent: Boolean get() = System.currentTimeMillis() - prefs.getLong(KEY_AD_CONSENT_OFFERED_AT, 0L) >= WEEK_MS
-
-    fun markAdConsentOffered() {
-        prefs.edit().putLong(KEY_AD_CONSENT_OFFERED_AT, System.currentTimeMillis()).apply()
-    }
-
     /** 좋아요 시트의 「일주일 동안 안 보기」를 누른 지 7일이 지났나. */
     val canOfferHypeSheet: Boolean get() = System.currentTimeMillis() - prefs.getLong(KEY_HYPE_OFFER_SNOOZED_AT, 0L) >= WEEK_MS
 
@@ -556,7 +546,6 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         const val KEY_SEEN_SET = "seenCurationSet"
         // ponytail: 본 신곡 id는 쌓이기만 한다. 신곡은 7일 지나면 서버가 안 주니 지워도 되지만, 수가 작다.
         const val KEY_SEEN_NEW_RELEASES = "seenNewReleaseIds"
-        const val KEY_AD_CONSENT_OFFERED_AT = "adConsentOfferedAt"
         const val KEY_HYPE_OFFER_SNOOZED_AT = "hypeOfferSnoozedAt"
         const val WEEK_MS = 7 * 24 * 60 * 60 * 1000L
         const val RELATED_SKIP_LIMIT = 5

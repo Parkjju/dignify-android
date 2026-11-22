@@ -80,7 +80,7 @@ fun rememberRequestNotificationPermission(): suspend (source: String) -> Boolean
 
 /**
  * 거부 상태에서 동의했을 때 설정 안내(푸시알림 기획 0-5, iOS `AppSession.acceptAdPush`).
- * 설정은 자동으로 안 연다 — 「설정 열기」를 눌렀을 때만. 동의 진입점(first_run·hype·settings)이 같은 판정을 쓴다.
+ * 설정은 자동으로 안 연다 — 「설정 열기」를 눌렀을 때만. 동의 진입점(hype·settings)이 같은 판정을 쓴다.
  */
 object SettingsGuide {
     /** 띄울 때의 source. null이면 안 보인다. */
@@ -193,6 +193,13 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
             ) { on ->
                 busy = true
                 scope.launch {
+                    // 권한 「꺼짐」에 켜면 설정 안내만 — 저장·토스트 없이 꺼진 채(QA 2차 #14, B 시트 「알림 받기」는 저장 + 안내 그대로).
+                    refreshDevice()
+                    if (on && device == R.string.device_notifications_off) {
+                        SettingsGuide.showIfDenied(context, "settings", askedNow = false)
+                        busy = false
+                        return@launch
+                    }
                     // 권한 「설정 전」에 켜면 시스템 창만 먼저 — 허용해야 동의 저장·토스트, 거부면 꺼진 채(QA #9).
                     if (on && activity != null && Push.permissionUndecided(activity)) {
                         requestPermission("settings")
@@ -230,13 +237,13 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                 }
             }
             HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = DSColor.borderLight)
-            // 켜짐·꺼짐 = 이 앱 알림 설정. 설정 전이면 시스템 창(QA #10).
+            // 켜짐·꺼짐 = 이 앱 알림 설정. 설정 전이면 토스트만 — 한 번뿐인 시스템 창은 B·광고성 토글 때로 미룬다(QA 2차 #15).
             Row(
                 Modifier
                     .fillMaxWidth()
                     .clickable(enabled = device != null) {
                         if (device == R.string.device_notifications_not_set) {
-                            scope.launch { requestPermission("settings"); refreshDevice() }
+                            DSToast.show(context.getString(R.string.device_notifications_allow_in_settings))
                         } else {
                             Push.openNotificationSettings(context)
                         }

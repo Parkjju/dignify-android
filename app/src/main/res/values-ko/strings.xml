@@ -30,7 +30,7 @@
     <string name="push_optin_decline">나중에</string>
 
     <!-- 푸시알림 기획 1.0(app-changes). iOS 반영 전이라 ko는 시안 문구, en은 뜻에 맞춘 임시 -->
-    <string name="ad_consent_popup_title">좋아하는 %1$s의 신곡,\n바로 알려드릴까요?</string>
+    <string name="device_notifications_allow_in_settings">기기 설정에서 알림을 허용해 주세요</string>
     <string name="ad_consent_legal">\'알림 받기\'를 누르면 광고성 정보 수신에 동의해요.</string>
     <string name="night_consent_title">밤에도 아티스트 소식을 알려드릴까요?</string>
     <string name="night_consent_legal">\'알림 받기\'를 누르면 야간(오후 9:00 ~ 오전 8:00)\n광고성 정보 수신에 동의해요.</string>

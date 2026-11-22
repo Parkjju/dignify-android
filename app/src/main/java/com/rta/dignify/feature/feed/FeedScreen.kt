@@ -118,7 +118,6 @@ import com.rta.dignify.core.designsystem.DSSearchBar
 import com.rta.dignify.core.designsystem.DSShimmer
 import com.rta.dignify.core.model.Feed
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
 import com.rta.dignify.core.network.Api
 import com.rta.dignify.core.network.itunesArtworkUrl
 import com.rta.dignify.feature.artist.ArtistRequestSheet
@@ -128,6 +127,7 @@ import com.rta.dignify.core.share.loadArtwork
 import com.rta.dignify.core.share.shareBitmap
 import com.rta.dignify.core.analytics.Analytics
 import com.rta.dignify.feature.push.Push
+import com.rta.dignify.feature.push.SettingsGuide
 import com.rta.dignify.feature.onboarding.COACH_PEEK
 import com.rta.dignify.feature.onboarding.COACH_SWIPE_PERIOD_MS
 import com.rta.dignify.feature.onboarding.COACH_TAP_PERIOD_MS
@@ -149,7 +149,6 @@ import kotlin.math.abs
 import com.rta.dignify.feature.push.ConsentPopup
 import com.rta.dignify.feature.push.ConsentSheet
 import com.rta.dignify.feature.push.acceptAdConsent
-import com.rta.dignify.feature.push.highlighted
 import com.rta.dignify.feature.push.showNightConsentToast
 import com.rta.dignify.feature.push.rememberRequestNotificationPermission
 import kotlin.math.round
@@ -161,13 +160,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * 광고성 동의 팝업·시트(푸시알림 기획 1.0 「노출 규칙 — 정본」). 실행당 하나(`Session.promptedThisSession`),
- * 우선순위 A → B → C. `source`는 계측 값이다 — iOS와 같은 값이어야 맥락별 수락률이 한 표에 모인다.
+ * 광고성 동의 시트·팝업(푸시알림 기획 1.0 「노출 규칙 — 정본」). A 첫 실행 팝업은 QA 2차(2026-11-22)에서 지웠다 —
+ * 광고성 동의는 B로만 받는다. B를 띄우면 그 실행의 C는 막힌다(`Session.promptedThisSession`). `source`는 계측 값이다 — iOS와 같은 값이어야 맥락별 수락률이 한 표에 모인다.
  */
 private sealed class Prompt(val source: String) {
-    /** A. 코치마크 직후(또는 업데이트 뒤 첫 실행). 아티스트 = 가장 최근 좋아요한 곡의 아티스트. */
-    data class FirstRun(val artist: String) : Prompt("first_run")
-
     /** B. 좋아요 → 다음 카드. 바텀시트, 아이콘 자리에 그 곡 자켓. */
     data class Hype(val artist: String, val artworkUrl: String) : Prompt("hype")
 
@@ -461,32 +457,21 @@ fun FeedScreen(
         promptVisible = true
     }
 
-    // A. 첫 실행: 코치마크가 끝난 직후(기존 유저는 업데이트 소식을 닫은 직후). 광고성 동의 미응답(서버) +
-    // 좋아요 1곡 이상 + 7일 안에 띄운 적 없음. 게스트는 로그인 뒤 다음 실행에서.
-    LaunchedEffect(canPrompt) {
-        if (!canPrompt || Session.adPushAnswered || !vm.canOfferAdConsent) return@LaunchedEffect
-        if (Session.promptedThisSession || Session.signedInFromGuest) return@LaunchedEffect
-        val latest = runCatching { Session.api.myHypes().items.firstOrNull() }.getOrNull() ?: return@LaunchedEffect
-        // 받는 사이 다른 팝업이 떴을 수 있다.
-        if (Session.promptedThisSession) return@LaunchedEffect
-        vm.markAdConsentOffered()
-        show(Prompt.FirstRun(latest.artistName))
-    }
-
     // B. 좋아요 직후 바로(QA #4, hypedFeed는 위 hype 옆에 있다). **광고성 동의 꺼짐**(QA #7 — 정본의 「기기 권한
     // 설정 전」에서 바꿨다. 마이에서 끈 유저도 다시 묻는다. 권한이 거부면 「알림 받기」 뒤 SettingsGuide) +
-    // 실행 2회 이상 + 7일 안에 「일주일 동안 안 보기」 안 누름.
+    // 7일 안에 「일주일 동안 안 보기」 안 누름. 실행 횟수·「한 실행에 하나」와 무관하고, 지금 다른 팝업·시트가
+    // 떠 있을 때만 건너뛴다(QA 2차 #13).
     // ponytail: iOS는 서버 반영 뒤 띄우고 여긴 낙관적 하입 시점이다 — 하입 실패는 드물고, 시트는 닫으면 그만이다.
     LaunchedEffect(hypedFeed) {
         val feed = hypedFeed ?: return@LaunchedEffect
         hypedFeed = null
-        if (!canPrompt || Session.promptedThisSession || Session.launchCount < 2) return@LaunchedEffect
+        if (!canPrompt || promptVisible || SettingsGuide.source != null || shareTarget != null) return@LaunchedEffect
         if (Session.adPushConsent || !vm.canOfferHypeSheet) return@LaunchedEffect
         Analytics.capture("push_optin_shown", mapOf("source" to "hype"))
         show(Prompt.Hype(feed.artistName, feed.artworkUrl(100)))
     }
 
-    // C. 특집 5/5를 넘긴 직후. 광고성 동의 + 기기 알림 허용 + 야간 미응답. 이번 실행에 A·B가 떴으면 다음 실행부터.
+    // C. 특집 5/5를 넘긴 직후. 광고성 동의 + 기기 알림 허용 + 야간 미응답. 이번 실행에 B가 떴으면 다음 실행부터.
     LaunchedEffect(vm.justFinishedCuration) {
         if (!vm.justFinishedCuration) return@LaunchedEffect
         vm.onCurationFinishedHandled()
@@ -698,8 +683,6 @@ fun FeedScreen(
                 promptVisible = false
                 Analytics.capture("ad_consent_declined", mapOf("source" to p.source))
                 when (p) {
-                    // 「나중에」는 닫기만 — 저장·통지 없음, 7일 뒤 다시.
-                    is Prompt.FirstRun -> Unit
                     is Prompt.Hype -> {
                         Analytics.capture("push_optin_declined", mapOf("source" to p.source))
                         vm.snoozeHypeSheet()
@@ -720,18 +703,6 @@ fun FeedScreen(
                         promptVisible = false
                         Session.promptedThisSession = false
                     },
-                )
-                is Prompt.FirstRun -> ConsentPopup(
-                    visible = promptVisible,
-                    title = highlighted(
-                        stringResource(R.string.ad_consent_popup_title, p.artist),
-                        p.artist,
-                        SpanStyle(color = DSColor.brand),
-                    ),
-                    message = stringResource(R.string.ad_consent_legal),
-                    declineLabel = stringResource(R.string.push_optin_decline),
-                    onAccept = accept,
-                    onDecline = decline,
                 )
                 Prompt.Night -> ConsentPopup(
                     visible = promptVisible,

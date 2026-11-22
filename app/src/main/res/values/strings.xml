@@ -30,7 +30,7 @@
     <string name="push_optin_decline">Not now</string>
 
     <!-- 푸시알림 기획 1.0(app-changes). ko는 시안 문구, en은 직접 다듬음(2026-11-18) -->
-    <string name="ad_consent_popup_title">Want new tracks from %1$s\nthe moment they drop?</string>
+    <string name="device_notifications_allow_in_settings">Allow notifications in your device settings</string>
     <string name="ad_consent_legal">By tapping \'Notify me\', you agree to receive promotional notifications from Dignify.</string>
     <string name="night_consent_title">Get artist news at night, too?</string>
     <string name="night_consent_legal">By tapping \'Notify me\', you agree to receive promotional notifications at night (9:00 PM – 8:00 AM).</string>

@@ -438,8 +438,7 @@ private suspend fun debugReset(context: Context, newUser: Boolean): String {
             "seenNewReleaseIds", "adPushConsent",
         ).forEach(::remove)
     }.apply()
-    // 서버 동의도 거부로. 결과 토스트는 안 띄운다. 거부도 응답이라 동의 팝업(A)은 안 뜬다 —
-    // 서버 `adPushConsentAt`을 비우는 건 어드민 「광고성 동의 초기화」(운영자) 몫. iOS와 같다.
+    // 서버 동의도 거부로. 결과 토스트는 안 띄운다. iOS와 같다.
     Session.setAdPushConsent(false)
     return if (newUser) {
         "앱을 완전히 껐다 켜면 코치마크가 뜹니다. 동의 팝업은 서버 동의 기록을 초기화해야 뜹니다(운영자에게 요청)."
