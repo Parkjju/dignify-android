@@ -88,7 +88,7 @@ QA 시트(구글 시트 「추가 오류 케이스」 #1~#10)를 iOS가 먼저 �
 - [x] **#10·#15 마이 › 알림: 권한 「설정 전」 행 탭 = 토스트만, 시스템 권한 창 안 띄움**(11-19 「시스템 권한 창」을 다시 바꿈). 목적: 한 번뿐인 시스템 권한 창을 여기서 쓰지 않고 B·광고성 토글 때로 미룬다
   - iOS 문구 ko 「iPhone 설정에서 알림을 허용해 주세요」 / en 「Allow notifications in iPhone Settings」. **안드로이드는 「iPhone」이 안 맞으니 문구를 따로 정할 것**(예: 「기기 설정에서 알림을 허용해 주세요」 — 기획 확인)
   - 안드로이드 12 이하는 「설정 전」이 없다(권한 기본 허용) — 13+만 해당
-- 안드로이드 반영 2026-11-22(컴파일·유닛 테스트·lint 통과, 실기기 전):
+- 안드로이드 반영 2026-11-22 `2eab396` vc17(컴파일·유닛 테스트·lint·실기기 통과):
   - #2·#12 `Prompt.FirstRun`·A 효과·`canOfferAdConsent`/`markAdConsentOffered`·`Session.adPushAnswered`·`signedInFromGuest`·DTO `adPushConsentAt`·`ad_consent_popup_title` 삭제
   - #13 `Session.launchCount` 삭제(`countLaunch`는 `promptedThisSession`만 끈다). B는 `promptVisible`·`SettingsGuide.source`·`shareTarget`이 있으면 건너뜀(코치마크·업데이트 소식·트랙 상세 등은 `canPrompt`)
   - #14 `NotificationSettingsScreen` 토글: 「꺼짐」이면 `SettingsGuide.showIfDenied("settings")`만
@@ -397,3 +397,9 @@ iOS `TODO.md` P6에 같은 요청이 걸려 있으니 **한쪽만 정하지 말�
   직전에 올라간 빌드. 문안은 `docs/release-notes.md`.
 - 시드 풀은 정적이고 손으로 고른 목록이다. 바꾸는 건 배포가 아니라 운영 작업
   (`ops/onboarding-seed-pool.sql`).
+- [ ] **Play 경고 「필수 하드웨어 기능 선언으로 앱의 사용 가능 여부가 제한됨」(`android.hardware.screen.portrait`)**
+  — 1.3.2(vc17) 제출 때 처음 떴고 「무시하고 계속하기」로 냈다(2026-11-22). `screenOrientation="portrait"`가
+  세로 화면 하드웨어를 **필수**로 암시해 데스크톱·XR·가로 고정 태블릿이 설치 대상에서 빠진다. 폰은 영향 없음.
+  고칠 것: `AndroidManifest.xml`에 `<uses-feature android:name="android.hardware.screen.portrait" android:required="false" />`
+  (`<application>` 위, `<uses-permission>`과 같은 층). **`screenOrientation`은 지우지 않는다** — 위 「대형 화면 대응」
+  절의 이유 그대로(지우면 폰 가로에서 카드가 사라진다). 위 절의 「방향/크기 제한」 경고와는 다른 경고다
